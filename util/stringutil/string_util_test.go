@@ -11,27 +11,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mysqldef
+package stringutil
 
 import (
+	"testing"
+
 	. "github.com/pingcap/check"
 )
 
-var _ = Suite(&testSQLErrorSuite{})
-
-type testSQLErrorSuite struct {
+func TestT(t *testing.T) {
+	TestingT(t)
 }
 
-func (s *testSQLErrorSuite) TestSQLError(c *C) {
-	e := NewErrf(ErrNoDb, "no db error")
-	c.Assert(len(e.Error()), Greater, 0)
+var _ = Suite(&testStringUtilSuite{})
 
-	e = NewErrf(0, "customized error")
-	c.Assert(len(e.Error()), Greater, 0)
+type testStringUtilSuite struct {
+}
 
-	e = NewErr(ErrNoDb)
-	c.Assert(len(e.Error()), Greater, 0)
+func (s *testStringUtilSuite) TestRemoveUselessBackslash(c *C) {
+	table := []struct {
+		str    string
+		expect string
+	}{
+		{"xxxx", "xxxx"},
+		{`\x01`, `x01`},
+		{`\b01`, `\b01`},
+		{`\B01`, `B01`},
+		{`'\'a\''`, `'\'a\''`},
+	}
 
-	e = NewErr(0, "customized error")
-	c.Assert(len(e.Error()), Greater, 0)
+	for _, t := range table {
+		x := RemoveUselessBackslash(t.str)
+		c.Assert(x, Equals, t.expect)
+	}
 }
