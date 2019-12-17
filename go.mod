@@ -79,3 +79,5 @@ require (
 )
 
 go 1.13
+
+replace github.com/pingcap/pd v1.1.0-beta.0.20190912093418-dc03c839debd => github.com/nolouch/pd v1.1.0-beta.0.20191217032323-e1919cecb03b
