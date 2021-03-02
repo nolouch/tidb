@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
@@ -116,6 +117,7 @@ func (s *tikvStore) batchSendSingleRegion(bo *Backoffer, batch batch, scatter bo
 		}
 	})
 
+	start := time.Now()
 	req := tikvrpc.NewRequest(tikvrpc.CmdSplitRegion, &kvrpcpb.SplitRegionRequest{
 		SplitKeys: batch.keys,
 	}, kvrpcpb.Context{
@@ -130,20 +132,24 @@ func (s *tikvStore) batchSendSingleRegion(bo *Backoffer, batch batch, scatter bo
 		batchResp.err = errors.Trace(err)
 		return batchResp
 	}
+
 	regionErr, err := resp.GetRegionError()
 	if err != nil {
 		batchResp.err = errors.Trace(err)
 		return batchResp
 	}
+
 	if regionErr != nil {
 		err := bo.Backoff(BoRegionMiss, errors.New(regionErr.String()))
 		if err != nil {
 			batchResp.err = errors.Trace(err)
+			logutil.BgLogger().Error("batch split regions request failed", zap.Duration("cost-time", time.Since(start)), zap.Error(err))
 			return batchResp
 		}
 		resp, err = s.splitBatchRegionsReq(bo, batch.keys, scatter, tableID)
 		batchResp.resp = resp
 		batchResp.err = err
+		logutil.BgLogger().Error("batch split regions request failed", zap.Duration("cost-time", time.Since(start)), zap.Error(err))
 		return batchResp
 	}
 
@@ -155,7 +161,6 @@ func (s *tikvStore) batchSendSingleRegion(bo *Backoffer, batch batch, scatter bo
 		spResp.Regions = regions[:len(regions)-1]
 	}
 	logutil.BgLogger().Info("batch split regions complete",
-		zap.Uint64("batch region ID", batch.regionID.id),
 		zap.Stringer("first at", kv.Key(batch.keys[0])),
 		zap.Stringer("first new region left", stringutil.MemoizeStr(func() string {
 			if len(spResp.Regions) == 0 {
@@ -163,6 +168,7 @@ func (s *tikvStore) batchSendSingleRegion(bo *Backoffer, batch batch, scatter bo
 			}
 			return logutil.Hex(spResp.Regions[0]).String()
 		})),
+		zap.Duration("cost-time", time.Since(start)),
 		zap.Int("new region count", len(spResp.Regions)))
 
 	if !scatter {
@@ -171,7 +177,7 @@ func (s *tikvStore) batchSendSingleRegion(bo *Backoffer, batch batch, scatter bo
 		}
 		return batchResp
 	}
-
+	start = time.Now()
 	for i, r := range spResp.Regions {
 		if err = s.scatterRegion(bo, r.Id, tableID); err == nil {
 			logutil.BgLogger().Info("batch split regions, scatter region complete",
@@ -193,6 +199,11 @@ func (s *tikvStore) batchSendSingleRegion(bo *Backoffer, batch batch, scatter bo
 			break
 		}
 	}
+	logutil.BgLogger().Info("batch split regions, scatter region all complete",
+		zap.Uint64("batch region ID", batch.regionID.id),
+		zap.Duration("cost-time", time.Since(start)),
+	)
+
 	return batchResp
 }
 

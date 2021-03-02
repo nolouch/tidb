@@ -566,12 +566,14 @@ func preSplitAndScatterIn2PC(ctx context.Context, store *tikvStore, group groupe
 		return false
 	}
 
+	start := time.Now()
 	for _, regionID := range regionIDs {
 		err := store.WaitScatterRegionFinish(ctx, regionID, 0)
 		if err != nil {
 			logutil.BgLogger().Warn("2PC wait scatter region failed", zap.Uint64("regionID", regionID), zap.Error(err))
 		}
 	}
+	logutil.BgLogger().Info("wait scatter region finished", zap.Duration("cost-time", time.Since(start)), zap.String("action", "pre-split"), zap.Int("region-numbers", len(regionIDs)))
 	// Invalidate the old region cache information.
 	store.regionCache.InvalidateCachedRegion(group.region)
 	return true

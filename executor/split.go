@@ -387,6 +387,7 @@ func (e *SplitTableRegionExec) splitTableRegion(ctx context.Context) error {
 func waitScatterRegionFinish(ctxWithTimeout context.Context, sctx sessionctx.Context, startTime time.Time, store kv.SplittableStore, regionIDs []uint64, tableName, indexName string) int {
 	remainMillisecond := 0
 	finishScatterNum := 0
+	start := time.Now()
 	for _, regionID := range regionIDs {
 		if isCtxDone(ctxWithTimeout) {
 			// Do not break here for checking remain regions scatter finished with a very short backoff time.
@@ -416,6 +417,7 @@ func waitScatterRegionFinish(ctxWithTimeout context.Context, sctx sessionctx.Con
 			}
 		}
 	}
+	logutil.BgLogger().Info("wait scatter region finished", zap.Duration("cost-time", time.Since(start)), zap.String("action", "split statement"), zap.Int("region-numbers", len(regionIDs)))
 	return finishScatterNum
 }
 
