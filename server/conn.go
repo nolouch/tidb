@@ -802,16 +802,24 @@ func (cc *clientConn) Run(ctx context.Context) {
 				metrics.CriticalErrorCounter.Add(1)
 				logutil.Logger(ctx).Fatal("critical error, stop the server", zap.Error(err))
 			}
-			var txnMode string
+			var (
+				txnMode string
+				startTs uint64
+			)
 			if cc.ctx != nil {
 				txnMode = cc.ctx.GetSessionVars().GetReadableTxnMode()
+				if cc.ctx.GetSessionVars().TxnCtx != nil {
+					startTs = cc.ctx.GetSessionVars().TxnCtx.StartTS
+				}
 			}
+
 			logutil.Logger(ctx).Info("command dispatched failed",
 				zap.String("connInfo", cc.String()),
 				zap.String("command", mysql.Command2Str[data[0]]),
 				zap.String("status", cc.SessionStatusToString()),
 				zap.Stringer("sql", getLastStmtInConn{cc}),
 				zap.String("txn_mode", txnMode),
+				zap.Uint64("start_ts", startTs),
 				zap.String("err", errStrForLog(err, cc.ctx.GetSessionVars().EnableRedactLog)),
 			)
 			err1 := cc.writeError(ctx, err)
