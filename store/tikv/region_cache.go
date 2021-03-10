@@ -123,7 +123,7 @@ func (r *RegionStore) follower(seed uint32, op *storeSelectorOp) AccessIndex {
 	return r.workTiKVIdx
 }
 
-// return next leader or follower store's index
+// return next leader or follower store's peer
 func (r *RegionStore) kvPeer(seed uint32, op *storeSelectorOp) AccessIndex {
 	candidates := make([]AccessIndex, 0, r.accessStoreNum(TiKVOnly))
 	for i := 0; i < r.accessStoreNum(TiKVOnly); i++ {
@@ -1321,7 +1321,15 @@ func (r *Region) FollowerStorePeer(rs *RegionStore, followerStoreSeed uint32, op
 
 // AnyStorePeer returns a leader or follower store with the associated peer.
 func (r *Region) AnyStorePeer(rs *RegionStore, followerStoreSeed uint32, op *storeSelectorOp) (store *Store, peer *metapb.Peer, accessIdx AccessIndex, storeIdx int) {
-	return r.getKvStorePeer(rs, rs.kvPeer(followerStoreSeed, op))
+	for i := 0; i < rs.accessStoreNum(TiKVOnly); i++ {
+		store, peer, accessIdx, storeIdx = r.getKvStorePeer(rs, rs.kvPeer(followerStoreSeed, op))
+		if peer.Role == metapb.PeerRole_Learner {
+			followerStoreSeed++
+		} else {
+			return
+		}
+	}
+	return
 }
 
 // RegionVerID is a unique ID that can identify a Region at a specific version.
