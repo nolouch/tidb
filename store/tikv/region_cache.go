@@ -123,6 +123,24 @@ func (r *RegionStore) follower(seed uint32, op *storeSelectorOp) AccessIndex {
 	return r.workTiKVIdx
 }
 
+// return next follower store's index
+func (r *RegionStore) kvPeer2(seed uint32, op *storeSelectorOp) AccessIndex {
+	l := uint32(r.accessStoreNum(TiKVOnly))
+	if l <= 1 {
+		return r.workTiKVIdx
+	}
+
+	for retry := l - 1; retry > 0; retry-- {
+		followerIdx := AccessIndex(seed % (l - 1))
+		storeIdx, s := r.accessStore(TiKVOnly, followerIdx)
+		if r.storeEpochs[storeIdx] == atomic.LoadUint32(&s.epoch) && r.filterStoreCandidate(followerIdx, op) {
+			return followerIdx
+		}
+		seed++
+	}
+	return r.workTiKVIdx
+}
+
 // return next leader or follower store's peer
 func (r *RegionStore) kvPeer(seed uint32, op *storeSelectorOp) AccessIndex {
 	candidates := make([]AccessIndex, 0, r.accessStoreNum(TiKVOnly))
@@ -1322,7 +1340,7 @@ func (r *Region) FollowerStorePeer(rs *RegionStore, followerStoreSeed uint32, op
 // AnyStorePeer returns a leader or follower store with the associated peer.
 func (r *Region) AnyStorePeer(rs *RegionStore, followerStoreSeed uint32, op *storeSelectorOp) (store *Store, peer *metapb.Peer, accessIdx AccessIndex, storeIdx int) {
 	for i := 0; i < rs.accessStoreNum(TiKVOnly); i++ {
-		store, peer, accessIdx, storeIdx = r.getKvStorePeer(rs, rs.kvPeer(followerStoreSeed, op))
+		store, peer, accessIdx, storeIdx = r.getKvStorePeer(rs, rs.kvPeer2(followerStoreSeed, op))
 		if peer.Role == metapb.PeerRole_Learner {
 			followerStoreSeed++
 		} else {
