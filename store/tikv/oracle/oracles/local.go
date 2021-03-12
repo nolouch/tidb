@@ -85,6 +85,14 @@ func (l *localOracle) GetStaleTimestamp(ctx context.Context, txnScope string, pr
 	return ts, nil
 }
 
+func (l *localOracle) GetStaleTimestampAsync(ctx context.Context, opt *oracle.Option, prevSecond uint64) oracle.Future {
+	ts, err := l.GetStaleTimestamp(ctx, opt.TxnScope, prevSecond)
+	return lowResolutionTsFuture{
+		ts:  ts,
+		err: err,
+	}
+}
+
 type future struct {
 	ctx context.Context
 	l   *localOracle

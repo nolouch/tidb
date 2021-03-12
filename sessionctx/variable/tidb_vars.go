@@ -528,6 +528,9 @@ const (
 
 	// TiDBEnableTiFlashFallbackTiKV indicates whether to fallback to TiKV when TiFlash is unavailable.
 	TiDBEnableTiFlashFallbackTiKV = "tidb_enable_tiflash_fallback_tikv"
+
+	// TiDBReadStaleness is the staleness for stale read.
+	TiDBReadStaleness = "tidb_read_staleness"
 )
 
 // TiDB vars that have only global scope

@@ -35,6 +35,7 @@ type Oracle interface {
 	GetLowResolutionTimestamp(ctx context.Context, opt *Option) (uint64, error)
 	GetLowResolutionTimestampAsync(ctx context.Context, opt *Option) Future
 	GetStaleTimestamp(ctx context.Context, txnScope string, prevSecond uint64) (uint64, error)
+	GetStaleTimestampAsync(ctx context.Context, opt *Option, prevSecond uint64) Future
 	IsExpired(lockTimestamp, TTL uint64, opt *Option) bool
 	UntilExpired(lockTimeStamp, TTL uint64, opt *Option) int64
 	Close()
