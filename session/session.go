@@ -2645,10 +2645,10 @@ func (s *session) NewTxnWithStalenessOption(ctx context.Context, option sessionc
 			return err
 		}
 		vars := s.GetSessionVars()
-		logutil.Logger(ctx).Info("InitTxnWithExactStaleness() inside a transaction auto commit",
-			zap.Int64("schemaVersion", vars.TxnCtx.SchemaVersion),
-			zap.Uint64("txnStartTS", txnID),
-			zap.String("txnScope", txnScope))
+		//logutil.Logger(ctx).Info("InitTxnWithExactStaleness() inside a transaction auto commit",
+		//	zap.Int64("schemaVersion", vars.TxnCtx.SchemaVersion),
+		//	zap.Uint64("txnStartTS", txnID),
+		//	zap.String("txnScope", txnScope))
 	}
 	var txn kv.Transaction
 	var err error
