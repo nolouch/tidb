@@ -306,3 +306,14 @@ func (o *pdOracle) GetStaleTimestamp(ctx context.Context, txnScope string, prevS
 	}
 	return ts, nil
 }
+
+func (o *pdOracle) GetStaleTimestampAsync(ctx context.Context, opt *oracle.Option, prevSecond uint64) oracle.Future {
+	ts, err := o.getStaleTimestamp(opt.TxnScope, prevSecond)
+	if err != nil {
+		return o.GetTimestampAsync(ctx, opt)
+	}
+	return lowResolutionTsFuture{
+		ts:  ts,
+		err: nil,
+	}
+}

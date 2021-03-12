@@ -788,6 +788,7 @@ var defaultSysVars = []*SysVar{
 	{Scope: ScopeGlobal, Name: TiDBGCLifetime, Value: "10m0s", Type: TypeDuration, MinValue: int64(time.Minute * 10), MaxValue: math.MaxInt64},
 	{Scope: ScopeGlobal, Name: TiDBGCConcurrency, Value: "-1", Type: TypeInt, MinValue: 1, MaxValue: 128, AllowAutoValue: true},
 	{Scope: ScopeGlobal, Name: TiDBGCScanLockMode, Value: "PHYSICAL", Type: TypeEnum, PossibleValues: []string{"PHYSICAL", "LEGACY"}},
+	{Scope: ScopeSession, Name: TiDBReadStaleness, Value: "0", Type: TypeInt, MinValue: 0, MaxValue: math.MaxInt16, AllowAutoValue: true},
 }
 
 // FeedbackProbability points to the FeedbackProbability in statistics package.

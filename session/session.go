@@ -1829,13 +1829,22 @@ func (s *session) NewTxn(ctx context.Context) error {
 			zap.String("txnScope", txnScope))
 	}
 
-	txn, err := s.store.BeginWithOption(kv.TransactionOption{}.SetTxnScope(s.sessionVars.CheckAndGetTxnScope()))
+	txnOpt := kv.TransactionOption{}.SetTxnScope(s.sessionVars.CheckAndGetTxnScope())
+	isStaleness := false
+	if s.sessionVars.ReadStaleness > 0 {
+		isStaleness = true
+		txnOpt.SetPrevSec(uint64(s.sessionVars.ReadStaleness))
+	}
+	txn, err := s.store.BeginWithOption(txnOpt)
 	if err != nil {
 		return err
 	}
 	txn.SetVars(s.sessionVars.KVVars)
 	if s.GetSessionVars().GetReplicaRead().IsFollowerRead() {
 		txn.SetOption(kv.ReplicaRead, kv.ReplicaReadFollower)
+	}
+	if isStaleness {
+		txn.SetOption(kv.IsStalenessReadOnly, true)
 	}
 	s.txn.changeInvalidToValid(txn)
 	is := domain.GetDomain(s).InfoSchema()
@@ -1845,7 +1854,7 @@ func (s *session) NewTxn(ctx context.Context) error {
 		CreateTime:    time.Now(),
 		StartTS:       txn.StartTS(),
 		ShardStep:     int(s.sessionVars.ShardAllocateStep),
-		IsStaleness:   false,
+		IsStaleness:   isStaleness,
 		TxnScope:      s.sessionVars.CheckAndGetTxnScope(),
 	}
 	return nil
@@ -2638,13 +2647,13 @@ func (s *session) InitTxnWithStartTS(startTS uint64) error {
 // NewTxnWithStalenessOption create a transaction with Staleness option
 func (s *session) NewTxnWithStalenessOption(ctx context.Context, option sessionctx.StalenessTxnOption) error {
 	if s.txn.Valid() {
-		txnID := s.txn.StartTS()
-		txnScope := s.txn.GetUnionStore().GetOption(kv.TxnScope).(string)
+		//txnID := s.txn.StartTS()
+		//txnScope := s.txn.GetUnionStore().GetOption(kv.TxnScope).(string)
 		err := s.CommitTxn(ctx)
 		if err != nil {
 			return err
 		}
-		vars := s.GetSessionVars()
+		//vars := s.GetSessionVars()
 		//logutil.Logger(ctx).Info("InitTxnWithExactStaleness() inside a transaction auto commit",
 		//	zap.Int64("schemaVersion", vars.TxnCtx.SchemaVersion),
 		//	zap.Uint64("txnStartTS", txnID),

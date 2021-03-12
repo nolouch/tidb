@@ -371,6 +371,8 @@ func (s *session) getTxnFuture(ctx context.Context) *txnFuture {
 	var tsFuture oracle.Future
 	if s.sessionVars.LowResolutionTSO {
 		tsFuture = oracleStore.GetLowResolutionTimestampAsync(ctx, &oracle.Option{TxnScope: s.sessionVars.CheckAndGetTxnScope()})
+	} else if s.sessionVars.ReadStaleness > 0 {
+		tsFuture = oracleStore.GetStaleTimestampAsync(ctx, &oracle.Option{TxnScope: s.sessionVars.CheckAndGetTxnScope()}, uint64(s.sessionVars.ReadStaleness))
 	} else {
 		tsFuture = oracleStore.GetTimestampAsync(ctx, &oracle.Option{TxnScope: s.sessionVars.CheckAndGetTxnScope()})
 	}
