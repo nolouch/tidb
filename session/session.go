@@ -1773,6 +1773,10 @@ func (s *session) Txn(active bool) (kv.Transaction, error) {
 		if s.sessionVars.GetReplicaRead().IsFollowerRead() {
 			s.txn.SetOption(kv.ReplicaRead, kv.ReplicaReadFollower)
 		}
+		s.sessionVars.TxnCtx.IsStaleness = s.sessionVars.ReadStaleness > 0
+		if s.sessionVars.TxnCtx.IsStaleness {
+			s.txn.SetOption(kv.IsStalenessReadOnly, true)
+		}
 	}
 	return &s.txn, nil
 }
@@ -2584,6 +2588,7 @@ func (s *session) PrepareTxnCtx(ctx context.Context) {
 		CreateTime:    time.Now(),
 		ShardStep:     int(s.sessionVars.ShardAllocateStep),
 		TxnScope:      s.GetSessionVars().CheckAndGetTxnScope(),
+		IsStaleness:   s.GetSessionVars().ReadStaleness > 0,
 	}
 	if !s.sessionVars.IsAutocommit() || s.sessionVars.RetryInfo.Retrying {
 		if s.sessionVars.TxnMode == ast.Pessimistic {
