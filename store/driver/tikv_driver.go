@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"hash/fnv"
 	"math/rand"
 	"net/url"
 	"strings"
@@ -38,6 +39,7 @@ import (
 	"github.com/tikv/client-go/v2/tikvrpc"
 	"github.com/tikv/client-go/v2/util"
 	pd "github.com/tikv/pd/client"
+	pdresource "github.com/tikv/pd/pkg/mcs/resource_manager/client"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
@@ -99,6 +101,32 @@ type TiKVDriver struct {
 // Path example: tikv://etcd-node1:port,etcd-node2:port?cluster=1&disableGC=false
 func (d TiKVDriver) Open(path string) (kv.Storage, error) {
 	return d.OpenWithOptions(path)
+}
+
+// IsTiKVStore checks whether or not store is a tikv store.
+func IsTiKVStorage(s kv.Storage) bool {
+	_, ok := s.(*tikvStore)
+	return ok
+}
+
+// SetUpResourceContorller sets up resource controller.
+func SetUpResourceContorller(keyspaceName string, s kv.Storage) error {
+	var store *tikvStore
+	var ok = false
+	if store, ok = s.(*tikvStore); !ok {
+		return errors.New("invalid storage")
+	}
+
+	h := fnv.New32a()
+	h.Write([]byte(keyspaceName))
+	id := uint64(h.Sum32())
+
+	resourceControllor, err := pdresource.NewResourceGroupController(id, store.GetPDClient(), pdresource.DefaultRequestUnitConfig())
+	if err != nil {
+		return err
+	}
+	tikv.SetUpResourceInterceptor(resourceControllor)
+	return nil
 }
 
 func (d *TiKVDriver) setDefaultAndOptions(options ...Option) {
