@@ -41,7 +41,7 @@ func (s *GlobalConfigSyncer) StoreGlobalConfig(ctx context.Context, item pd.Glob
 	if s.pd == nil {
 		return nil
 	}
-	err := s.pd.StoreGlobalConfig(ctx, []pd.GlobalConfigItem{item})
+	err := s.pd.StoreGlobalConfig(ctx, "test", []pd.GlobalConfigItem{item})
 	if err != nil {
 		return err
 	}
