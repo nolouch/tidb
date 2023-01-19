@@ -72,18 +72,17 @@ import (
 )
 
 const (
-	expressionIndexPrefix = "_V$"
-	changingColumnPrefix  = "_Col$_"
-	changingIndexPrefix   = "_Idx$_"
-	tableNotExist         = -1
-	tinyBlobMaxLength     = 255
-	blobMaxLength         = 65535
-	mediumBlobMaxLength   = 16777215
-	longBlobMaxLength     = 4294967295
+	expressionIndexPrefix      = "_V$"
+	changingColumnPrefix       = "_Col$_"
+	changingIndexPrefix        = "_Idx$_"
+	tableNotExist              = -1
+	tinyBlobMaxLength          = 255
+	blobMaxLength              = 65535
+	mediumBlobMaxLength        = 16777215
+	longBlobMaxLength          = 4294967295
+	defaultPlacementPolicyName = "default"
 	// When setting the placement policy with "PLACEMENT POLICY `default`",
 	// it means to remove placement policy from the specified object.
-	defaultPlacementPolicyName        = "default"
-	defaultResourceGroupName          = "default"
 	tiflashCheckPendingTablesWaitTime = 3000 * time.Millisecond
 	// Once tiflashCheckPendingTablesLimit is reached, we trigger a limiter detection.
 	tiflashCheckPendingTablesLimit = 100
@@ -3033,7 +3032,7 @@ func SetDirectPlacementOpt(placementSettings *model.PlacementSettings, placement
 }
 
 // SetDirectResourceGroupUnit tries to set the ResourceGroupSettings.
-func SetDirectResourceGroupUnit(resourceGroupSettings *model.ResourceGroupSettings, typ ast.ResourceUnitType, stringVal string, uintVal uint64) error {
+func SetDirectResourceGroupUnit(resourceGroupSettings *model.ResourceGroupSettings, typ ast.ResourceUnitType, stringVal string, uintVal uint64, boolValue bool) error {
 	switch typ {
 	case ast.ResourceRRURate:
 		resourceGroupSettings.RRURate = uintVal
@@ -3045,6 +3044,14 @@ func SetDirectResourceGroupUnit(resourceGroupSettings *model.ResourceGroupSettin
 		resourceGroupSettings.IOReadBandwidth = stringVal
 	case ast.ResourceUnitIOWriteBandwidth:
 		resourceGroupSettings.IOWriteBandwidth = stringVal
+	case ast.ResourceBurstableOpiton:
+		limit := int64(0)
+		if boolValue {
+			limit = -1
+		}
+		// negative means no limit.
+		resourceGroupSettings.BurstLimit = limit
+
 	default:
 		return errors.Trace(errors.New("unknown resource unit type"))
 	}
@@ -7611,7 +7618,7 @@ func (d *ddl) CreateResourceGroup(ctx sessionctx.Context, stmt *ast.CreateResour
 	groupName := stmt.ResourceGroupName
 	groupInfo.Name = groupName
 	for _, opt := range stmt.ResourceGroupOptionList {
-		err := SetDirectResourceGroupUnit(groupInfo.ResourceGroupSettings, opt.Tp, opt.StrValue, opt.UintValue)
+		err := SetDirectResourceGroupUnit(groupInfo.ResourceGroupSettings, opt.Tp, opt.StrValue, opt.UintValue, opt.BoolValue)
 		if err != nil {
 			return err
 		}
@@ -7620,10 +7627,6 @@ func (d *ddl) CreateResourceGroup(ctx sessionctx.Context, stmt *ast.CreateResour
 		if _, ok := d.GetInfoSchemaWithInterceptor(ctx).ResourceGroupByName(groupName); ok {
 			return infoschema.ErrResourceGroupExists.GenWithStackByArgs(groupName)
 		}
-	}
-
-	if groupName.L == defaultResourceGroupName {
-		return errors.Trace(infoschema.ErrReservedSyntax.GenWithStackByArgs(groupName))
 	}
 
 	if err := d.checkResourceGroupValidation(groupInfo); err != nil {
@@ -7683,7 +7686,7 @@ func (d *ddl) DropResourceGroup(ctx sessionctx.Context, stmt *ast.DropResourceGr
 func buildResourceGroup(oldGroup *model.ResourceGroupInfo, options []*ast.ResourceGroupOption) (*model.ResourceGroupInfo, error) {
 	groupInfo := &model.ResourceGroupInfo{Name: oldGroup.Name, ID: oldGroup.ID, ResourceGroupSettings: &model.ResourceGroupSettings{}}
 	for _, opt := range options {
-		err := SetDirectResourceGroupUnit(groupInfo.ResourceGroupSettings, opt.Tp, opt.StrValue, opt.UintValue)
+		err := SetDirectResourceGroupUnit(groupInfo.ResourceGroupSettings, opt.Tp, opt.StrValue, opt.UintValue, opt.BoolValue)
 		if err != nil {
 			return nil, err
 		}

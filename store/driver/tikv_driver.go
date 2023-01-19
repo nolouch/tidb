@@ -28,6 +28,7 @@ import (
 	"github.com/pingcap/errors"
 	deadlockpb "github.com/pingcap/kvproto/pkg/deadlock"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
+	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/store/copr"
 	derr "github.com/pingcap/tidb/store/driver/error"
@@ -55,6 +56,8 @@ var mc storeCache
 func init() {
 	mc.cache = make(map[string]*tikvStore)
 	rand.Seed(time.Now().UnixNano())
+	domain.SetupResourceControl = tikv.EnableResourceControl
+	domain.UnsetResourceControl = tikv.DisableResourceControl
 }
 
 // Option is a function that changes some config of Driver
@@ -109,8 +112,30 @@ func IsTiKVStorage(s kv.Storage) bool {
 	return ok
 }
 
-// SetUpResourceContorller sets up resource controller.
-func SetUpResourceContorller(keyspaceName string, s kv.Storage) error {
+// SetUpResourceControler
+func SetUpResourceControl(serverID uint64, s kv.Storage) error {
+	var store *tikvStore
+	var ok = false
+	if store, ok = s.(*tikvStore); !ok {
+		return errors.New("invalid storage")
+	}
+
+	control, err := pdresource.NewResourceGroupController(serverID, store.GetPDClient(), pdresource.DefaultRequestUnitConfig())
+	if err != nil {
+		return err
+	}
+	store.KVStore.SetResourceControlInterceptor(control)
+	control.Start(context.Background())
+
+	return nil
+}
+
+func UnsetResourceControl() {
+	return
+}
+
+// SetUpResourceContorllerMAIN sets up resource controller.
+func SetUpResourceContorllerMAIN(keyspaceName string, s kv.Storage) error {
 	var store *tikvStore
 	var ok = false
 	if store, ok = s.(*tikvStore); !ok {
@@ -126,7 +151,7 @@ func SetUpResourceContorller(keyspaceName string, s kv.Storage) error {
 		return err
 	}
 	resourceControllor.Start(context.Background())
-	tikv.SetUpResourceInterceptor(resourceControllor)
+	store.KVStore.SetResourceControlInterceptor(resourceControllor)
 	return nil
 }
 
