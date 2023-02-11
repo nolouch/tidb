@@ -1,0 +1,48 @@
+name: TiDB-CSE
+on:
+  push:
+    branches: keyspace-on-release-6.6
+  pull_request:
+    branches: keyspace-on-release-6.6
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  tidb-cse-check:
+    runs-on: self-hosted
+    env:
+      GITHUB_TOKEN: ${{ secrets.GIT_ACTION_BOT }}
+      GOPRIVATE: github.com/tidbcloud
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.19.3'
+      - uses: jwlawson/actions-setup-bazel@v1.9.0
+        with:
+          bazel-version: '5.3.0'
+      - name: check
+        shell: bash
+        run: |
+          git config --global url.https://$GITHUB_TOKEN@github.com/.insteadOf https://github.com/
+          make check
+  tidb-cse-build:
+    runs-on: self-hosted
+    env:
+      GITHUB_TOKEN: ${{ secrets.GIT_ACTION_BOT }}
+      GOPRIVATE: github.com/tidbcloud
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.19.3'
+      - name: build
+        shell: bash
+        run: |
+          git config --global url.https://$GITHUB_TOKEN@github.com/.insteadOf https://github.com/
+          make

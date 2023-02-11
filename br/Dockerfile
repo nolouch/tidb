@@ -29,26 +29,25 @@ ARG GITHUB_TOKEN
 RUN if [ -n "$GITHUB_TOKEN" ]; then git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"; fi
 
 ENV GOPRIVATE=github.com/tidbcloud
-# Overwrite the minimum required tikv version to be compatible with cloud-storage-engine
-ENV MIN_TIKV_VERSION=6.1.0
+
+# Overwrite metrics.EnvRegisterMetricsAtInit when we build tidb-server and br cmd
 ENV REGISTER_METRICS_INIT=false
-ENV TIDB_VERSION=v6.6.0-serverless
-ENV TIDB_GIT_BRANCH=release-6.6-serverless
 
 RUN GO111MODULE=on go mod download
 
 # Build real binaries
 COPY . .
-RUN make
+RUN make build_br
 
 # Executable image
 FROM debian:bullseye-slim
-RUN apt update && apt install -y bash curl netcat dumb-init && rm /bin/sh && ln -s /bin/bash /bin/sh && apt-get clean
+RUN apt update && apt install -y bash curl netcat procps dumb-init && rm /bin/sh && ln -s /bin/bash /bin/sh && apt-get clean
+ENV BR_LOG_TO_TERM=1
 
-COPY --from=builder /go/src/github.com/pingcap/tidb/bin/tidb-server /tidb-server
+COPY --from=builder /go/src/github.com/pingcap/tidb/bin/br /br
 
 WORKDIR /
 
 EXPOSE 4000
 
-ENTRYPOINT ["/usr/bin/dumb-init", "/tidb-server"]
+ENTRYPOINT ["/usr/bin/dumb-init", "/br"]
