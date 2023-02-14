@@ -1372,7 +1372,7 @@ func TestInfoBuiltin(t *testing.T) {
 		tidbVersionResult += fmt.Sprint(line)
 	}
 	lines := strings.Split(tidbVersionResult, "\n")
-	assert.Equal(t, true, strings.Split(lines[0], " ")[2] == mysql.TiDBReleaseVersion, "errors in 'select tidb_version()'")
+	assert.Equal(t, true, strings.Split(lines[0], " ")[2] == mysql.TiDBReleaseVersionFixed, "errors in 'select tidb_version()'")
 	assert.Equal(t, true, strings.Split(lines[1], " ")[1] == versioninfo.TiDBEdition, "errors in 'select tidb_version()'")
 
 	// for row_count

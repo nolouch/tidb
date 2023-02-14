@@ -423,7 +423,7 @@ func (dc *ddlCtx) isOwner() bool {
 	isOwner := dc.ownerManager.IsOwner()
 	logutil.BgLogger().Debug("[ddl] check whether is the DDL owner", zap.Bool("isOwner", isOwner), zap.String("selfID", dc.uuid))
 	if isOwner {
-		metrics.DDLCounter.WithLabelValues(metrics.DDLOwner + "_" + mysql.TiDBReleaseVersion).Inc()
+		metrics.DDLCounter.WithLabelValues(metrics.DDLOwner + "_" + mysql.TiDBReleaseVersionFixed).Inc()
 	}
 	return isOwner
 }

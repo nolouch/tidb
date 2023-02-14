@@ -24,10 +24,7 @@ var (
 )
 
 func getReleaseVersion() string {
-	if mysql.TiDBReleaseVersion != "None" {
-		return mysql.TiDBReleaseVersion
-	}
-	return "v6.0.0-master"
+	return mysql.TiDBReleaseVersionFixed
 }
 
 // AppName is a name of a built binary.
