@@ -847,6 +847,12 @@ func (w *GCWorker) deleteRanges(ctx context.Context, safePoint uint64, concurren
 	for _, r := range ranges {
 		startKey, endKey := r.Range()
 
+		logutil.Logger(ctx).Info("[gc worker] delete range info",
+			zap.Stringer("startKey Stringer", startKey),
+			zap.Stringer("endKey Stringer", endKey),
+			zap.Uint64("safepoint", safePoint),
+		)
+
 		err = w.doUnsafeDestroyRangeRequest(ctx, startKey, endKey, concurrency)
 		failpoint.Inject("ignoreDeleteRangeFailed", func() {
 			err = nil

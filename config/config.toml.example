@@ -133,6 +133,9 @@ autoscaler-cluster-id = ""
 # Will remove this after AutoScaler is stable.
 use-autoscaler = true
 
+# skip-gc-drop-table is used to control whether to skip keyspace gc drop table range in gc worker.
+skip-gc-drop-table = true
+
 [log]
 # Log level: debug, info, warn, error, fatal.
 level = "info"
