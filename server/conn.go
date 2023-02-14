@@ -44,6 +44,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"os/user"
 	"runtime/pprof"
 	"runtime/trace"
@@ -57,6 +58,7 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/errno"
 	"github.com/pingcap/tidb/executor"
@@ -178,16 +180,16 @@ func newClientConn(s *Server) *clientConn {
 // clientConn represents a connection between server and client, it maintains connection specific state,
 // handles client query.
 type clientConn struct {
-	pkt          *packetIO         // a helper to read and write data in packet format.
-	bufReadConn  *bufferedReadConn // a buffered-read net.Conn or buffered-read tls.Conn.
-	tlsConn      *tls.Conn         // TLS connection, nil if not TLS.
-	server       *Server           // a reference of server instance.
-	capability   uint32            // client capability affects the way server handles client request.
-	connectionID uint64            // atomically allocated by a global variable, unique in process scope.
-	user         string            // user of the client.
-	dbname       string            // default database name.
-	salt         []byte            // random bytes used for authentication.
-	alloc        arena.Allocator   // an memory allocator for reducing memory allocation.
+	pkt          *packetIO            // a helper to read and write data in packet format.
+	bufReadConn  *bufferedReadConn    // a buffered-read net.Conn or buffered-read tls.Conn.
+	tlsConn      *tls.ConnectionState // TLS connection state, nil if not TLS.
+	server       *Server              // a reference of server instance.
+	capability   uint32               // client capability affects the way server handles client request.
+	connectionID uint64               // atomically allocated by a global variable, unique in process scope.
+	user         string               // user of the client.
+	dbname       string               // default database name.
+	salt         []byte               // random bytes used for authentication.
+	alloc        arena.Allocator      // an memory allocator for reducing memory allocation.
 	chunkAlloc   chunk.Allocator
 	lastPacket   []byte // latest sql query string, currently used for logging error.
 	// ShowProcess() and mysql.ComChangeUser both visit this field, ShowProcess() read information through
@@ -641,12 +643,6 @@ func (cc *clientConn) readOptionalSSLRequestAndHandshakeResponse(ctx context.Con
 				return err
 			}
 		}
-	} else if tlsutil.RequireSecureTransport.Load() && !cc.isUnixSocket {
-		// If it's not a socket connection, we should reject the connection
-		// because TLS is required.
-		err := errSecureTransportRequired.FastGenByArgs()
-		terror.Log(err)
-		return err
 	}
 
 	// Read the remaining part of the packet.
@@ -654,6 +650,26 @@ func (cc *clientConn) readOptionalSSLRequestAndHandshakeResponse(ctx context.Con
 	if err != nil {
 		terror.Log(err)
 		return err
+	}
+
+	if resp.Capability&mysql.ClientSSL == 0 {
+		var gatewaySecureConn bool
+		if attrKey := os.Getenv("GATEWAY_SECURECONN_ATTR_KEY"); attrKey != "" {
+			if attrValue := resp.Attrs[attrKey]; attrValue != "" {
+				cc.tlsConn = &tls.ConnectionState{}
+				fmt.Sscanf(attrValue, `{"Version":%d,"CipherSuite":%d}`, &cc.tlsConn.Version, &cc.tlsConn.CipherSuite)
+				gatewaySecureConn = true
+			}
+		}
+
+		if tlsutil.RequireSecureTransport.Load() &&
+			!cc.isUnixSocket && !gatewaySecureConn {
+			// If it's not a socket connection, we should reject the connection
+			// because TLS is required.
+			err := errSecureTransportRequired.FastGenByArgs()
+			terror.Log(err)
+			return err
+		}
 	}
 
 	cc.capability = resp.Capability & cc.server.capability
@@ -808,12 +824,7 @@ func (cc *clientConn) SessionStatusToString() string {
 }
 
 func (cc *clientConn) openSession() error {
-	var tlsStatePtr *tls.ConnectionState
-	if cc.tlsConn != nil {
-		tlsState := cc.tlsConn.ConnectionState()
-		tlsStatePtr = &tlsState
-	}
-	ctx, err := cc.server.driver.OpenCtx(cc.connectionID, cc.capability, cc.collation, cc.dbname, tlsStatePtr, cc.extensions)
+	ctx, err := cc.server.driver.OpenCtx(cc.connectionID, cc.capability, cc.collation, cc.dbname, cc.tlsConn, cc.extensions)
 	if err != nil {
 		return err
 	}
@@ -889,7 +900,20 @@ func (cc *clientConn) checkAuthPlugin(ctx context.Context, resp *handshakeRespon
 	// Find the identity of the user based on username and peer host.
 	identity, err := cc.ctx.MatchIdentity(cc.user, host)
 	if err != nil {
-		return nil, errAccessDenied.FastGenByArgs(cc.user, host, hasPassword)
+		// try to append prefix
+		if prefix := domain.GetUserPrefix(); prefix != "" {
+			user2 := prefix + "." + cc.user
+			identity2, err2 := cc.ctx.MatchIdentity(user2, host)
+			if err2 == nil {
+				logutil.Logger(ctx).Info("found user identity with prefix",
+					zap.String("user", cc.user), zap.String("host", host), zap.String("prefix", prefix))
+				identity, err = identity2, nil
+				cc.user = user2
+			}
+		}
+		if err != nil {
+			return nil, errAccessDenied.FastGenByArgs(cc.user, host, hasPassword)
+		}
 	}
 	// Get the plugin for the identity.
 	userplugin, err := cc.ctx.AuthPluginForUser(identity)
@@ -2378,8 +2402,8 @@ func (cc *clientConn) upgradeToTLS(tlsConfig *tls.Config) error {
 	if err := tlsConn.Handshake(); err != nil {
 		return err
 	}
-	cc.setConn(tlsConn)
-	cc.tlsConn = tlsConn
+	state := tlsConn.ConnectionState()
+	cc.tlsConn = &state
 	return nil
 }
 
@@ -2448,12 +2472,7 @@ func (cc *clientConn) handleResetConnection(ctx context.Context) error {
 	if err != nil {
 		logutil.Logger(ctx).Debug("close old context failed", zap.Error(err))
 	}
-	var tlsStatePtr *tls.ConnectionState
-	if cc.tlsConn != nil {
-		tlsState := cc.tlsConn.ConnectionState()
-		tlsStatePtr = &tlsState
-	}
-	tidbCtx, err := cc.server.driver.OpenCtx(cc.connectionID, cc.capability, cc.collation, cc.dbname, tlsStatePtr, cc.extensions)
+	tidbCtx, err := cc.server.driver.OpenCtx(cc.connectionID, cc.capability, cc.collation, cc.dbname, cc.tlsConn, cc.extensions)
 	if err != nil {
 		return err
 	}

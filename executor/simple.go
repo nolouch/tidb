@@ -703,7 +703,7 @@ func (e *SimpleExec) executeRevokeRole(ctx context.Context, s *ast.RevokeRoleStm
 	e.setCurrentUser(s.Users)
 
 	for _, role := range s.Roles {
-		exists, err := userExists(ctx, e.ctx, role.Username, role.Hostname)
+		exists, err := userExistsWithRetryUserPrefix(ctx, e.ctx, &role.Username, role.Hostname)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1061,6 +1061,8 @@ func (e *SimpleExec) executeCreateUser(ctx context.Context, s *ast.CreateUserStm
 		return err
 	}
 
+	userPrefix := domain.GetUserPrefix()
+
 	plOptions := &passwordOrLockOptionsInfo{
 		lockAccount:                 "N",
 		passwordExpired:             "N",
@@ -1137,6 +1139,9 @@ func (e *SimpleExec) executeCreateUser(ctx context.Context, s *ast.CreateUserStm
 
 	users := make([]*auth.UserIdentity, 0, len(s.Specs))
 	for _, spec := range s.Specs {
+		if userPrefix != "" && !s.IsCreateRole && !strings.HasPrefix(spec.User.Username, userPrefix+".") && spec.User.Username != "cloud_admin" {
+			return ErrUserNameNeedPrefix.GenWithStackByArgs(userPrefix, userPrefix, spec.User.Username)
+		}
 		if len(spec.User.Username) > auth.UserNameMaxLength {
 			return ErrWrongStringLength.GenWithStackByArgs(spec.User.Username, "user name", auth.UserNameMaxLength)
 		}
@@ -1763,7 +1768,7 @@ func (e *SimpleExec) executeAlterUser(ctx context.Context, s *ast.AlterUserStmt)
 			}
 		}
 
-		exists, err := userExistsInternal(ctx, sqlExecutor, spec.User.Username, spec.User.Hostname)
+		exists, err := userExistsInternalWithRetryUserPrefix(ctx, sqlExecutor, &spec.User.Username, spec.User.Hostname)
 		if err != nil {
 			return err
 		}
@@ -2031,7 +2036,7 @@ func (e *SimpleExec) executeGrantRole(ctx context.Context, s *ast.GrantRoleStmt)
 	e.setCurrentUser(s.Users)
 
 	for _, role := range s.Roles {
-		exists, err := userExists(ctx, e.ctx, role.Username, role.Hostname)
+		exists, err := userExistsWithRetryUserPrefix(ctx, e.ctx, &role.Username, role.Hostname)
 		if err != nil {
 			return err
 		}
@@ -2040,7 +2045,7 @@ func (e *SimpleExec) executeGrantRole(ctx context.Context, s *ast.GrantRoleStmt)
 		}
 	}
 	for _, user := range s.Users {
-		exists, err := userExists(ctx, e.ctx, user.Username, user.Hostname)
+		exists, err := userExistsWithRetryUserPrefix(ctx, e.ctx, &user.Username, user.Hostname)
 		if err != nil {
 			return err
 		}
@@ -2400,6 +2405,51 @@ func userExists(ctx context.Context, sctx sessionctx.Context, name string, host 
 		return false, err
 	}
 	return len(rows) > 0, nil
+}
+
+func userExistsWithRetryUserPrefix(ctx context.Context, sctx sessionctx.Context, name *string, host string) (bool, error) {
+	exists, err := userExists(ctx, sctx, *name, host)
+	if err != nil {
+		return false, err
+	}
+	if exists {
+		return true, nil
+	}
+	// Check if user exists with user prefix.
+	prefix := domain.GetUserPrefix()
+	if prefix == "" {
+		return false, nil
+	}
+	name2 := prefix + "." + *name
+	exists, err = userExists(ctx, sctx, name2, host)
+	if err != nil || !exists {
+		return false, err
+	}
+	*name = name2
+	return true, nil
+}
+
+// TODO: Most of the code is duplicated with userExistsWithRetryUserPrefix
+func userExistsInternalWithRetryUserPrefix(ctx context.Context, sqlExecutor sqlexec.SQLExecutor, name *string, host string) (bool, error) {
+	exists, err := userExistsInternal(ctx, sqlExecutor, *name, host)
+	if err != nil {
+		return false, err
+	}
+	if exists {
+		return true, nil
+	}
+	// Check if user exists with user prefix.
+	prefix := domain.GetUserPrefix()
+	if prefix == "" {
+		return false, nil
+	}
+	name2 := prefix + "." + *name
+	exists, err = userExistsInternal(ctx, sqlExecutor, name2, host)
+	if err != nil || !exists {
+		return false, err
+	}
+	*name = name2
+	return true, nil
 }
 
 // use the same internal executor to read within the same transaction, otherwise same as userExists

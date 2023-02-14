@@ -151,7 +151,7 @@ func (e *GrantExec) Next(ctx context.Context, req *chunk.Chunk) error {
 
 	// Check which user is not exist.
 	for _, user := range e.Users {
-		exists, err := userExists(ctx, e.ctx, user.User.Username, user.User.Hostname)
+		exists, err := userExistsWithRetryUserPrefix(ctx, e.ctx, &user.User.Username, user.User.Hostname)
 		if err != nil {
 			return err
 		}

@@ -16,14 +16,14 @@ package domain
 
 import (
 	"os"
-
-	keyspace2 "github.com/pingcap/tidb/keyspace"
+  
+	keyspace "github.com/pingcap/tidb/keyspace"
 )
 
 // GetUserPrefix returns user prefix which be either specified by keyspace or environment variable.
 func GetUserPrefix() string {
-	if keyspace := keyspace2.GetKeyspaceNameBySettings(); keyspace != "" {
-		return keyspace
+	if prefix := keyspace.GetKeyspaceNameBySettings(); prefix != "" {
+		return prefix
 	}
 	return os.Getenv("TIDB_USER_PREFIX")
 }

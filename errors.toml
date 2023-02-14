@@ -856,6 +856,11 @@ error = '''
 Cannot add or update a child row: a foreign key constraint fails (%.192s)
 '''
 
+["ddl:1468"]
+error = '''
+User name must start with `%s.` (use `%s.%s` instead)
+'''
+
 ["ddl:1470"]
 error = '''
 String '%-.70s' is too long for %s (should be no longer than %d)
