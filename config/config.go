@@ -315,6 +315,8 @@ type Config struct {
 	SkipGCDropTable bool `toml:"skip-gc-drop-table" json:"skip-gc-drop-table"`
 	// Ratelimit is used to control the rate limit of the tenant requests.
 	Ratelimit RatelimitConfig `toml:"ratelimit" json:"ratelimit"`
+	// BootstrapControl is used to control serverless bootstrap procedure.
+	BootstrapControl BootstrapControl `toml:"bootstrap-control" json:"bootstrap-control"`
 }
 
 // UpdateTempStoragePath is to update the `TempStoragePath` if port/statusPort was changed
@@ -1050,6 +1052,7 @@ var defaultConf = Config{
 	TiDBMaxReuseColumn:                   256,
 	TiDBEnableExitCheck:                  false,
 	Ratelimit:                            defaultRatelimitConfig(),
+	BootstrapControl:                     defaultBootstrapControl(),
 }
 
 var (

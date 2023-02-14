@@ -2432,6 +2432,10 @@ func doBootstrapSQLFile(s Session) {
 // doDMLWorks executes DML statements in bootstrap stage.
 // All the statements run in a single transaction.
 func doDMLWorks(s Session) {
+	rootUserName := "root"
+	if prefix := domain.GetUserPrefix(); prefix != "" {
+		rootUserName = prefix + "." + rootUserName
+	}
 	mustExecute(s, "BEGIN")
 	if config.GetGlobalConfig().Security.SecureBootstrap {
 		// If secure bootstrap is enabled, we create a root@localhost account which can login with auth_socket.
@@ -2519,6 +2523,29 @@ func doDMLWorks(s Session) {
 	writeNewCollationParameter(s, config.GetGlobalConfig().NewCollationsEnabledOnFirstBootstrap)
 
 	writeStmtSummaryVars(s)
+
+	// Serverless Bootstrap function.
+	bootstrapControl := config.GetGlobalConfig().BootstrapControl
+	if !bootstrapControl.SkipServerlessVariables {
+		bootstrapServerlessVariables(s) // Write serverless variables.
+	}
+	if !bootstrapControl.SkipRootPriv {
+		bootstrapServerlessRoot(s, rootUserName) // Configure root's privilege.
+	}
+	if !bootstrapControl.SkipRoleAdminPriv {
+		bootstrapRoleAdmin(s) // Create and configure role_admin.
+	}
+	if !bootstrapControl.SkipCloudAdminPriv {
+		bootstrapCloudAdmin(s) // Create and configure cloud_admin.
+	}
+	if !bootstrapControl.SkipPushdownBlacklist {
+		bootstrapServerlessPushdownBlacklist(s) // Add incompatible executors to pushdown_blacklist.
+	}
+
+	// Finish serverless bootstrap and write current serverless version.
+	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?, "Serverless bootstrap version. Do not delete.")`,
+		mysql.SystemDB, mysql.TiDBTable, serverlessVersionVar, currentServerlessVersion,
+	)
 
 	ctx := kv.WithInternalSourceType(context.Background(), kv.InternalTxnBootstrap)
 	_, err := s.ExecuteInternal(ctx, "COMMIT")

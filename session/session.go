@@ -3277,6 +3277,9 @@ func BootstrapSession(store kv.Storage) (*domain.Domain, error) {
 		}
 	}
 
+	// Upgrade serverless version if necessary.
+	runServerlessUpgrade(store)
+
 	analyzeConcurrencyQuota := int(config.GetGlobalConfig().Performance.AnalyzePartitionConcurrencyQuota)
 	concurrency := int(config.GetGlobalConfig().Performance.StatsLoadConcurrency)
 	ses, err := createSessions(store, 10)

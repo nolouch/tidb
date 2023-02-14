@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "advisory_locks.go",
         "bootstrap.go",
+        "bootstrap_serverless.go",
         "nontransactional.go",
         "session.go",
         "tidb.go",
