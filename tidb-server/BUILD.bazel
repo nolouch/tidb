@@ -68,6 +68,7 @@ go_library(
         "@com_github_tikv_pd_client//:client",
         "@org_uber_go_automaxprocs//maxprocs",
         "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
     ],
 )
 
