@@ -101,6 +101,11 @@ func GetMaxDeltaSchemaCount() int64 {
 	return atomic.LoadInt64(&maxDeltaSchemaCount)
 }
 
+// AlwaysOn returns "ON"
+func AlwaysOn() string {
+	return On
+}
+
 // BoolToOnOff returns the string representation of a bool, i.e. "ON/OFF"
 func BoolToOnOff(b bool) string {
 	if b {

@@ -56,7 +56,6 @@ go_library(
         "//util/tableutil",
         "//util/tikvutil",
         "//util/timeutil",
-        "//util/tls",
         "//util/topsql/state",
         "//util/versioninfo",
         "@com_github_pingcap_errors//:errors",
