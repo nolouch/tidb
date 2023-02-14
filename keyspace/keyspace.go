@@ -18,6 +18,8 @@ import (
 	"fmt"
 
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
+	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/kv"
 	"github.com/tikv/client-go/v2/tikv"
 )
 
@@ -35,4 +37,20 @@ func MakeKeyspaceEtcdNamespace(c tikv.Codec) string {
 		return ""
 	}
 	return fmt.Sprintf(tidbKeyspaceEtcdPathPrefix+"%d", c.GetKeyspaceID())
+}
+
+// GetKeyspaceNameBySettings is used to get Keyspace name setting.
+func GetKeyspaceNameBySettings() (keyspaceName string) {
+	keyspaceName = config.GetGlobalConfig().KeyspaceName
+	return keyspaceName
+}
+
+// IsKeyspaceNameEmpty is used to determine whether keyspaceName is set.
+func IsKeyspaceNameEmpty(keyspaceName string) bool {
+	return keyspaceName == ""
+}
+
+// IsKvStorageKeyspaceSet return true if you get keyspace meta successes
+func IsKvStorageKeyspaceSet(store kv.Storage) bool {
+	return store.GetCodec().GetKeyspace() != nil
 }
