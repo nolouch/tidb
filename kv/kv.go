@@ -264,6 +264,8 @@ type Transaction interface {
 	// ClearDiskFullOpt clear allowed flag
 	ClearDiskFullOpt()
 
+	SetRestrictedSQL(b bool)
+
 	// GetMemDBCheckpoint gets the transaction's memDB checkpoint.
 	GetMemDBCheckpoint() *tikv.MemDBCheckpoint
 

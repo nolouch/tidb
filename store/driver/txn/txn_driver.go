@@ -17,11 +17,15 @@ package txn
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	"github.com/pingcap/kvproto/pkg/metapb"
+	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/sessionctx/binloginfo"
@@ -46,6 +50,7 @@ type tikvTxn struct {
 	snapshotInterceptor kv.SnapshotInterceptor
 	// columnMapsCache is a cache used for the mutation checker
 	columnMapsCache interface{}
+	restrictedSQL   bool
 }
 
 // NewTiKVTxn returns a new Transaction.
@@ -56,7 +61,7 @@ func NewTiKVTxn(txn *tikv.KVTxn) kv.Transaction {
 	totalLimit := atomic.LoadUint64(&kv.TxnTotalSizeLimit)
 	txn.GetUnionStore().SetEntrySizeLimit(entryLimit, totalLimit)
 
-	return &tikvTxn{txn, make(map[int64]*model.TableInfo), nil, nil}
+	return &tikvTxn{txn, make(map[int64]*model.TableInfo), nil, nil, false}
 }
 
 func (txn *tikvTxn) GetTableInfo(id int64) *model.TableInfo {
@@ -65,6 +70,10 @@ func (txn *tikvTxn) GetTableInfo(id int64) *model.TableInfo {
 
 func (txn *tikvTxn) SetDiskFullOpt(level kvrpcpb.DiskFullOpt) {
 	txn.KVTxn.SetDiskFullOpt(level)
+}
+
+func (txn *tikvTxn) SetRestrictedSQL(b bool) {
+	txn.restrictedSQL = b
 }
 
 func (txn *tikvTxn) CacheTableInfo(id int64, info *model.TableInfo) {
@@ -91,7 +100,63 @@ func (txn *tikvTxn) LockKeysFunc(ctx context.Context, lockCtx *kv.LockCtx, fn fu
 	return txn.generateWriteConflictForLockedWithConflict(lockCtx)
 }
 
+type size interface {
+	int64 | int
+}
+
+func toGiB[T size](size T) int {
+	return int(size / (1024 * 1024 * 1024))
+}
+
+func toMiB[T size](size T) int {
+	return int(size / (1024 * 1024))
+}
+
+func toKiB[T size](size T) int {
+	return int(size / 1024)
+}
+
+func humanReadable[T size](size T) string {
+	if size < 1024 {
+		return fmt.Sprintf("%d B", size)
+	} else if size < 1024*1024 {
+		return fmt.Sprintf("%d KiB", toKiB(size))
+	} else if size < 1024*1024*1024 {
+		return fmt.Sprintf("%d MiB", toMiB(size))
+	} else {
+		return fmt.Sprintf("%d GiB", toGiB(size))
+	}
+}
+
 func (txn *tikvTxn) Commit(ctx context.Context) error {
+	if keyspace.GetKeyspaceNameBySettings() != "" && txn.GetDiskFullOpt() == kvrpcpb.DiskFullOpt_NotAllowedOnFull && !txn.restrictedSQL {
+		txnSize := txn.GetUnionStore().GetMemBuffer().Size()
+		for txnSize > 0 {
+			ok, wait := keyspace.Limiter.Consume(txnSize)
+			if ok {
+				break
+			}
+			if wait == time.Duration(0) {
+				usage := keyspace.Limiter.Usage()
+				txnLimit := fmt.Sprintf(
+					"You have reached max transaction limit %s of Serverless Tier cluster",
+					humanReadable(keyspace.Limiter.MaxToken()))
+				cfg := config.GetGlobalConfig().Ratelimit
+				if usage < cfg.LowSpeedWatermark {
+					return errors.New(txnLimit + ".")
+				}
+				if usage < cfg.BlockWriteWatermark {
+					return errors.New(fmt.Sprintf("%s when total used data %s is more than soft "+
+						"limit %s at beta stage.", txnLimit, humanReadable(usage), humanReadable(cfg.LowSpeedCapacity)))
+				}
+				return errors.New(fmt.Sprintf("%s when total used data %s is more than twice of "+
+					"soft limit %s at beta stage. Please delete some of your data to reclaim spaces. "+
+					"Be aware that deleting data is also throttled and can be slow.",
+					txnLimit, humanReadable(usage), humanReadable(cfg.LowSpeedWatermark)))
+			}
+			time.Sleep(wait + time.Millisecond*10)
+		}
+	}
 	err := txn.KVTxn.Commit(ctx)
 	return txn.extractKeyErr(err)
 }

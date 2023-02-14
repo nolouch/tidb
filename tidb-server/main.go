@@ -38,6 +38,7 @@ import (
 	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/executor"
 	"github.com/pingcap/tidb/extension"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/parser/mysql"
@@ -80,6 +81,7 @@ import (
 	"github.com/pingcap/tidb/util/versioninfo"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/push"
+	tikvconfig "github.com/tikv/client-go/v2/config"
 	"github.com/tikv/client-go/v2/tikv"
 	"github.com/tikv/client-go/v2/txnkv/transaction"
 	pd "github.com/tikv/pd/client"
@@ -242,6 +244,9 @@ func main() {
 		logutil.BgLogger().Warn("failed to setup global resource controller", zap.Error(err))
 	}
 
+	err = startRateLimit()
+	terror.MustNil(err)
+
 	// Register error API is not thread-safe, the caller MUST NOT register errors after initialization.
 	// To prevent misuse, set a flag to indicate that register new error will panic immediately.
 	// For regression of issue like https://github.com/pingcap/tidb/issues/28190
@@ -321,6 +326,36 @@ func registerStores() {
 	terror.MustNil(err)
 	err = kvstore.Register("unistore", mockstore.EmbedUnistoreDriver{})
 	terror.MustNil(err)
+}
+
+func startRateLimit() error {
+	// load keyspace and set metric labels.
+	cfg := config.GetGlobalConfig()
+	if strings.ToLower(cfg.Store) == "tikv" {
+		etcdAddrs, _, _, err := tikvconfig.ParsePath("tikv://" + cfg.Path)
+		if err != nil {
+			return err
+		}
+		pdCli, err := pd.NewClient(etcdAddrs, pd.SecurityOption{
+			CAPath:   cfg.Security.ClusterSSLCA,
+			CertPath: cfg.Security.ClusterSSLCert,
+			KeyPath:  cfg.Security.ClusterSSLKey,
+		},
+			pd.WithCustomTimeoutOption(time.Duration(cfg.PDClient.PDServerTimeout)*time.Second),
+		)
+		if err != nil {
+			return err
+		}
+		defer pdCli.Close()
+
+		log.Info("start rate limit")
+		keyspaceMeta, err := pdCli.LoadKeyspace(context.TODO(), cfg.KeyspaceName)
+		if err != nil {
+			return err
+		}
+		keyspace.Limiter.StartAdjustLimit(etcdAddrs, keyspaceMeta.Id)
+	}
+	return nil
 }
 
 func registerMetrics() {

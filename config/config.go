@@ -304,6 +304,9 @@ type Config struct {
 	TiDBMaxReuseColumn uint32 `toml:"tidb-max-reuse-column" json:"tidb-max-reuse-column"`
 	// TiDBEnableExitCheck indicates whether exit-checking in domain for background process
 	TiDBEnableExitCheck bool `toml:"tidb-enable-exit-check" json:"tidb-enable-exit-check"`
+
+	// Ratelimit is used to control the rate limit of the tenant requests.
+	Ratelimit RatelimitConfig `toml:"ratelimit" json:"ratelimit"`
 }
 
 // UpdateTempStoragePath is to update the `TempStoragePath` if port/statusPort was changed
@@ -1037,6 +1040,7 @@ var defaultConf = Config{
 	TiDBMaxReuseChunk:                    64,
 	TiDBMaxReuseColumn:                   256,
 	TiDBEnableExitCheck:                  false,
+	Ratelimit:                            defaultRatelimitConfig(),
 }
 
 var (

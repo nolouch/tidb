@@ -6,6 +6,7 @@ go_library(
         "config.go",
         "config_util.go",
         "const.go",
+        "ratelimit.go",
     ],
     importpath = "github.com/pingcap/tidb/config",
     visibility = ["//visibility:public"],

@@ -608,6 +608,8 @@ func (s *session) doCommit(ctx context.Context) error {
 		s.txn.SetDiskFullOpt(s.GetDiskFullOpt())
 	}
 
+	s.txn.SetRestrictedSQL(s.GetSessionVars().InRestrictedSQL)
+
 	defer func() {
 		s.txn.changeToInvalid()
 		s.sessionVars.SetInTxn(false)
