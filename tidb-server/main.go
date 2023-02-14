@@ -53,6 +53,7 @@ import (
 	"github.com/pingcap/tidb/session/txninfo"
 	"github.com/pingcap/tidb/sessionctx/binloginfo"
 	"github.com/pingcap/tidb/sessionctx/variable"
+	"github.com/pingcap/tidb/standby"
 	"github.com/pingcap/tidb/statistics"
 	kvstore "github.com/pingcap/tidb/store"
 	"github.com/pingcap/tidb/store/copr"
@@ -129,6 +130,11 @@ const (
 	nmInitializeSQLFile           = "initialize-sql-file"
 	nmDisconnectOnExpiredPassword = "disconnect-on-expired-password"
 	nmKeyspaceName                = "keyspace-name"
+
+	nmStandby           = "standby"
+	nmActivationTimeout = "activation-timeout"
+	nmMaxIdleSeconds    = "max-idle-seconds"
+	nmKeyspaceActivate  = "keyspace-activate"
 )
 
 var (
@@ -178,6 +184,13 @@ var (
 	initializeSQLFile           = flag.String(nmInitializeSQLFile, "", "SQL file to execute on first bootstrap")
 	disconnectOnExpiredPassword = flagBoolean(nmDisconnectOnExpiredPassword, true, "the server disconnects the client when the password is expired")
 	keyspaceName                = flag.String(nmKeyspaceName, "", "keyspace name.")
+
+	// Standby
+	standbyMode       = flagBoolean(nmStandby, false, "start tidb-server as standby")
+	activationTimeout = flag.Uint(nmActivationTimeout, 0, "max time in second allowed for tidb to activate from standby, 0 means no limit")
+	maxIdleSeconds    = flag.Uint(nmMaxIdleSeconds, 0, "max idle seconds for a connection, 0 means no limit")
+	// Keyspace Activate
+	keyspaceActivateMode = flagBoolean(nmKeyspaceActivate, false, "start tidb-server as keyspaceActivate")
 )
 
 func main() {
@@ -193,31 +206,85 @@ func main() {
 		fmt.Println(printer.GetTiDBInfo())
 		os.Exit(0)
 	}
-	registerStores()
+
+	mainErrHandler := func(err error) { terror.MustNil(err) }
+
+	if config.GetGlobalConfig().StandByMode {
+		activateRequest := standby.StartStandby(
+			config.GetGlobalConfig().Status.StatusHost,
+			config.GetGlobalConfig().Status.StatusPort,
+			config.GetGlobalConfig().ActivationTimeout)
+		config.UpdateGlobal(func(c *config.Config) {
+			c.KeyspaceName = activateRequest.KeyspaceName
+		})
+		maxIdleSeconds := int(config.GetGlobalConfig().MaxIdleSeconds)
+		if maxIdleSeconds > 0 {
+			standby.StartWatchLastActive(maxIdleSeconds)
+		}
+		// replace mainErrHandler to make sure standby handler can exit gracefully.
+		mainErrHandler = func(err error) {
+			if err != nil {
+				standby.EndStandby(err)
+				os.Exit(1)
+			}
+		}
+		// load keyspace and set metric labels.
+		cfg := config.GetGlobalConfig()
+		if strings.ToLower(cfg.Store) == "tikv" {
+			etcdAddrs, _, _, err := tikvconfig.ParsePath("tikv://" + cfg.Path)
+			mainErrHandler(err)
+			pdCli, err := pd.NewClient(etcdAddrs, pd.SecurityOption{
+				CAPath:   cfg.Security.ClusterSSLCA,
+				CertPath: cfg.Security.ClusterSSLCert,
+				KeyPath:  cfg.Security.ClusterSSLKey,
+			},
+				pd.WithCustomTimeoutOption(time.Duration(cfg.PDClient.PDServerTimeout)*time.Second),
+			)
+			mainErrHandler(err)
+			keyspaceMeta, err := pdCli.LoadKeyspace(context.TODO(), activateRequest.KeyspaceName)
+			mainErrHandler(err)
+			metrics.ServerlessTenantID = keyspaceMeta.Config["serverless_tenant_id"]
+			metrics.ServerlessProjectID = keyspaceMeta.Config["serverless_project_id"]
+			metrics.ServerlessClusterID = keyspaceMeta.Config["serverless_cluster_id"]
+			log.Info("serverless cluster info loaded",
+				zap.String("tenant-id", metrics.ServerlessTenantID),
+				zap.String("project-id", metrics.ServerlessProjectID),
+				zap.String("cluster-id", metrics.ServerlessClusterID),
+			)
+			pdCli.Close()
+		}
+	}
+
+	err := registerStores()
+	mainErrHandler(err)
 	registerMetrics()
 	if variable.EnableTmpStorageOnOOM.Load() {
 		config.GetGlobalConfig().UpdateTempStoragePath()
-		err := disk.InitializeTempDir()
-		terror.MustNil(err)
-		checkTempStorageQuota()
+		err = disk.InitializeTempDir()
+		mainErrHandler(err)
+		err = checkTempStorageQuota()
+		mainErrHandler(err)
 	}
-	setupLog()
-	setupExtensions()
-	setupStmtSummary()
+	err = setupLog()
+	mainErrHandler(err)
+	_, err = setupExtensions()
+	mainErrHandler(err)
+	err = setupStmtSummary()
+	mainErrHandler(err)
 
-	err := cpuprofile.StartCPUProfiler()
-	terror.MustNil(err)
+	err = cpuprofile.StartCPUProfiler()
+	mainErrHandler(err)
 
 	if config.GetGlobalConfig().DisaggregatedTiFlash && config.GetGlobalConfig().UseAutoScaler {
 		clusterID, err := config.GetAutoScalerClusterID()
-		terror.MustNil(err)
+		mainErrHandler(err)
 
 		err = tiflashcompute.InitGlobalTopoFetcher(
 			config.GetGlobalConfig().TiFlashComputeAutoScalerType,
 			config.GetGlobalConfig().TiFlashComputeAutoScalerAddr,
 			clusterID,
 			config.GetGlobalConfig().IsTiFlashComputeFixedPool)
-		terror.MustNil(err)
+		mainErrHandler(err)
 	}
 
 	// Enable failpoints in tikv/client-go if the test API is enabled.
@@ -227,18 +294,25 @@ func main() {
 		logutil.BgLogger().Warn(warnMsg)
 		tikv.EnableFailpoints()
 	}
-	setGlobalVars()
-	setCPUAffinity()
-	setupTracing() // Should before createServer and after setup config.
+	err = setGlobalVars()
+	mainErrHandler(err)
+	err = setCPUAffinity()
+	mainErrHandler(err)
+	err = setupTracing() // Should before createServer and after setup config.
+	mainErrHandler(err)
 	printInfo()
-	setupBinlogClient()
+	err = setupBinlogClient()
+	mainErrHandler(err)
 	setupMetrics()
 
 	keyspaceName := config.GetGlobalKeyspaceName()
 
 	resourcemanager.InstanceResourceManager.Start()
-	storage, dom := createStoreAndDomain(keyspaceName)
-	svr := createServer(storage, dom)
+	storage, dom, err := createStoreAndDomain(keyspaceName)
+	mainErrHandler(err)
+	svr, err := createServer(storage, dom)
+	mainErrHandler(err)
+
 	err = driver.TrySetupGlobalResourceController(context.Background(), dom.ServerID(), storage)
 	if err != nil {
 		logutil.BgLogger().Warn("failed to setup global resource controller", zap.Error(err))
@@ -251,6 +325,11 @@ func main() {
 	// To prevent misuse, set a flag to indicate that register new error will panic immediately.
 	// For regression of issue like https://github.com/pingcap/tidb/issues/28190
 	terror.RegisterFinish()
+
+	if config.GetGlobalConfig().KeyspaceActivateMode {
+		mainErrHandler(err)
+		os.Exit(0)
+	}
 
 	exited := make(chan struct{})
 	signal.SetupSignalHandler(func(graceful bool) {
@@ -279,7 +358,7 @@ func syncLog() {
 	}
 }
 
-func checkTempStorageQuota() {
+func checkTempStorageQuota() error {
 	// check capacity and the quota when EnableTmpStorageOnOOM is enabled
 	c := config.GetGlobalConfig()
 	if c.TempStorageQuota < 0 {
@@ -287,16 +366,17 @@ func checkTempStorageQuota() {
 	} else {
 		capacityByte, err := storageSys.GetTargetDirectoryCapacity(c.TempStoragePath)
 		if err != nil {
-			log.Fatal(err.Error())
+			return err
 		} else if capacityByte < uint64(c.TempStorageQuota) {
-			log.Fatal(fmt.Sprintf("value of [tmp-storage-quota](%d byte) exceeds the capacity(%d byte) of the [%s] directory", c.TempStorageQuota, capacityByte, c.TempStoragePath))
+			return errors.Errorf("value of [tmp-storage-quota](%d byte) exceeds the capacity(%d byte) of the [%s] directory", c.TempStorageQuota, capacityByte, c.TempStoragePath)
 		}
 	}
+	return nil
 }
 
-func setCPUAffinity() {
+func setCPUAffinity() error {
 	if affinityCPU == nil || len(*affinityCPU) == 0 {
-		return
+		return nil
 	}
 	var cpu []int
 	for _, af := range strings.Split(*affinityCPU, ",") {
@@ -304,28 +384,34 @@ func setCPUAffinity() {
 		if len(af) > 0 {
 			c, err := strconv.Atoi(af)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "wrong affinity cpu config: %s", *affinityCPU)
-				os.Exit(1)
+				return errors.Errorf("wrong affinity cpu config: %s", *affinityCPU)
 			}
 			cpu = append(cpu, c)
 		}
 	}
 	err := linux.SetAffinity(cpu)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "set cpu affinity failure: %v", err)
-		os.Exit(1)
+		return errors.Errorf("set cpu affinity failure: %v", err)
 	}
 	runtime.GOMAXPROCS(len(cpu))
 	metrics.MaxProcs.Set(float64(runtime.GOMAXPROCS(0)))
+	return nil
 }
 
-func registerStores() {
+func registerStores() error {
 	err := kvstore.Register("tikv", driver.TiKVDriver{})
-	terror.MustNil(err)
+	if err != nil {
+		return err
+	}
 	err = kvstore.Register("mocktikv", mockstore.MockTiKVDriver{})
-	terror.MustNil(err)
+	if err != nil {
+		return err
+	}
 	err = kvstore.Register("unistore", mockstore.EmbedUnistoreDriver{})
-	terror.MustNil(err)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func startRateLimit() error {
@@ -365,7 +451,7 @@ func registerMetrics() {
 	}
 }
 
-func createStoreAndDomain(keyspaceName string) (kv.Storage, *domain.Domain) {
+func createStoreAndDomain(keyspaceName string) (kv.Storage, *domain.Domain, error) {
 	cfg := config.GetGlobalConfig()
 	var fullPath string
 	if keyspaceName == "" {
@@ -375,20 +461,26 @@ func createStoreAndDomain(keyspaceName string) (kv.Storage, *domain.Domain) {
 	}
 	var err error
 	storage, err := kvstore.New(fullPath)
-	terror.MustNil(err)
+	if err != nil {
+		return nil, nil, err
+	}
 	copr.GlobalMPPFailedStoreProber.Run()
 	err = infosync.CheckTiKVVersion(storage, *semver.New(versioninfo.TiKVMinVersion))
-	terror.MustNil(err)
+	if err != nil {
+		return nil, nil, err
+	}
 	// Bootstrap a session to load information schema.
 	dom, err := session.BootstrapSession(storage)
-	terror.MustNil(err)
-	return storage, dom
+	if err != nil {
+		return nil, nil, err
+	}
+	return storage, dom, nil
 }
 
-func setupBinlogClient() {
+func setupBinlogClient() error {
 	cfg := config.GetGlobalConfig()
 	if !cfg.Binlog.Enable {
-		return
+		return nil
 	}
 
 	if cfg.Binlog.IgnoreError {
@@ -411,14 +503,19 @@ func setupBinlogClient() {
 	} else {
 		client, err = pumpcli.NewLocalPumpsClient(cfg.Path, cfg.Binlog.BinlogSocket, parseDuration(cfg.Binlog.WriteTimeout), securityOption)
 	}
-
-	terror.MustNil(err)
+	if err != nil {
+		return err
+	}
 
 	err = logutil.InitLogger(cfg.Log.ToLogConfig())
-	terror.MustNil(err)
+	if err != nil {
+		return err
+	}
 
 	binloginfo.SetPumpsClient(client)
 	log.Info("tidb-server", zap.Bool("create pumps client success, ignore binlog error", cfg.Binlog.IgnoreError))
+
+	return nil
 }
 
 // Prometheus push.
@@ -632,6 +729,22 @@ func overrideConfig(cfg *config.Config) {
 	if actualFlags[nmKeyspaceName] {
 		cfg.KeyspaceName = *keyspaceName
 	}
+
+	if actualFlags[nmStandby] {
+		cfg.StandByMode = *standbyMode
+	}
+
+	if actualFlags[nmKeyspaceActivate] {
+		cfg.KeyspaceActivateMode = *keyspaceActivateMode
+	}
+
+	if actualFlags[nmActivationTimeout] {
+		cfg.ActivationTimeout = *activationTimeout
+	}
+
+	if actualFlags[nmMaxIdleSeconds] {
+		cfg.MaxIdleSeconds = *maxIdleSeconds
+	}
 }
 
 func setVersions() {
@@ -647,7 +760,7 @@ func setVersions() {
 	}
 }
 
-func setGlobalVars() {
+func setGlobalVars() error {
 	cfg := config.GetGlobalConfig()
 
 	// config.DeprecatedOptions records the config options that should be moved to [instance] section.
@@ -694,7 +807,9 @@ func setGlobalVars() {
 	// Disable automaxprocs log
 	nopLog := func(string, ...interface{}) {}
 	_, err := maxprocs.Set(maxprocs.Logger(nopLog))
-	terror.MustNil(err)
+	if err != nil {
+		return err
+	}
 	// We should respect to user's settings in config file.
 	// The default value of MaxProcs is 0, runtime.GOMAXPROCS(0) is no-op.
 	runtime.GOMAXPROCS(int(cfg.Performance.MaxProcs))
@@ -783,7 +898,9 @@ func setGlobalVars() {
 	// use server-memory-quota as max-plan-cache-memory
 	plannercore.PreparedPlanCacheMaxMemory.Store(cfg.Performance.ServerMemoryQuota)
 	total, err := memory.MemTotal()
-	terror.MustNil(err)
+	if err != nil {
+		return err
+	}
 	// if server-memory-quota is larger than max-system-memory or not set, use max-system-memory as max-plan-cache-memory
 	if plannercore.PreparedPlanCacheMaxMemory.Load() > total || plannercore.PreparedPlanCacheMaxMemory.Load() <= 0 {
 		plannercore.PreparedPlanCacheMaxMemory.Store(total)
@@ -804,7 +921,7 @@ func setGlobalVars() {
 
 	t, err := time.ParseDuration(cfg.TiKVClient.StoreLivenessTimeout)
 	if err != nil || t < 0 {
-		logutil.BgLogger().Fatal("invalid duration value for store-liveness-timeout",
+		return errors.Errorf("invalid duration value for store-liveness-timeout",
 			zap.String("currentValue", cfg.TiKVClient.StoreLivenessTimeout))
 	}
 	tikv.SetStoreLivenessTimeout(t)
@@ -813,25 +930,29 @@ func setGlobalVars() {
 	txninfo.Recorder.ResizeSummaries(cfg.TrxSummary.TransactionSummaryCapacity)
 	txninfo.Recorder.SetMinDuration(time.Duration(cfg.TrxSummary.TransactionIDDigestMinDuration) * time.Millisecond)
 	chunk.InitChunkAllocSize(cfg.TiDBMaxReuseChunk, cfg.TiDBMaxReuseColumn)
+
+	return nil
 }
 
-func setupLog() {
+func setupLog() error {
 	cfg := config.GetGlobalConfig()
 	err := logutil.InitLogger(cfg.Log.ToLogConfig())
-	terror.MustNil(err)
+	if err != nil {
+		return err
+	}
 
 	// trigger internal http(s) client init.
 	util.InternalHTTPClient()
+	return nil
 }
 
-func setupExtensions() *extension.Extensions {
+func setupExtensions() (*extension.Extensions, error) {
 	err := extension.Setup()
-	terror.MustNil(err)
+	if err != nil {
+		return nil, err
+	}
 
-	extensions, err := extension.GetExtensions()
-	terror.MustNil(err)
-
-	return extensions
+	return extension.GetExtensions()
 }
 
 func printInfo() {
@@ -842,14 +963,14 @@ func printInfo() {
 	log.SetLevel(level)
 }
 
-func createServer(storage kv.Storage, dom *domain.Domain) *server.Server {
+func createServer(storage kv.Storage, dom *domain.Domain) (*server.Server, error) {
 	cfg := config.GetGlobalConfig()
 	driver := server.NewTiDBDriver(storage)
 	svr, err := server.NewServer(cfg, driver)
 	// Both domain and storage have started, so we have to clean them before exiting.
 	if err != nil {
 		closeDomainAndStorage(storage, dom)
-		log.Fatal("failed to create the server", zap.Error(err), zap.Stack("stack"))
+		return nil, errors.Errorf("failed to create the server", zap.Error(err), zap.Stack("stack"))
 	}
 	svr.SetDomain(dom)
 	svr.InitGlobalConnID(dom.ServerID)
@@ -857,7 +978,7 @@ func createServer(storage kv.Storage, dom *domain.Domain) *server.Server {
 	go dom.MemoryUsageAlarmHandle().SetSessionManager(svr).Run()
 	go dom.ServerMemoryLimitHandle().SetSessionManager(svr).Run()
 	dom.InfoSyncer().SetSessionManager(svr)
-	return svr
+	return svr, nil
 }
 
 func setupMetrics() {
@@ -872,15 +993,16 @@ func setupMetrics() {
 	pushMetric(cfg.Status.MetricsAddr, time.Duration(cfg.Status.MetricsInterval)*time.Second)
 }
 
-func setupTracing() {
+func setupTracing() error {
 	cfg := config.GetGlobalConfig()
 	tracingCfg := cfg.OpenTracing.ToTracingConfig()
 	tracingCfg.ServiceName = "TiDB"
 	tracer, _, err := tracingCfg.NewTracer()
 	if err != nil {
-		log.Fatal("setup jaeger tracer failed", zap.String("error message", err.Error()))
+		return errors.Errorf("setup jaeger tracer failed", zap.String("error message", err.Error()))
 	}
 	opentracing.SetGlobalTracer(tracer)
+	return nil
 }
 
 func closeDomainAndStorage(storage kv.Storage, dom *domain.Domain) {
@@ -919,7 +1041,7 @@ func stringToList(repairString string) []string {
 	})
 }
 
-func setupStmtSummary() {
+func setupStmtSummary() error {
 	instanceCfg := config.GetGlobalConfig().Instance
 	if instanceCfg.StmtSummaryEnablePersistent {
 		err := stmtsummaryv2.Setup(&stmtsummaryv2.Config{
@@ -929,7 +1051,8 @@ func setupStmtSummary() {
 			FileMaxBackups: instanceCfg.StmtSummaryFileMaxBackups,
 		})
 		if err != nil {
-			logutil.BgLogger().Error("failed to setup statements summary", zap.Error(err))
+			return errors.Errorf("failed to setup statements summary", zap.Error(err))
 		}
 	}
+	return nil
 }

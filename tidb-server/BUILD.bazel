@@ -28,6 +28,7 @@ go_library(
         "//session/txninfo",
         "//sessionctx/binloginfo",
         "//sessionctx/variable",
+        "//standby",
         "//statistics",
         "//store",
         "//store/copr",

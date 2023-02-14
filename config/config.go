@@ -271,6 +271,13 @@ type Config struct {
 	// It can be used to set GLOBAL system variable values
 	InitializeSQLFile string `toml:"initialize-sql-file" json:"initialize-sql-file"`
 
+	// Serverless related configs.
+	StandByMode          bool `toml:"standby" json:"standby"`
+	KeyspaceActivateMode bool `toml:"keyspace-activate" json:"keyspace-activate"`
+	MaxIdleSeconds       uint `toml:"max-idle-seconds" json:"max-idle-seconds"`
+	// ActivationTimeout specifies the maximum allowed time for tidb to activate from standby mode.
+	ActivationTimeout uint `toml:"activation-timeout" json:"activation-timeout"`
+
 	// The following items are deprecated. We need to keep them here temporarily
 	// to support the upgrade process. They can be removed in future.
 
@@ -1382,6 +1389,11 @@ func (c *Config) Valid() error {
 		if c.TiFlashComputeAutoScalerAddr == "" {
 			return fmt.Errorf("autoscaler-addr cannot be empty when disaggregated-tiflash mode is true")
 		}
+	}
+
+	// check mode
+	if c.StandByMode && c.KeyspaceActivateMode {
+		return fmt.Errorf("can't set standby and keyspace-activate mode at the same time")
 	}
 
 	// test log level
