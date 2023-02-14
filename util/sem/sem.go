@@ -63,6 +63,8 @@ const (
 	restrictedPriv        = "RESTRICTED_"
 	tidbAuditRetractLog   = "tidb_audit_redact_log" // sysvar installed by a plugin
 
+	placementAdmin = "PLACEMENT_ADMIN"
+
 	// Additional tables for serverless tier.
 	clusterInfo      = "cluster_info"
 	tikvRegionStatus = "tikv_region_status"
@@ -186,6 +188,10 @@ func IsInvisibleSysVar(varNameInLower string) bool {
 // IsRestrictedPrivilege returns true if the privilege shuld not be satisfied by SUPER
 // As most dynamic privileges are.
 func IsRestrictedPrivilege(privNameInUpper string) bool {
+	if privNameInUpper == placementAdmin {
+		return true
+	}
+	
 	if len(privNameInUpper) < 12 {
 		return false
 	}
