@@ -54,6 +54,10 @@ const (
 	FlagWithPlacementPolicy = "with-tidb-placement-mode"
 	// FlagKeyspaceName corresponds to tidb config keyspace-name
 	FlagKeyspaceName = "keyspace-name"
+	// FlagLeaderDownload corresponds to tidb config leader-download
+	FlagLeaderDownload = "leader-download"
+	// FlagSkipSplit is the flag name of skip split region
+	FlagSkipSplit = "skip-split"
 
 	// FlagStreamStartTS and FlagStreamRestoreTS is used for log restore timestamp range.
 	FlagStreamStartTS   = "start-ts"
@@ -201,6 +205,11 @@ type RestoreConfig struct {
 	VolumeIOPS          int64                 `json:"volume-iops" toml:"volume-iops"`
 	VolumeThroughput    int64                 `json:"volume-throughput" toml:"volume-throughput"`
 	ProgressFile        string                `json:"progress-file" toml:"progress-file"`
+
+	// SkipSplit is used to skip split region when restoring data.
+	SkipSplit bool `json:"skip-split" toml:"skip-split"`
+	// LeaderDownload is used to only download sst file to leader
+	LeaderDownload bool `json:"leader-download" toml:"leader-download"`
 }
 
 // DefineRestoreFlags defines common flags for the restore tidb command.
@@ -210,6 +219,8 @@ func DefineRestoreFlags(flags *pflag.FlagSet) {
 	_ = flags.MarkHidden(flagNoSchema)
 	flags.String(FlagWithPlacementPolicy, "STRICT", "correspond to tidb global/session variable with-tidb-placement-mode")
 	flags.String(FlagKeyspaceName, "", "correspond to tidb config keyspace-name")
+	flags.Bool(FlagLeaderDownload, false, "correspond to tidb config leader-download")
+	flags.Bool(FlagSkipSplit, false, "skip split region when restoring data")
 
 	DefineRestoreCommonFlags(flags)
 }
@@ -304,6 +315,16 @@ func (cfg *RestoreConfig) ParseFromFlags(flags *pflag.FlagSet) error {
 	cfg.KeyspaceName, err = flags.GetString(FlagKeyspaceName)
 	if err != nil {
 		return errors.Annotatef(err, "failed to get flag %s", FlagKeyspaceName)
+	}
+
+	cfg.SkipSplit, err = flags.GetBool(FlagSkipSplit)
+	if err != nil {
+		return errors.Annotatef(err, "failed to get flag %s", FlagSkipSplit)
+	}
+
+	cfg.LeaderDownload, err = flags.GetBool(FlagLeaderDownload)
+	if err != nil {
+		return errors.Annotatef(err, "failed to get flag %s", FlagLeaderDownload)
 	}
 
 	if flags.Lookup(flagFullBackupType) != nil {
@@ -417,6 +438,9 @@ func configureRestoreClient(ctx context.Context, client *restore.Client, cfg *Re
 	if cfg.NoSchema {
 		client.EnableSkipCreateSQL()
 	}
+
+	client.SetLeaderDownload(cfg.LeaderDownload)
+
 	client.SetSwitchModeInterval(cfg.SwitchModeInterval)
 	client.SetBatchDdlSize(cfg.DdlBatchSize)
 	client.SetPlacementPolicyMode(cfg.WithPlacementPolicy)
@@ -496,6 +520,7 @@ func RunRestore(c context.Context, g glue.Glue, cmdName string, cfg *RestoreConf
 
 	config.UpdateGlobal(func(conf *config.Config) {
 		conf.KeyspaceName = cfg.KeyspaceName
+		conf.SplitTable = !cfg.SkipSplit
 	})
 	if IsStreamRestore(cmdName) {
 		return RunStreamRestore(c, g, cmdName, cfg)
@@ -765,7 +790,7 @@ func runRestore(c context.Context, g glue.Glue, cmdName string, cfg *RestoreConf
 		int64(rangeSize+len(files)+len(tables)),
 		!cfg.LogProgress)
 	defer updateCh.Close()
-	sender, err := restore.NewTiKVSender(ctx, client, updateCh, cfg.PDConcurrency)
+	sender, err := restore.NewTiKVSender(ctx, client, updateCh, cfg.PDConcurrency, cfg.SkipSplit)
 	if err != nil {
 		return errors.Trace(err)
 	}

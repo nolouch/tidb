@@ -214,6 +214,8 @@ type tikvSender struct {
 	wg *sync.WaitGroup
 
 	tableWaiters *sync.Map
+
+	skipSplit bool
 }
 
 func (b *tikvSender) PutSink(sink TableSink) {
@@ -233,6 +235,7 @@ func NewTiKVSender(
 	cli TiKVRestorer,
 	updateCh glue.Progress,
 	splitConcurrency uint,
+	skipSplit bool,
 ) (BatchSender, error) {
 	inCh := make(chan DrainResult, defaultChannelSize)
 	midCh := make(chan drainResultAndDone, defaultChannelSize)
@@ -243,6 +246,7 @@ func NewTiKVSender(
 		inCh:         inCh,
 		wg:           new(sync.WaitGroup),
 		tableWaiters: new(sync.Map),
+		skipSplit:    skipSplit,
 	}
 
 	sender.wg.Add(2)
@@ -310,10 +314,16 @@ func (b *tikvSender) splitWorker(ctx context.Context,
 			// hence the checksum would fail.
 			done := b.registerTableIsRestoring(result.TablesToSend)
 			pool.ApplyOnErrorGroup(eg, func() error {
-				err := b.client.SplitRanges(ectx, result.Ranges, result.RewriteRules, b.updateCh, false)
-				if err != nil {
-					log.Error("failed on split range", rtree.ZapRanges(result.Ranges), zap.Error(err))
-					return err
+				if !b.skipSplit {
+					err := b.client.SplitRanges(ectx, result.Ranges, result.RewriteRules, b.updateCh, false)
+					if err != nil {
+						log.Error("failed on split range", rtree.ZapRanges(result.Ranges), zap.Error(err))
+						return err
+					}
+				} else {
+					for range result.Ranges {
+						b.updateCh.Inc()
+					}
 				}
 				next <- drainResultAndDone{
 					result: result,

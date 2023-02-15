@@ -173,6 +173,9 @@ type Client struct {
 
 	// the rewrite mode of the downloaded SST files in TiKV.
 	rewriteMode RewriteMode
+
+	// leaderdown is true means it's just download on leader
+	leaderDownload bool
 }
 
 // NewRestoreClient returns a new RestoreClient.
@@ -1194,7 +1197,7 @@ func (rc *Client) RestoreSSTFiles(
 						zap.Duration("take", time.Since(fileStart)))
 					updateCh.Inc()
 				}()
-				return rc.fileImporter.ImportSSTFiles(ectx, filesReplica, rewriteRules, rc.cipher, rc.dom.Store().GetCodec().GetAPIVersion())
+				return rc.fileImporter.ImportSSTFiles(ectx, filesReplica, rewriteRules, rc.cipher, rc.dom.Store().GetCodec().GetAPIVersion(), rc.leaderDownload)
 			})
 	}
 
@@ -1235,7 +1238,7 @@ func (rc *Client) RestoreRaw(
 		rc.workerPool.ApplyOnErrorGroup(eg,
 			func() error {
 				defer updateCh.Inc()
-				return rc.fileImporter.ImportSSTFiles(ectx, []*backuppb.File{fileReplica}, EmptyRewriteRule(), rc.cipher, rc.backupMeta.ApiVersion)
+				return rc.fileImporter.ImportSSTFiles(ectx, []*backuppb.File{fileReplica}, EmptyRewriteRule(), rc.cipher, rc.backupMeta.ApiVersion, rc.leaderDownload)
 			})
 	}
 	if err := eg.Wait(); err != nil {
@@ -2752,6 +2755,11 @@ func (rc *Client) ResetTiFlashReplicas(ctx context.Context, g glue.Glue, storage
 		}
 		return nil
 	})
+}
+
+// SetLeaderDownload set whether just download on leader.
+func (rc *Client) SetLeaderDownload(leaderDownload bool) {
+	rc.leaderDownload = leaderDownload
 }
 
 // MockClient create a fake client used to test.

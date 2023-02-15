@@ -78,6 +78,7 @@ endif
 # Overwrites the minimum required TiKV version if MIN_TIKV_VERSION is explicitly set.
 ifneq "$(MIN_TIKV_VERSION)" ""
     LDFLAGS += -X "github.com/pingcap/tidb/util/versioninfo.TiKVMinVersion=$(MIN_TIKV_VERSION)"
+    LDFLAGS += -X "github.com/pingcap/tidb/br/pkg/version.TiKVMinVersionSupportRewrite=$(MIN_TIKV_VERSION)"
 endif
 
 # Overwrites the variable REGISTER_METRICS_INIT is not set or is true, means we will register metrics when run metrics.go func init(),
