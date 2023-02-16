@@ -20,3 +20,10 @@ var (
 	ServerlessProjectID string
 	ServerlessClusterID string
 )
+
+// SetServerlessLabels used to set tenantID, projectID, clusterID
+func SetServerlessLabels(serverlessTenantID, serverlessProjectID, serverlessClusterID string) {
+	ServerlessTenantID = serverlessTenantID
+	ServerlessProjectID = serverlessProjectID
+	ServerlessClusterID = serverlessClusterID
+}

@@ -244,9 +244,10 @@ func main() {
 			mainErrHandler(err)
 			keyspaceMeta, err := pdCli.LoadKeyspace(context.TODO(), activateRequest.KeyspaceName)
 			mainErrHandler(err)
-			metrics.ServerlessTenantID = keyspaceMeta.Config["serverless_tenant_id"]
-			metrics.ServerlessProjectID = keyspaceMeta.Config["serverless_project_id"]
-			metrics.ServerlessClusterID = keyspaceMeta.Config["serverless_cluster_id"]
+
+			metrics.SetServerlessLabels(keyspaceMeta.Config["serverless_tenant_id"],
+				keyspaceMeta.Config["serverless_project_id"],
+				keyspaceMeta.Config["serverless_cluster_id"])
 			log.Info("serverless cluster info loaded",
 				zap.String("tenant-id", metrics.ServerlessTenantID),
 				zap.String("project-id", metrics.ServerlessProjectID),

@@ -34,6 +34,7 @@ import (
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/infoschema"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/parser"
@@ -1615,42 +1616,49 @@ func (a *ExecStmt) LogSlowQuery(txnTS uint64, succ bool, hasMoreResults bool) {
 	}
 
 	resultRows := GetResultRowsCount(stmtCtx, a.Plan)
+	keyspaceName := keyspace.GetKeyspaceNameBySettings()
+	keyspaceID := uint32(a.Ctx.GetStore().GetCodec().GetKeyspaceID())
 
 	slowItems := &variable.SlowQueryLogItems{
-		TxnTS:             txnTS,
-		SQL:               sql.String(),
-		Digest:            digest.String(),
-		TimeTotal:         costTime,
-		TimeParse:         sessVars.DurationParse,
-		TimeCompile:       sessVars.DurationCompile,
-		TimeOptimize:      sessVars.DurationOptimization,
-		TimeWaitTS:        sessVars.DurationWaitTS,
-		IndexNames:        indexNames,
-		StatsInfos:        statsInfos,
-		CopTasks:          copTaskInfo,
-		ExecDetail:        execDetail,
-		MemMax:            memMax,
-		DiskMax:           diskMax,
-		Succ:              succ,
-		Plan:              getPlanTree(stmtCtx),
-		PlanDigest:        planDigest.String(),
-		BinaryPlan:        binaryPlan,
-		Prepared:          a.isPreparedStmt,
-		HasMoreResults:    hasMoreResults,
-		PlanFromCache:     sessVars.FoundInPlanCache,
-		PlanFromBinding:   sessVars.FoundInBinding,
-		RewriteInfo:       sessVars.RewritePhaseInfo,
-		KVTotal:           time.Duration(atomic.LoadInt64(&tikvExecDetail.WaitKVRespDuration)),
-		PDTotal:           time.Duration(atomic.LoadInt64(&tikvExecDetail.WaitPDRespDuration)),
-		BackoffTotal:      time.Duration(atomic.LoadInt64(&tikvExecDetail.BackoffDuration)),
-		WriteSQLRespTotal: stmtDetail.WriteSQLRespDuration,
-		ResultRows:        resultRows,
-		ExecRetryCount:    a.retryCount,
-		IsExplicitTxn:     sessVars.TxnCtx.IsExplicit,
-		IsWriteCacheTable: stmtCtx.WaitLockLeaseTime > 0,
-		StatsLoadStatus:   convertStatusIntoString(a.Ctx, stmtCtx.StatsLoadStatus),
-		IsSyncStatsFailed: stmtCtx.IsSyncStatsFailed,
-		Warnings:          collectWarningsForSlowLog(stmtCtx),
+		TxnTS:               txnTS,
+		KeyspaceName:        keyspaceName,
+		KeyspaceID:          keyspaceID,
+		ServerlessTenantID:  metrics.ServerlessTenantID,
+		ServerlessProjectID: metrics.ServerlessProjectID,
+		ServerlessClusterID: metrics.ServerlessClusterID,
+		SQL:                 sql.String(),
+		Digest:              digest.String(),
+		TimeTotal:           costTime,
+		TimeParse:           sessVars.DurationParse,
+		TimeCompile:         sessVars.DurationCompile,
+		TimeOptimize:        sessVars.DurationOptimization,
+		TimeWaitTS:          sessVars.DurationWaitTS,
+		IndexNames:          indexNames,
+		StatsInfos:          statsInfos,
+		CopTasks:            copTaskInfo,
+		ExecDetail:          execDetail,
+		MemMax:              memMax,
+		DiskMax:             diskMax,
+		Succ:                succ,
+		Plan:                getPlanTree(stmtCtx),
+		PlanDigest:          planDigest.String(),
+		BinaryPlan:          binaryPlan,
+		Prepared:            a.isPreparedStmt,
+		HasMoreResults:      hasMoreResults,
+		PlanFromCache:       sessVars.FoundInPlanCache,
+		PlanFromBinding:     sessVars.FoundInBinding,
+		RewriteInfo:         sessVars.RewritePhaseInfo,
+		KVTotal:             time.Duration(atomic.LoadInt64(&tikvExecDetail.WaitKVRespDuration)),
+		PDTotal:             time.Duration(atomic.LoadInt64(&tikvExecDetail.WaitPDRespDuration)),
+		BackoffTotal:        time.Duration(atomic.LoadInt64(&tikvExecDetail.BackoffDuration)),
+		WriteSQLRespTotal:   stmtDetail.WriteSQLRespDuration,
+		ResultRows:          resultRows,
+		ExecRetryCount:      a.retryCount,
+		IsExplicitTxn:       sessVars.TxnCtx.IsExplicit,
+		IsWriteCacheTable:   stmtCtx.WaitLockLeaseTime > 0,
+		StatsLoadStatus:     convertStatusIntoString(a.Ctx, stmtCtx.StatsLoadStatus),
+		IsSyncStatsFailed:   stmtCtx.IsSyncStatsFailed,
+		Warnings:            collectWarningsForSlowLog(stmtCtx),
 	}
 	failpoint.Inject("assertSyncStatsFailed", func(val failpoint.Value) {
 		if val.(bool) {
