@@ -252,6 +252,12 @@ func (cfg *BackupConfig) ParseFromFlags(flags *pflag.FlagSet) error {
 		return errors.Trace(err)
 	}
 
+	cfg.KeyspaceName, err = flags.GetString(flagKeyspaceName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	InitMetrics(cfg.PD, cfg.KeyspaceName)
+
 	return nil
 }
 

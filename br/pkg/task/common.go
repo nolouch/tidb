@@ -28,8 +28,15 @@ import (
 	"github.com/pingcap/tidb/br/pkg/metautil"
 	"github.com/pingcap/tidb/br/pkg/storage"
 	"github.com/pingcap/tidb/br/pkg/utils"
+	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/infoschema"
+	"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/sessionctx/variable"
+	statshandler "github.com/pingcap/tidb/statistics/handle"
+	"github.com/pingcap/tidb/store/copr"
+	uni_metrics "github.com/pingcap/tidb/store/mockstore/unistore/metrics"
 	filter "github.com/pingcap/tidb/util/table-filter"
+	"github.com/pingcap/tidb/util/topsql/reporter"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	pd "github.com/tikv/pd/client"
@@ -98,6 +105,28 @@ const (
 
 	flagFullBackupType = "type"
 )
+
+var (
+	ExecutorMetricsHandler    func()
+	PlannercoreMetricsHandler func()
+
+	SessionMetricsHandler func()
+)
+
+// RegisterExecutorMetrics is for register executor metrics
+func RegisterExecutorMetrics(f func()) {
+	ExecutorMetricsHandler = f
+}
+
+// RegisterPlannercoreMetrics is for register planner core metrics
+func RegisterPlannercoreMetrics(f func()) {
+	PlannercoreMetricsHandler = f
+}
+
+// RegisterSessionMetrics is for register session metrics
+func RegisterSessionMetrics(f func()) {
+	SessionMetricsHandler = f
+}
 
 // FullBackupType type when doing full backup or restore
 type FullBackupType string
@@ -792,4 +821,50 @@ func progressFileWriterRoutine(ctx context.Context, progress glue.Progress, tota
 			log.Warn("failed to update tmp progress file", zap.Error(err))
 		}
 	}
+}
+
+func InitMetrics(pdAddr []string, keyspaceName string) error {
+	// load keyspace and set metric labels.
+
+	securityOption := pd.SecurityOption{}
+	pdCli, err := pd.NewClient(pdAddr, pd.SecurityOption{
+		CAPath:   securityOption.CAPath,
+		CertPath: securityOption.CertPath,
+		KeyPath:  securityOption.KeyPath,
+	},
+		pd.WithCustomTimeoutOption(10*time.Second),
+	)
+	if err != nil {
+		return err
+	}
+	log.Info("serverless cluster info loading...")
+	keyspaceMeta, err := pdCli.LoadKeyspace(context.TODO(), keyspaceName)
+	if err != nil {
+		return err
+	}
+	metrics.SetServerlessLabels(keyspaceMeta.Config["serverless_tenant_id"],
+		keyspaceMeta.Config["serverless_project_id"],
+		keyspaceMeta.Config["serverless_cluster_id"])
+
+	log.Info("serverless cluster info loaded",
+		zap.Any("labels", metrics.ServerlessLabels),
+	)
+	pdCli.Close()
+
+	metrics.DefineMetrics()
+	metrics.RegisterMetrics()
+
+	copr.InitMetricsVars()
+	ExecutorMetricsHandler()
+	infoschema.InitMetricsVars()
+	PlannercoreMetricsHandler()
+
+	SessionMetricsHandler()
+	statshandler.InitMetricsVars()
+	reporter.InitMetricsVars()
+
+	if config.GetGlobalConfig().Store == "unistore" {
+		uni_metrics.RegisterMetrics()
+	}
+	return nil
 }

@@ -35,20 +35,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	stmtNodeCounterUse       = metrics.StmtNodeCounter.WithLabelValues("Use")
-	stmtNodeCounterShow      = metrics.StmtNodeCounter.WithLabelValues("Show")
-	stmtNodeCounterBegin     = metrics.StmtNodeCounter.WithLabelValues("Begin")
-	stmtNodeCounterCommit    = metrics.StmtNodeCounter.WithLabelValues("Commit")
-	stmtNodeCounterRollback  = metrics.StmtNodeCounter.WithLabelValues("Rollback")
-	stmtNodeCounterInsert    = metrics.StmtNodeCounter.WithLabelValues("Insert")
-	stmtNodeCounterReplace   = metrics.StmtNodeCounter.WithLabelValues("Replace")
-	stmtNodeCounterDelete    = metrics.StmtNodeCounter.WithLabelValues("Delete")
-	stmtNodeCounterUpdate    = metrics.StmtNodeCounter.WithLabelValues("Update")
-	stmtNodeCounterSelect    = metrics.StmtNodeCounter.WithLabelValues("Select")
-	stmtNodeCounterSavepoint = metrics.StmtNodeCounter.WithLabelValues("Savepoint")
-)
-
 // Compiler compiles an ast.StmtNode to a physical plan.
 type Compiler struct {
 	Ctx sessionctx.Context

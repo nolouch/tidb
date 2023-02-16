@@ -18,18 +18,6 @@ import (
 	"fmt"
 	"sort"
 	"sync"
-
-	"github.com/pingcap/tidb/metrics"
-)
-
-var (
-	getLatestCounter  = metrics.InfoCacheCounters.WithLabelValues("get", "latest")
-	getTSCounter      = metrics.InfoCacheCounters.WithLabelValues("get", "ts")
-	getVersionCounter = metrics.InfoCacheCounters.WithLabelValues("get", "version")
-
-	hitLatestCounter  = metrics.InfoCacheCounters.WithLabelValues("hit", "latest")
-	hitTSCounter      = metrics.InfoCacheCounters.WithLabelValues("hit", "ts")
-	hitVersionCounter = metrics.InfoCacheCounters.WithLabelValues("hit", "version")
 )
 
 // InfoCache handles information schema, including getting and setting.

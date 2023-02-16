@@ -20,7 +20,15 @@ import (
 
 var (
 	// SmallTxnWriteDuration uses to collect small transaction write duration.
-	SmallTxnWriteDuration = prometheus.NewHistogram(
+	SmallTxnWriteDuration prometheus.Histogram
+	// TxnWriteThroughput uses to collect transaction write throughput which transaction is not small.
+	TxnWriteThroughput prometheus.Histogram
+)
+
+// DefineSliMetrics defines sli metrics.
+func DefineSliMetrics() {
+	// SmallTxnWriteDuration uses to collect small transaction write duration.
+	SmallTxnWriteDuration = NewHistogram(
 		prometheus.HistogramOpts{
 			Namespace: "tidb",
 			Subsystem: "sli",
@@ -30,7 +38,7 @@ var (
 		})
 
 	// TxnWriteThroughput uses to collect transaction write throughput which transaction is not small.
-	TxnWriteThroughput = prometheus.NewHistogram(
+	TxnWriteThroughput = NewHistogram(
 		prometheus.HistogramOpts{
 			Namespace: "tidb",
 			Subsystem: "sli",
@@ -38,4 +46,4 @@ var (
 			Help:      "Bucketed histogram of transaction write throughput (bytes/second).",
 			Buckets:   prometheus.ExponentialBuckets(64, 1.3, 40), // 64 bytes/s ~ 2.3MB/s
 		})
-)
+}

@@ -27,11 +27,14 @@ func TestMetrics(_ *testing.T) {
 	PanicCounter.WithLabelValues(LabelDomain).Inc()
 }
 
-func TestRegisterMetrics(_ *testing.T) {
+func TestRegisterMetrics(t *testing.T) {
 	// Make sure it doesn't panic.
-	RegisterMetrics()
-}
+	IsRegisterMetricsAtInit = false
+	require.NotPanics(t, func() { InitRegisterMetrics() })
 
+	IsRegisterMetricsAtInit = true
+	require.PanicsWithError(t, "duplicate metrics collector registration attempted", func() { InitRegisterMetrics() })
+}
 func TestRetLabel(t *testing.T) {
 	require.Equal(t, opSucc, RetLabel(nil))
 	require.Equal(t, opFailed, RetLabel(errors.New("test error")))

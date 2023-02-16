@@ -381,6 +381,7 @@ func (cfg *RestoreConfig) ParseFromFlags(flags *pflag.FlagSet) error {
 		// todo: check lower/upper bound
 	}
 
+	InitMetrics(cfg.PD, cfg.KeyspaceName)
 	return nil
 }
 

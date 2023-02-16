@@ -15,6 +15,7 @@
 package metrics
 
 import (
+	"strconv"
 	"sync"
 
 	"github.com/pingcap/tidb/util/logutil"
@@ -25,6 +26,9 @@ import (
 )
 
 var (
+	// EnvRegisterMetricsAtInit flags that register metrics on init
+	EnvRegisterMetricsAtInit = "true"
+
 	// PanicCounter measures the count of panics.
 	PanicCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -42,6 +46,15 @@ var (
 			Name:      "memory_usage",
 			Help:      "Memory Usage",
 		}, []string{LblModule, LblType})
+
+	// IsRegisterMetricsAtInit default value is true, if we want to use tidb standby mode, it need to set system env EnvRegisterMetricsAtInit=false
+	IsRegisterMetricsAtInit = getEnvIsMetricsRegisterAtInit()
+
+	// InitializedCollector used to mark the metics collector are initialized or not
+	InitializedCollector = false
+
+	// Execute the default metrics initialization process
+	_ = InitRegisterMetrics()
 )
 
 // metrics labels.
@@ -79,11 +92,62 @@ func RetLabel(err error) string {
 	return opFailed
 }
 
+func getEnvIsMetricsRegisterAtInit() bool {
+	doMustRegister, err := strconv.ParseBool(EnvRegisterMetricsAtInit)
+	if err != nil {
+		logutil.BgLogger().Panic("getEnvIsMetricsRegisterAtInit strconv.ParseBool error.", zap.String("EnvRegisterMetricsAtInit", EnvRegisterMetricsAtInit), zap.Error(err))
+	}
+	logutil.BgLogger().Info("getEnvIsMetricsRegisterAtInit", zap.Bool("doMustRegister", doMustRegister))
+	return doMustRegister
+}
+
+// RegisterCollector will register metrics collector in prometheus.
+func RegisterCollector() {
+	// use new go collector
+	if !InitializedCollector {
+		prometheus.DefaultRegisterer.Unregister(prometheus.NewGoCollector())
+		prometheus.MustRegister(collectors.NewGoCollector(collectors.WithGoCollections(collectors.GoRuntimeMetricsCollection | collectors.GoRuntimeMemStatsCollection)))
+		InitializedCollector = true
+	}
+}
+
+// InitRegisterMetrics registers the metrics which are ONLY used in TiDB server.
+func InitRegisterMetrics() bool {
+	// use new go collector
+	RegisterCollector()
+
+	DefineMetrics()
+	// If it's a `make gotest` or run a `go test` it's need to register at init, the `IsRegisterMetricsAtInit` is true.
+	// If it's a real TiDB server and run in serverless cluster, it need to set the system env `export REGISTER_METRICS_INIT=false`,
+	// and the metrics will register later when exit serverless standby mode.
+	if IsRegisterMetricsAtInit {
+		logutil.BgLogger().Info("register metrics when metrics init.")
+		RegisterMetrics()
+	}
+	return true
+}
+
+// DefineMetrics is used to define metrics
+func DefineMetrics() {
+	DefineBindInfoMetrics()
+	DefineDDLMetrics()
+	DefineDistSQLMetrics()
+	DefineDomainMetrics()
+	DefineExecutorMetrics()
+	DefineGCWorkerMetrics()
+	DefineLogBackupMetrics()
+	DefineMetaMetrics()
+	DefineOwnerMetrics()
+	DefineServerMetrics()
+	DefineSessionMetrics()
+	DefineSliMetrics()
+	DefineStatsMetrics()
+	DefineTopSQLMetrics()
+}
+
 // RegisterMetrics registers the metrics which are ONLY used in TiDB server.
 func RegisterMetrics() {
 	// use new go collector
-	prometheus.DefaultRegisterer.Unregister(prometheus.NewGoCollector())
-	prometheus.MustRegister(collectors.NewGoCollector(collectors.WithGoCollections(collectors.GoRuntimeMetricsCollection | collectors.GoRuntimeMemStatsCollection)))
 
 	prometheus.MustRegister(AutoAnalyzeCounter)
 	prometheus.MustRegister(AutoAnalyzeHistogram)
