@@ -336,7 +336,7 @@ func (txn *tikvTxn) SetOption(opt int, val interface{}) {
 	case kv.TxnSource:
 		txn.KVTxn.SetTxnSource(val.(uint64))
 	case kv.ResourceGroupName:
-		txn.KVTxn.SetResourceGroupName(val.(string))
+		//txn.KVTxn.SetResourceGroupName(val.(string))
 	}
 }
 

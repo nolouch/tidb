@@ -239,8 +239,12 @@ func main() {
 	mainErrHandler(err)
 
 	// load keyspace and set metric labels.
-	_, err = getServerlessInfo()
+	keyspaceMeta, err := getServerlessInfo()
 	mainErrHandler(err)
+
+	// RU limit.
+	config.DefaultResourceGroup = keyspaceMeta.Config["serverless_cluster_id"]
+	tikv.EnableResourceControl()
 
 	registerMetrics()
 	if variable.EnableTmpStorageOnOOM.Load() {

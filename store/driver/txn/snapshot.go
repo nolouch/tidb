@@ -136,7 +136,7 @@ func (s *tikvSnapshot) SetOption(opt int, val interface{}) {
 			s.KVSnapshot.SetScanBatchSize(size)
 		}
 	case kv.ResourceGroupName:
-		s.KVSnapshot.SetResourceGroupName(val.(string))
+		//s.KVSnapshot.SetResourceGroupName(val.(string))
 	}
 }
 
