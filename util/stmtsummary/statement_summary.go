@@ -246,6 +246,13 @@ type StmtExecInfo struct {
 	ResultRows      int64
 	TiKVExecDetails util.ExecDetails
 	Prepared        bool
+
+	// serverless related fields
+	KeyspaceName        string
+	KeyspaceID          uint32
+	ServerlessTenantID  string
+	ServerlessProjectID string
+	ServerlessClusterID string
 }
 
 // newStmtSummaryByDigestMap creates an empty stmtSummaryByDigestMap.

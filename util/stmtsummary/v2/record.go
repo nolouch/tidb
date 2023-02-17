@@ -144,6 +144,13 @@ type StmtRecord struct {
 	// Pessimistic execution retry information.
 	ExecRetryCount uint          `json:"exec_retry_count"`
 	ExecRetryTime  time.Duration `json:"exec_retry_time"`
+
+	// serverless related fields
+	KeyspaceName        string `json:"keyspace_name"`
+	KeyspaceID          uint32 `json:"keyspace_id"`
+	ServerlessTenantID  string `json:"serverless_tenant_id"`
+	ServerlessProjectID string `json:"serverless_project_id"`
+	ServerlessClusterID string `json:"serverless_cluster_id"`
 }
 
 // NewStmtRecord creates a new StmtRecord from StmtExecInfo.
@@ -209,6 +216,12 @@ func NewStmtRecord(info *stmtsummary.StmtExecInfo) *StmtRecord {
 		Prepared:         info.Prepared,
 		FirstSeen:        info.StartTime,
 		LastSeen:         info.StartTime,
+
+		KeyspaceName:        info.KeyspaceName,
+		KeyspaceID:          info.KeyspaceID,
+		ServerlessTenantID:  info.ServerlessTenantID,
+		ServerlessProjectID: info.ServerlessProjectID,
+		ServerlessClusterID: info.ServerlessClusterID,
 	}
 }
 

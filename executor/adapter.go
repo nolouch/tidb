@@ -1831,6 +1831,8 @@ func (a *ExecStmt) SummaryStmt(succ bool) {
 	}
 
 	resultRows := GetResultRowsCount(stmtCtx, a.Plan)
+	keyspaceName := keyspace.GetKeyspaceNameBySettings()
+	keyspaceID := uint32(a.Ctx.GetStore().GetCodec().GetKeyspaceID())
 
 	stmtExecInfo := &stmtsummary.StmtExecInfo{
 		SchemaName:          strings.ToLower(sessVars.CurrentDB),
@@ -1864,6 +1866,11 @@ func (a *ExecStmt) SummaryStmt(succ bool) {
 		ResultRows:          resultRows,
 		TiKVExecDetails:     tikvExecDetail,
 		Prepared:            a.isPreparedStmt,
+		KeyspaceName:        keyspaceName,
+		KeyspaceID:          keyspaceID,
+		ServerlessTenantID:  metrics.ServerlessTenantID,
+		ServerlessClusterID: metrics.ServerlessClusterID,
+		ServerlessProjectID: metrics.ServerlessProjectID,
 	}
 	if a.retryCount > 0 {
 		stmtExecInfo.ExecRetryTime = costTime - sessVars.DurationParse - sessVars.DurationCompile - time.Since(a.retryStartTime)
