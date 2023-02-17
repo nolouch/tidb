@@ -32,6 +32,7 @@ ENV GOPRIVATE=github.com/tidbcloud
 
 # Overwrite metrics.EnvRegisterMetricsAtInit when we build tidb-server and br cmd
 ENV REGISTER_METRICS_INIT=false
+ENV MIN_TIKV_VERSION=6.1.0
 
 RUN GO111MODULE=on go mod download
 
