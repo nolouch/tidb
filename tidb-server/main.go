@@ -303,9 +303,6 @@ func main() {
 		logutil.BgLogger().Warn("failed to setup global resource controller", zap.Error(err))
 	}
 
-	err = startRateLimit()
-	terror.MustNil(err)
-
 	// Register error API is not thread-safe, the caller MUST NOT register errors after initialization.
 	// To prevent misuse, set a flag to indicate that register new error will panic immediately.
 	// For regression of issue like https://github.com/pingcap/tidb/issues/28190
@@ -371,6 +368,7 @@ func getServerlessInfo() (*keyspacepb.KeyspaceMeta, error) {
 		return nil, err
 	}
 
+	log.Info("start rate limit")
 	keyspace.Limiter.StartAdjustLimit(etcdAddrs, keyspaceMeta.Id)
 
 	metrics.SetServerlessLabels(keyspaceMeta.Config["serverless_tenant_id"],
@@ -447,36 +445,6 @@ func registerStores() error {
 	err = kvstore.Register("unistore", mockstore.EmbedUnistoreDriver{})
 	if err != nil {
 		return err
-	}
-	return nil
-}
-
-func startRateLimit() error {
-	// load keyspace and set metric labels.
-	cfg := config.GetGlobalConfig()
-	if strings.ToLower(cfg.Store) == "tikv" {
-		etcdAddrs, _, _, err := tikvconfig.ParsePath("tikv://" + cfg.Path)
-		if err != nil {
-			return err
-		}
-		pdCli, err := pd.NewClient(etcdAddrs, pd.SecurityOption{
-			CAPath:   cfg.Security.ClusterSSLCA,
-			CertPath: cfg.Security.ClusterSSLCert,
-			KeyPath:  cfg.Security.ClusterSSLKey,
-		},
-			pd.WithCustomTimeoutOption(time.Duration(cfg.PDClient.PDServerTimeout)*time.Second),
-		)
-		if err != nil {
-			return err
-		}
-		defer pdCli.Close()
-
-		log.Info("start rate limit")
-		keyspaceMeta, err := pdCli.LoadKeyspace(context.TODO(), cfg.KeyspaceName)
-		if err != nil {
-			return err
-		}
-		keyspace.Limiter.StartAdjustLimit(etcdAddrs, keyspaceMeta.Id)
 	}
 	return nil
 }
