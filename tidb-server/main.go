@@ -242,9 +242,14 @@ func main() {
 	keyspaceMeta, err := getServerlessInfo()
 	mainErrHandler(err)
 
-	// RU limit.
-	config.DefaultResourceGroup = keyspaceMeta.Config["serverless_cluster_id"]
-	tikv.EnableResourceControl()
+	// Setup RU Limit when keyspaceMeta is non-empty.
+	if keyspaceMeta != nil && keyspaceMeta.Config != nil {
+		if clusterID, ok := keyspaceMeta.Config["serverless_cluster_id"]; ok {
+			log.Info("setting up serverless resource control", zap.String("clusterID", clusterID))
+			config.DefaultResourceGroup = clusterID
+			tikv.EnableResourceControl()
+		}
+	}
 
 	registerMetrics()
 	if variable.EnableTmpStorageOnOOM.Load() {
