@@ -179,6 +179,18 @@ func IsInvisibleSysVar(varNameInLower string) bool {
 		variable.TiDBRestrictedReadOnly,
 		variable.TiDBTopSQLMaxTimeSeriesCount,
 		variable.TiDBTopSQLMaxMetaCount,
+
+		variable.TiDBEnableStmtSummary,
+		variable.TiDBStmtSummaryInternalQuery,
+		variable.TiDBStmtSummaryRefreshInterval,
+		variable.TiDBStmtSummaryHistorySize,
+		variable.TiDBStmtSummaryMaxStmtCount,
+		variable.TiDBStmtSummaryMaxSQLLength,
+		variable.TiDBStmtSummaryEnablePersistent,
+		variable.TiDBStmtSummaryFileMaxSize,
+		variable.TiDBStmtSummaryFileMaxDays,
+		variable.TiDBStmtSummaryFileMaxBackups,
+		variable.TiDBStmtSummaryFilename,
 		tidbAuditRetractLog:
 		return true
 	}
