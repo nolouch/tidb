@@ -313,6 +313,8 @@ type Config struct {
 	TiDBEnableExitCheck bool `toml:"tidb-enable-exit-check" json:"tidb-enable-exit-check"`
 	// SkipGCDropTable is used to control whether to skip keyspace gc drop table range in gc worker.
 	SkipGCDropTable bool `toml:"skip-gc-drop-table" json:"skip-gc-drop-table"`
+	// SkipRedoDeleteRangeGC is used to control whether to skip redo delege range gc in gc worker.
+	SkipRedoDeleteRangeGC bool `toml:"skip-gc-delete-range" json:"skip-gc-delete-range"`
 	// Ratelimit is used to control the rate limit of the tenant requests.
 	Ratelimit RatelimitConfig `toml:"ratelimit" json:"ratelimit"`
 	// BootstrapControl is used to control serverless bootstrap procedure.
@@ -1039,7 +1041,8 @@ var defaultConf = Config{
 	StoresRefreshInterval:                defTiKVCfg.StoresRefreshInterval,
 	EnableForwarding:                     defTiKVCfg.EnableForwarding,
 	NewCollationsEnabledOnFirstBootstrap: true,
-	SkipGCDropTable:                      true,
+	SkipGCDropTable:                      false,
+	SkipRedoDeleteRangeGC:                true,
 	EnableGlobalKill:                     true,
 	TrxSummary:                           DefaultTrxSummary(),
 	DisaggregatedTiFlash:                 false,

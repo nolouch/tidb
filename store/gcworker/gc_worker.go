@@ -34,6 +34,7 @@ import (
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	"github.com/pingcap/kvproto/pkg/metapb"
 	"github.com/pingcap/tidb/br/pkg/utils"
+	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/ddl/label"
 	"github.com/pingcap/tidb/ddl/placement"
@@ -368,13 +369,16 @@ func (w *GCWorker) runKeyspaceDeleteRange(ctx context.Context, concurrency int) 
 	}
 
 	// Do redoDeleteRanges.
-	err = w.redoDeleteRanges(ctx, safePoint, concurrency)
-	if err != nil {
-		logutil.Logger(ctx).Error("[gc worker] redo-delete range returns an error",
-			zap.String("uuid", w.uuid),
-			zap.Error(err))
-		metrics.GCJobFailureCounter.WithLabelValues("redo_delete_range").Inc()
-		return errors.Trace(err)
+	globalCfg := config.GetGlobalConfig()
+	if !globalCfg.SkipRedoDeleteRangeGC {
+		err = w.redoDeleteRanges(ctx, safePoint, concurrency)
+		if err != nil {
+			logutil.Logger(ctx).Error("[gc worker] redo-delete range returns an error",
+				zap.String("uuid", w.uuid),
+				zap.Error(err))
+			metrics.GCJobFailureCounter.WithLabelValues("redo_delete_range").Inc()
+			return errors.Trace(err)
+		}
 	}
 
 	return nil
