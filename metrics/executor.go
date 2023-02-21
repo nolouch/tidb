@@ -54,7 +54,7 @@ func DefineExecutorMetrics() {
 			Subsystem: "executor",
 			Name:      "statement_total",
 			Help:      "Counter of StmtNode.",
-		}, []string{LblType})
+		}, []string{LblType, LblDb})
 
 	// DbStmtNodeCounter records the number of statement with the same type and db.
 	DbStmtNodeCounter = NewCounterVec(

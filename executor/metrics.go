@@ -42,18 +42,6 @@ var (
 	sessionExecuteRunDurationGeneral  prometheus.Observer
 	totalTiFlashQuerySuccCounter      prometheus.Counter
 
-	stmtNodeCounterUse       prometheus.Counter
-	stmtNodeCounterShow      prometheus.Counter
-	stmtNodeCounterBegin     prometheus.Counter
-	stmtNodeCounterCommit    prometheus.Counter
-	stmtNodeCounterRollback  prometheus.Counter
-	stmtNodeCounterInsert    prometheus.Counter
-	stmtNodeCounterReplace   prometheus.Counter
-	stmtNodeCounterDelete    prometheus.Counter
-	stmtNodeCounterUpdate    prometheus.Counter
-	stmtNodeCounterSelect    prometheus.Counter
-	stmtNodeCounterSavepoint prometheus.Counter
-
 	totalQueryProcHistogramGeneral  prometheus.Observer
 	totalCopProcHistogramGeneral    prometheus.Observer
 	totalCopWaitHistogramGeneral    prometheus.Observer
@@ -131,18 +119,6 @@ func InitMetricsVars() {
 	sessionExecuteRunDurationInternal = metrics.SessionExecuteRunDuration.WithLabelValues(metrics.LblInternal)
 	sessionExecuteRunDurationGeneral = metrics.SessionExecuteRunDuration.WithLabelValues(metrics.LblGeneral)
 	totalTiFlashQuerySuccCounter = metrics.TiFlashQueryTotalCounter.WithLabelValues("", metrics.LblOK)
-
-	stmtNodeCounterUse = metrics.StmtNodeCounter.WithLabelValues("Use")
-	stmtNodeCounterShow = metrics.StmtNodeCounter.WithLabelValues("Show")
-	stmtNodeCounterBegin = metrics.StmtNodeCounter.WithLabelValues("Begin")
-	stmtNodeCounterCommit = metrics.StmtNodeCounter.WithLabelValues("Commit")
-	stmtNodeCounterRollback = metrics.StmtNodeCounter.WithLabelValues("Rollback")
-	stmtNodeCounterInsert = metrics.StmtNodeCounter.WithLabelValues("Insert")
-	stmtNodeCounterReplace = metrics.StmtNodeCounter.WithLabelValues("Replace")
-	stmtNodeCounterDelete = metrics.StmtNodeCounter.WithLabelValues("Delete")
-	stmtNodeCounterUpdate = metrics.StmtNodeCounter.WithLabelValues("Update")
-	stmtNodeCounterSelect = metrics.StmtNodeCounter.WithLabelValues("Select")
-	stmtNodeCounterSavepoint = metrics.StmtNodeCounter.WithLabelValues("Savepoint")
 
 	totalQueryProcHistogramGeneral = metrics.TotalQueryProcHistogram.WithLabelValues(metrics.LblGeneral)
 	totalCopProcHistogramGeneral = metrics.TotalCopProcHistogram.WithLabelValues(metrics.LblGeneral)

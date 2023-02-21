@@ -1109,11 +1109,17 @@ func (cc *clientConn) Run(ctx context.Context) {
 				metrics.CriticalErrorCounter.Add(1)
 				logutil.Logger(ctx).Fatal("critical error, stop the server", zap.Error(err))
 			}
-			var txnMode string
+			var (
+				txnMode string
+				dbName  string
+			)
 			if ctx := cc.getCtx(); ctx != nil {
 				txnMode = ctx.GetSessionVars().GetReadableTxnMode()
+				if config.GetGlobalConfig().Status.RecordDBLabel {
+					dbName = ctx.GetSessionVars().CurrentDB
+				}
 			}
-			metrics.ExecuteErrorCounter.WithLabelValues(metrics.ExecuteErrorToLabel(err)).Inc()
+			metrics.ExecuteErrorCounter.WithLabelValues(metrics.ExecuteErrorToLabel(err), dbName).Inc()
 			if storeerr.ErrLockAcquireFailAndNoWaitSet.Equal(err) {
 				logutil.Logger(ctx).Debug("Expected error for FOR UPDATE NOWAIT", zap.Error(err))
 			} else {
@@ -1205,40 +1211,21 @@ func (cc *clientConn) addMetrics(cmd byte, startTime time.Time, err error) {
 	affectedRows := cc.ctx.AffectedRows()
 	cc.ctx.GetTxnWriteThroughputSLI().FinishExecuteStmt(cost, affectedRows, sessionVar.InTxn())
 
+	var dbName string
+	if config.GetGlobalConfig().Status.RecordDBLabel {
+		dbName = sessionVar.CurrentDB
+	}
 	switch sqlType {
-	case "Use":
-		queryDurationHistogramUse.Observe(cost.Seconds())
-	case "Show":
-		queryDurationHistogramShow.Observe(cost.Seconds())
-	case "Begin":
-		queryDurationHistogramBegin.Observe(cost.Seconds())
-	case "Commit":
-		queryDurationHistogramCommit.Observe(cost.Seconds())
-	case "Rollback":
-		queryDurationHistogramRollback.Observe(cost.Seconds())
 	case "Insert":
-		queryDurationHistogramInsert.Observe(cost.Seconds())
 		affectedRowsCounterInsert.Add(float64(affectedRows))
 	case "Replace":
-		queryDurationHistogramReplace.Observe(cost.Seconds())
 		affectedRowsCounterReplace.Add(float64(affectedRows))
 	case "Delete":
-		queryDurationHistogramDelete.Observe(cost.Seconds())
 		affectedRowsCounterDelete.Add(float64(affectedRows))
 	case "Update":
-		queryDurationHistogramUpdate.Observe(cost.Seconds())
 		affectedRowsCounterUpdate.Add(float64(affectedRows))
-	case "Select":
-		queryDurationHistogramSelect.Observe(cost.Seconds())
-	case "Execute":
-		queryDurationHistogramExecute.Observe(cost.Seconds())
-	case "Set":
-		queryDurationHistogramSet.Observe(cost.Seconds())
-	case metrics.LblGeneral:
-		queryDurationHistogramGeneral.Observe(cost.Seconds())
-	default:
-		metrics.QueryDurationHistogram.WithLabelValues(sqlType).Observe(cost.Seconds())
 	}
+	metrics.QueryDurationHistogram.WithLabelValues(sqlType, dbName).Observe(cost.Seconds())
 }
 
 // dispatch handles client request based on command which is the first byte of the data.

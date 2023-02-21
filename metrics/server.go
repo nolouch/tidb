@@ -89,7 +89,7 @@ func DefineServerMetrics() {
 			Name:      "handle_query_duration_seconds",
 			Help:      "Bucketed histogram of processing time (s) of handled queries.",
 			Buckets:   prometheus.ExponentialBuckets(0.0005, 2, 29), // 0.5ms ~ 1.5days
-		}, []string{LblSQLType})
+		}, []string{LblSQLType, LblDb})
 
 	QueryTotalCounter = NewCounterVec(
 		prometheus.CounterOpts{
@@ -136,7 +136,7 @@ func DefineServerMetrics() {
 			Subsystem: "server",
 			Name:      "execute_error_total",
 			Help:      "Counter of execute errors.",
-		}, []string{LblType})
+		}, []string{LblType, LblDb})
 
 	CriticalErrorCounter = NewCounter(
 		prometheus.CounterOpts{

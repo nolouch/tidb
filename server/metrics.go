@@ -25,20 +25,6 @@ var (
 	queryTotalCountOk  []prometheus.Counter
 	queryTotalCountErr []prometheus.Counter
 
-	queryDurationHistogramUse      prometheus.Observer
-	queryDurationHistogramShow     prometheus.Observer
-	queryDurationHistogramBegin    prometheus.Observer
-	queryDurationHistogramCommit   prometheus.Observer
-	queryDurationHistogramRollback prometheus.Observer
-	queryDurationHistogramInsert   prometheus.Observer
-	queryDurationHistogramReplace  prometheus.Observer
-	queryDurationHistogramDelete   prometheus.Observer
-	queryDurationHistogramUpdate   prometheus.Observer
-	queryDurationHistogramSelect   prometheus.Observer
-	queryDurationHistogramExecute  prometheus.Observer
-	queryDurationHistogramSet      prometheus.Observer
-	queryDurationHistogramGeneral  prometheus.Observer
-
 	disconnectNormal            prometheus.Counter
 	disconnectByClientWithError prometheus.Counter
 	disconnectErrorUndetermined prometheus.Counter
@@ -93,20 +79,6 @@ func InitMetricsVars() {
 		mysql.ComStmtReset:        metrics.QueryTotalCounter.WithLabelValues("StmtReset", "Error"),
 		mysql.ComSetOption:        metrics.QueryTotalCounter.WithLabelValues("SetOption", "Error"),
 	}
-
-	queryDurationHistogramUse = metrics.QueryDurationHistogram.WithLabelValues("Use")
-	queryDurationHistogramShow = metrics.QueryDurationHistogram.WithLabelValues("Show")
-	queryDurationHistogramBegin = metrics.QueryDurationHistogram.WithLabelValues("Begin")
-	queryDurationHistogramCommit = metrics.QueryDurationHistogram.WithLabelValues("Commit")
-	queryDurationHistogramRollback = metrics.QueryDurationHistogram.WithLabelValues("Rollback")
-	queryDurationHistogramInsert = metrics.QueryDurationHistogram.WithLabelValues("Insert")
-	queryDurationHistogramReplace = metrics.QueryDurationHistogram.WithLabelValues("Replace")
-	queryDurationHistogramDelete = metrics.QueryDurationHistogram.WithLabelValues("Delete")
-	queryDurationHistogramUpdate = metrics.QueryDurationHistogram.WithLabelValues("Update")
-	queryDurationHistogramSelect = metrics.QueryDurationHistogram.WithLabelValues("Select")
-	queryDurationHistogramExecute = metrics.QueryDurationHistogram.WithLabelValues("Execute")
-	queryDurationHistogramSet = metrics.QueryDurationHistogram.WithLabelValues("Set")
-	queryDurationHistogramGeneral = metrics.QueryDurationHistogram.WithLabelValues(metrics.LblGeneral)
 
 	disconnectNormal = metrics.DisconnectionCounter.WithLabelValues(metrics.LblOK)
 	disconnectByClientWithError = metrics.DisconnectionCounter.WithLabelValues(metrics.LblError)
