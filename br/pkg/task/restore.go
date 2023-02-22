@@ -26,6 +26,7 @@ import (
 	"github.com/pingcap/tidb/br/pkg/utils"
 	"github.com/pingcap/tidb/br/pkg/version"
 	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/util"
 	"github.com/pingcap/tidb/util/mathutil"
 	"github.com/spf13/cobra"
@@ -441,6 +442,7 @@ func configureRestoreClient(ctx context.Context, client *restore.Client, cfg *Re
 	}
 
 	client.SetLeaderDownload(cfg.LeaderDownload)
+	client.SetKeyspaceName(cfg.KeyspaceName)
 
 	client.SetSwitchModeInterval(cfg.SwitchModeInterval)
 	client.SetBatchDdlSize(cfg.DdlBatchSize)
@@ -769,7 +771,9 @@ func runRestore(c context.Context, g glue.Glue, cmdName string, cfg *RestoreConf
 
 	// Do not reset timestamp if we are doing incremental restore, because
 	// we are not allowed to decrease timestamp.
-	if !client.IsIncremental() {
+	// It's also skipped if a specific keyspace to restore is given, to minimize the impact
+	// of other keyspaces.
+	if !client.IsIncremental() && keyspace.IsKeyspaceNameEmpty(cfg.KeyspaceName) {
 		if err = client.ResetTS(ctx, mgr.PdController); err != nil {
 			log.Error("reset pd TS failed", zap.Error(err))
 			return errors.Trace(err)
@@ -908,7 +912,9 @@ func filterRestoreFiles(
 // restorePreWork executes some prepare work before restore.
 // TODO make this function returns a restore post work.
 func restorePreWork(ctx context.Context, client *restore.Client, mgr *conn.Mgr, switchToImport bool) (pdutil.UndoFunc, error) {
-	if client.IsOnline() {
+	// Do not remove scheduler or switch TiKV to import mode
+	// if using online restore or if keyspace is set.
+	if client.IsOnline() || client.IsKeyspaceMode() {
 		return pdutil.Nop, nil
 	}
 
@@ -929,7 +935,7 @@ func restorePostWork(
 		log.Warn("context canceled, try shutdown")
 		ctx = context.Background()
 	}
-	if client.IsOnline() {
+	if client.IsOnline() || client.IsKeyspaceMode() {
 		return
 	}
 	if err := client.SwitchToNormalMode(ctx); err != nil {

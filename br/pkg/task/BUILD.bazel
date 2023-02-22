@@ -43,6 +43,7 @@ go_library(
         "//config",
         "//ddl",
         "//infoschema",
+        "//keyspace",
         "//kv",
         "//metrics",
         "//parser/model",

@@ -44,6 +44,7 @@ import (
 	"github.com/pingcap/tidb/config"
 	ddlutil "github.com/pingcap/tidb/ddl/util"
 	"github.com/pingcap/tidb/domain"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta"
 	"github.com/pingcap/tidb/parser/model"
@@ -176,6 +177,9 @@ type Client struct {
 
 	// leaderdown is true means it's just download on leader
 	leaderDownload bool
+
+	// Target keyspace's name for the data restoration.
+	keyspaceName string
 }
 
 // NewRestoreClient returns a new RestoreClient.
@@ -262,6 +266,11 @@ func (rc *Client) allocTableIDs(ctx context.Context, tables []*metautil.Table) e
 
 // SetPlacementPolicyMode to policy mode.
 func (rc *Client) SetPlacementPolicyMode(withPlacementPolicy string) {
+	if rc.IsKeyspaceMode() {
+		log.Info("ignore placement policy when keyspaceName is set", zap.String("mode", rc.policyMode))
+		rc.policyMode = ignorePlacementPolicyMode
+		return
+	}
 	switch strings.ToUpper(withPlacementPolicy) {
 	case strictPlacementPolicyMode:
 		rc.policyMode = strictPlacementPolicyMode
@@ -1566,8 +1575,10 @@ func (rc *Client) ResetRestoreLabels(ctx context.Context) error {
 }
 
 // SetupPlacementRules sets rules for the tables' regions.
+// This is only performed when using Online Restore mode with at least one restore stores.
+// This is also skipped when keyspaceName is set.
 func (rc *Client) SetupPlacementRules(ctx context.Context, tables []*model.TableInfo) error {
-	if !rc.isOnline || len(rc.restoreStores) == 0 {
+	if !rc.isOnline || len(rc.restoreStores) == 0 || rc.IsKeyspaceMode() {
 		return nil
 	}
 	log.Info("start setting placement rules")
@@ -1597,7 +1608,7 @@ func (rc *Client) SetupPlacementRules(ctx context.Context, tables []*model.Table
 
 // WaitPlacementSchedule waits PD to move tables to restore stores.
 func (rc *Client) WaitPlacementSchedule(ctx context.Context, tables []*model.TableInfo) error {
-	if !rc.isOnline || len(rc.restoreStores) == 0 {
+	if !rc.isOnline || len(rc.restoreStores) == 0 || rc.IsKeyspaceMode() {
 		return nil
 	}
 	log.Info("start waiting placement schedule")
@@ -1657,7 +1668,7 @@ func (rc *Client) checkRange(ctx context.Context, start, end []byte) (bool, stri
 
 // ResetPlacementRules removes placement rules for tables.
 func (rc *Client) ResetPlacementRules(ctx context.Context, tables []*model.TableInfo) error {
-	if !rc.isOnline || len(rc.restoreStores) == 0 {
+	if !rc.isOnline || len(rc.restoreStores) == 0 || rc.IsKeyspaceMode() {
 		return nil
 	}
 	log.Info("start reseting placement rules")
@@ -2760,6 +2771,16 @@ func (rc *Client) ResetTiFlashReplicas(ctx context.Context, g glue.Glue, storage
 // SetLeaderDownload set whether just download on leader.
 func (rc *Client) SetLeaderDownload(leaderDownload bool) {
 	rc.leaderDownload = leaderDownload
+}
+
+// SetKeyspaceName set the keyspace name for the restore client.
+func (rc *Client) SetKeyspaceName(keyspaceName string) {
+	rc.keyspaceName = keyspaceName
+}
+
+// IsKeyspaceMode indicates whether BR is restoring a specific keyspace's data.
+func (rc *Client) IsKeyspaceMode() bool {
+	return !keyspace.IsKeyspaceNameEmpty(rc.keyspaceName)
 }
 
 // MockClient create a fake client used to test.

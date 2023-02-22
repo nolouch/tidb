@@ -48,6 +48,7 @@ go_library(
         "//ddl",
         "//ddl/util",
         "//domain",
+        "//keyspace",
         "//kv",
         "//meta",
         "//parser/model",
