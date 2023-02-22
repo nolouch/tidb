@@ -15,10 +15,12 @@
 package placement
 
 import (
+	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/pingcap/tidb/util/codec"
 	"gopkg.in/yaml.v2"
 )
 
@@ -70,6 +72,41 @@ type TiFlashRule struct {
 	Constraints    Constraints  `json:"label_constraints,omitempty"`
 	LocationLabels []string     `json:"location_labels,omitempty"`
 	IsolationLevel string       `json:"isolation_level,omitempty"`
+}
+
+// TiFlashRawRule represents the raw placement rule for TiFlash.
+// It could not be submitted to PD directly. The user could set the
+// field without acknowledging the encoding of the PD rule.
+// Call Build() to get the TiFlashRule.
+type TiFlashRawRule struct {
+	GroupID        string
+	ID             string
+	Index          int
+	Override       bool
+	StartKey       []byte
+	EndKey         []byte
+	Role           PeerRoleType
+	Count          int
+	Constraints    Constraints
+	LocationLabels []string
+	IsolationLevel string
+}
+
+// Build builds a TiFlashRule from TiFlashRawRule.
+func (r *TiFlashRawRule) Build() TiFlashRule {
+	return TiFlashRule{
+		GroupID:        r.GroupID,
+		ID:             r.ID,
+		Index:          r.Index,
+		Override:       r.Override,
+		StartKeyHex:    hex.EncodeToString(codec.EncodeBytes(nil, r.StartKey)),
+		EndKeyHex:      hex.EncodeToString(codec.EncodeBytes(nil, r.EndKey)),
+		Role:           r.Role,
+		Count:          r.Count,
+		Constraints:    r.Constraints,
+		LocationLabels: r.LocationLabels,
+		IsolationLevel: r.IsolationLevel,
+	}
 }
 
 // NewRule constructs *Rule from role, count, and constraints. It is here to
