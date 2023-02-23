@@ -247,6 +247,10 @@ func main() {
 		if clusterID, ok := keyspaceMeta.Config["serverless_cluster_id"]; ok {
 			log.Info("setting up serverless resource control", zap.String("clusterID", clusterID))
 			config.DefaultResourceGroup = clusterID
+			// Rewrite the AutoScalerCluster with keyspace meta.
+			config.UpdateGlobal(func(c *config.Config) {
+				c.AutoScalerClusterID = clusterID
+			})
 			tikv.EnableResourceControl()
 		}
 	}
@@ -270,13 +274,10 @@ func main() {
 	mainErrHandler(err)
 
 	if config.GetGlobalConfig().DisaggregatedTiFlash && config.GetGlobalConfig().UseAutoScaler {
-		clusterID, err := config.GetAutoScalerClusterID()
-		mainErrHandler(err)
-
 		err = tiflashcompute.InitGlobalTopoFetcher(
 			config.GetGlobalConfig().TiFlashComputeAutoScalerType,
 			config.GetGlobalConfig().TiFlashComputeAutoScalerAddr,
-			clusterID,
+			config.GetGlobalConfig().AutoScalerClusterID,
 			config.GetGlobalConfig().IsTiFlashComputeFixedPool)
 		mainErrHandler(err)
 	}

@@ -16,7 +16,7 @@ package domain
 
 import (
 	"os"
-  
+
 	keyspace "github.com/pingcap/tidb/keyspace"
 )
 
