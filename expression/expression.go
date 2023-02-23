@@ -1313,8 +1313,15 @@ func canFuncBePushed(sf *ScalarFunction, storeType kv.StoreType) bool {
 	}
 
 	if ret {
-		ret = IsPushDownEnabled(sf.FuncName.L, storeType)
+		funcFullName := fmt.Sprintf("%s.%s", sf.FuncName.L, strings.ToLower(sf.Function.PbCode().String()))
+		// Aside from checking function name is enabled, we also need to check if function full name is enabled.
+		// This can be helpful when user only want to forbid a specific function's push down instead of a whole family of
+		// executors with the same function name. (e.g. block "Cast.CastTimeAsDuration" but not "Cast.CastTimeAsString")
+		// Note: IsPushDownEnabled operates like blacklist, all unrecognized name will return true, so
+		// we can safely append dots in the full name.
+		ret = IsPushDownEnabled(sf.FuncName.L, storeType) && IsPushDownEnabled(funcFullName, storeType)
 	}
+
 	return ret
 }
 
