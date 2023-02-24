@@ -278,6 +278,8 @@ type Config struct {
 	// ActivationTimeout specifies the maximum allowed time for tidb to activate from standby mode.
 	ActivationTimeout uint `toml:"activation-timeout" json:"activation-timeout"`
 
+	EnableRULimit bool `toml:"enable-ru-limit" json:"enable-ru-limit"`
+
 	// The following items are deprecated. We need to keep them here temporarily
 	// to support the upgrade process. They can be removed in future.
 
@@ -1045,6 +1047,7 @@ var defaultConf = Config{
 	NewCollationsEnabledOnFirstBootstrap: true,
 	SkipGCDropTable:                      false,
 	SkipRedoDeleteRangeGC:                true,
+	EnableRULimit:                        false,
 	EnableGlobalKill:                     true,
 	TrxSummary:                           DefaultTrxSummary(),
 	DisaggregatedTiFlash:                 false,
