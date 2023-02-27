@@ -242,20 +242,19 @@ func main() {
 	keyspaceMeta, err := getServerlessInfo()
 	mainErrHandler(err)
 
+	// Setup RU Limit when keyspaceMeta is non-empty.
+	if keyspaceMeta != nil && config.GetGlobalConfig().EnableRULimit {
+		log.Info("setting up serverless resource control", zap.Uint32("keyspaceID", keyspaceMeta.GetId()))
+		config.DefaultResourceGroup = strconv.FormatUint(uint64(keyspaceMeta.GetId()), 10)
+		tikv.EnableResourceControl()
+	}
+
 	if keyspaceMeta != nil && keyspaceMeta.Config != nil {
 		if clusterID, ok := keyspaceMeta.Config["serverless_cluster_id"]; ok {
-			// Setup RU Limit when keyspaceMeta is non-empty.
-			if config.GetGlobalConfig().EnableRULimit {
-				log.Info("setting up serverless resource control", zap.String("clusterID", clusterID))
-				config.DefaultResourceGroup = clusterID
-				tikv.EnableResourceControl()
-			}
-
 			// Rewrite the AutoScalerCluster with keyspace meta.
 			config.UpdateGlobal(func(c *config.Config) {
 				c.AutoScalerClusterID = clusterID
 			})
-
 		}
 	}
 
