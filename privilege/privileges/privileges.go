@@ -511,8 +511,7 @@ func (p *UserPrivileges) ConnectionVerification(user *auth.UserIdentity, authUse
 		hasPassword = "NO"
 	}
 
-	mysqlPriv := p.Handle.Get()
-	record := mysqlPriv.connectionVerification(authUser, authHost)
+	var record *UserRecord = nil
 
 	if SkipWithGrant {
 		p.user = authUser
@@ -525,6 +524,9 @@ func (p *UserPrivileges) ConnectionVerification(user *auth.UserIdentity, authUse
 		}
 		return
 	}
+
+	mysqlPriv := p.Handle.Get()
+	record = mysqlPriv.connectionVerification(authUser, authHost)
 
 	if record == nil {
 		logutil.BgLogger().Error("get authUser privilege record fail",
