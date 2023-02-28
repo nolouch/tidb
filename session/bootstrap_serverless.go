@@ -38,16 +38,19 @@ const (
 	serverlessVersion3 = 3
 	// serverlessVersion4 adds 6.4-6.6 newly added push-down-blacklist items.
 	serverlessVersion4 = 4
+	// serverlessVersion5 changes variable `tidb_stmt_summary_refresh_interval` and `tidb_stmt_summary_max_stmt_count`.
+	serverlessVersion5 = 5
 )
 
 // currentServerlessVersion is defined as a variable, so we can modify its value for testing.
 // please make sure this is the largest version
-var currentServerlessVersion int64 = serverlessVersion4
+var currentServerlessVersion int64 = serverlessVersion5
 
 var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer2,
 	upgradeToServerlessVer3,
 	upgradeToServerlessVer4,
+	upgradeToServerlessVer5,
 }
 
 // updateServerlessVersion updates serverless version variable in mysql.TiDB table.
@@ -175,6 +178,18 @@ func upgradeToServerlessVer4(s Session, ver int64) {
 		" SET name='Cast.CastTimeAsDuration' WHERE name='Cast.ScalarFuncSig_CastTimeAsDuration' and store_type = 'tiflash'")
 }
 
+func upgradeToServerlessVer5(s Session, ver int64) {
+	if ver >= serverlessVersion5 {
+		return
+	}
+	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
+		mysql.SystemDB, mysql.GlobalVariablesTable, variable.TiDBStmtSummaryRefreshInterval, 60, 60,
+	)
+	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
+		mysql.SystemDB, mysql.GlobalVariablesTable, variable.TiDBStmtSummaryMaxStmtCount, 1000, 1000,
+	)
+}
+
 // Serverless bootstrap procedures.
 // NOTE: The following methods will only be executed once at doDMLWorks during TiDB Bootstrap,
 // therefore any modification of it requires addition to the serverless version upgrade function above
@@ -223,6 +238,12 @@ func bootstrapServerlessVariables(s Session) {
 	)
 	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
 		mysql.SystemDB, mysql.GlobalVariablesTable, variable.TiDBRedactLog, variable.On, variable.On,
+	)
+	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
+		mysql.SystemDB, mysql.GlobalVariablesTable, variable.TiDBStmtSummaryRefreshInterval, 60, 60,
+	)
+	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
+		mysql.SystemDB, mysql.GlobalVariablesTable, variable.TiDBStmtSummaryMaxStmtCount, 1000, 1000,
 	)
 }
 
