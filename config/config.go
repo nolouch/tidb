@@ -280,6 +280,8 @@ type Config struct {
 
 	EnableRULimit bool `toml:"enable-ru-limit" json:"enable-ru-limit"`
 
+	EnableAlterUserPessimistic bool `toml:"enable-alter-user-pessimistic" json:"enable-alter-user-pessimistic"`
+
 	// The following items are deprecated. We need to keep them here temporarily
 	// to support the upgrade process. They can be removed in future.
 
@@ -1048,6 +1050,7 @@ var defaultConf = Config{
 	SkipGCDropTable:                      false,
 	SkipRedoDeleteRangeGC:                true,
 	EnableRULimit:                        false,
+	EnableAlterUserPessimistic:           false,
 	EnableGlobalKill:                     true,
 	TrxSummary:                           DefaultTrxSummary(),
 	DisaggregatedTiFlash:                 false,

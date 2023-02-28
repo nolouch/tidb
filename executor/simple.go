@@ -1725,8 +1725,17 @@ func (e *SimpleExec) executeAlterUser(ctx context.Context, s *ast.AlterUserStmt)
 	if err != nil {
 		return err
 	}
-	if _, err := sqlExecutor.ExecuteInternal(ctx, "BEGIN PESSIMISTIC"); err != nil {
-		return err
+
+	if config.GetGlobalConfig().EnableAlterUserPessimistic {
+		logutil.BgLogger().Info("execute `alter user` using PESSIMISTIC transaction")
+		if _, err := sqlExecutor.ExecuteInternal(ctx, "BEGIN PESSIMISTIC"); err != nil {
+			return err
+		}
+	} else {
+		logutil.BgLogger().Info("execute `alter user` using OPTIMISTIC transaction")
+		if _, err := sqlExecutor.ExecuteInternal(ctx, "BEGIN"); err != nil {
+			return err
+		}
 	}
 
 	for _, spec := range s.Specs {
