@@ -302,17 +302,24 @@ func onCreateView(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, _ error) 
 			err = t.DropTableOrView(schemaID, oldTbInfoID)
 			if err != nil {
 				job.State = model.JobStateCancelled
+				logutil.BgLogger().Error("onCreateView DropTableOrView error", zap.Int64("jobID", job.ID), zap.Error(errors.Trace(err)))
 				return ver, errors.Trace(err)
 			}
 			err = t.GetAutoIDAccessors(schemaID, oldTbInfoID).Del()
 			if err != nil {
+				job.State = model.JobStateCancelled
+				logutil.BgLogger().Error("onCreateView GetAutoIDAccessors error", zap.Int64("jobID", job.ID), zap.Error(errors.Trace(err)))
 				return ver, errors.Trace(err)
 			}
 		}
 		err = createTableOrViewWithCheck(t, job, schemaID, tbInfo)
 		if err != nil {
+			job.State = model.JobStateCancelled
+			logutil.BgLogger().Error("onCreateView createTableOrViewWithCheck error", zap.Int64("jobID", job.ID), zap.Error(errors.Trace(err)))
 			return ver, errors.Trace(err)
 		}
+
+		logutil.BgLogger().Info("onCreateView FinishTableJob", zap.Int64("jobID", job.ID))
 		// Finish this job.
 		job.FinishTableJob(model.JobStateDone, model.StatePublic, ver, tbInfo)
 		asyncNotifyEvent(d, &util.Event{Tp: model.ActionCreateView, TableInfo: tbInfo})
