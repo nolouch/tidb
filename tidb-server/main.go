@@ -230,7 +230,7 @@ func main() {
 		mainErrHandler = func(err error) {
 			if err != nil {
 				standby.EndStandby(err)
-				os.Exit(1)
+				terror.MustNil(err)
 			}
 		}
 	}
