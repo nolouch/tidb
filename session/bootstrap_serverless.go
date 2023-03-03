@@ -40,17 +40,20 @@ const (
 	serverlessVersion4 = 4
 	// serverlessVersion5 changes variable `tidb_stmt_summary_refresh_interval` and `tidb_stmt_summary_max_stmt_count`.
 	serverlessVersion5 = 5
+	// serverlessVersion6 fixes few push down executor name.
+	serverlessVersion6 = 6
 )
 
 // currentServerlessVersion is defined as a variable, so we can modify its value for testing.
 // please make sure this is the largest version
-var currentServerlessVersion int64 = serverlessVersion5
+var currentServerlessVersion int64 = serverlessVersion6
 
 var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer2,
 	upgradeToServerlessVer3,
 	upgradeToServerlessVer4,
 	upgradeToServerlessVer5,
+	upgradeToServerlessVer6,
 }
 
 // updateServerlessVersion updates serverless version variable in mysql.TiDB table.
@@ -190,6 +193,26 @@ func upgradeToServerlessVer5(s Session, ver int64) {
 	)
 }
 
+func upgradeToServerlessVer6(s Session, ver int64) {
+	if ver >= serverlessVersion6 {
+		return
+	}
+	mustExecute(s, "UPDATE HIGH_PRIORITY mysql.expr_pushdown_blacklist"+
+		" SET name='regexp_like' WHERE name='RegexpLike' and store_type = 'tikv'")
+
+	mustExecute(s, "UPDATE HIGH_PRIORITY mysql.expr_pushdown_blacklist"+
+		" SET name='regexp_substr' WHERE name='RegexpSubstr' and store_type = 'tikv'")
+
+	mustExecute(s, "UPDATE HIGH_PRIORITY mysql.expr_pushdown_blacklist"+
+		" SET name='regexp_instr' WHERE name='RegexpInStr' and store_type = 'tikv'")
+
+	mustExecute(s, "UPDATE HIGH_PRIORITY mysql.expr_pushdown_blacklist"+
+		" SET name='regexp_replace' WHERE name='RegexpReplace' and store_type = 'tikv'")
+
+	mustExecute(s, "UPDATE HIGH_PRIORITY mysql.expr_pushdown_blacklist"+
+		" SET name='get_format' WHERE name='GetFormat' and store_type = 'tiflash'")
+}
+
 // Serverless bootstrap procedures.
 // NOTE: The following methods will only be executed once at doDMLWorks during TiDB Bootstrap,
 // therefore any modification of it requires addition to the serverless version upgrade function above
@@ -200,13 +223,13 @@ func upgradeToServerlessVer5(s Session, ver int64) {
 func bootstrapServerlessPushdownBlacklist(s Session) {
 	mustExecute(s, "INSERT HIGH_PRIORITY INTO mysql.expr_pushdown_blacklist VALUES "+
 		"('Regexp', 'tikv', 'Compatibility with tikv 6.1'), "+
-		"('RegexpLike', 'tikv', 'Compatibility with tikv 6.1'), "+
-		"('RegexpSubstr', 'tikv', 'Compatibility with tikv 6.1'), "+
-		"('RegexpInStr', 'tikv', 'Compatibility with tikv 6.1'), "+
-		"('RegexpReplace', 'tikv', 'Compatibility with tikv 6.1'), "+
+		"('regexp_like', 'tikv', 'Compatibility with tikv 6.1'), "+
+		"('regexp_substr', 'tikv', 'Compatibility with tikv 6.1'), "+
+		"('regexp_instr', 'tikv', 'Compatibility with tikv 6.1'), "+
+		"('regexp_replace', 'tikv', 'Compatibility with tikv 6.1'), "+
 		"('json_contains','tikv', 'Compatibility with tikv 6.1'), "+
 		"('Hex', 'tiflash', 'Compatibility with tiflash 6.1'), "+
-		"('GetFormat', 'tiflash', 'Compatibility with tiflash 6.1'), "+
+		"('get_format', 'tiflash', 'Compatibility with tiflash 6.1'), "+
 		"('Space', 'tiflash', 'Compatibility with tiflash 6.1'), "+
 		"('Cast.CastTimeAsDuration', 'tiflash', 'Compatibility with tiflash 6.1'), "+
 		"('Reverse', 'tiflash', 'Compatibility with tiflash 6.1'), "+
