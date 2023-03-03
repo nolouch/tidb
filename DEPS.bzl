@@ -938,8 +938,8 @@ def go_deps():
         name = "com_github_elastic_gosigar",
         build_file_proto_mode = "disable",
         importpath = "github.com/elastic/gosigar",
-        sum = "h1:ehdJWCzrtTHhYDmUAO6Zpu+uez4UB/dhH0oJSQ/o1Pk=",
-        version = "v0.9.0",
+        sum = "h1:Dg80n8cr90OZ7x+bAax/QjoW/XqTI11RmA79ZwIm9/4=",
+        version = "v0.14.2",
     )
     go_repository(
         name = "com_github_elazarl_go_bindata_assetfs",
@@ -3365,8 +3365,8 @@ def go_deps():
         name = "com_github_pingcap_kvproto",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/pingcap/kvproto",
-        sum = "h1:Qt8xe4CWgA/pPfYLHwCl8Mz0g7Mbnbhx4l0gVf9eH1w=",
-        version = "v0.0.0-20230216153817-c6df78cc9dea",
+        sum = "h1:bgLRG7gPJCq6aduA65ZV7xWQBThTcuarBB9VdfAzV4g=",
+        version = "v0.0.0-20230228041042-1e9aca94bab6",
     )
     go_repository(
         name = "com_github_pingcap_log",
@@ -4085,8 +4085,8 @@ def go_deps():
         name = "com_github_tikv_client_go_v2",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/tikv/client-go/v2",
-        sum = "h1:FYyqGriZ0yeCB6Zt2pZytGZuPbr9mzNOYzHHJtDRuq4=",
-        version = "v2.0.6-0.20230220051003-e0e6019f8ac7",
+        sum = "h1:3BQR4RmBxu391t3z/q9h7BjDTS3cuRn8dfgYgMWk57s=",
+        version = "v2.0.6-0.20230302054057-3f7860f10959",
     )
     go_repository(
         name = "com_github_tikv_pd",
@@ -4100,8 +4100,8 @@ def go_deps():
         name = "com_github_tikv_pd_client",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/tikv/pd/client",
-        sum = "h1:hauBQBHSyrUxAI0zvkTiBKd472c+Iy+aY0Jd+b9VOJ8=",
-        version = "v0.0.0-20230209034200-6d23a31c24be",
+        sum = "h1:ECJ8D5/WLh16i3wPja1guDH0xRc37GWqjagdM9LSgHc=",
+        version = "v0.0.0-20230302085510-a99ff9f67bbf",
     )
     go_repository(
         name = "com_github_timakin_bodyclose",
@@ -5908,8 +5908,8 @@ def go_deps():
         name = "org_golang_x_net",
         build_file_proto_mode = "disable_global",
         importpath = "golang.org/x/net",
-        sum = "h1:GyT4nK/YDHSqa1c4753ouYCDajOYKTja9Xb/OHtgvSw=",
-        version = "v0.5.0",
+        sum = "h1:rJrUqqhjsgNp7KqAIc25s9pZnjU7TUcSY7HcVZjdn1g=",
+        version = "v0.7.0",
     )
     go_repository(
         name = "org_golang_x_oauth2",
@@ -5936,15 +5936,15 @@ def go_deps():
         name = "org_golang_x_term",
         build_file_proto_mode = "disable_global",
         importpath = "golang.org/x/term",
-        sum = "h1:O7UWfv5+A2qiuulQk30kVinPoMtoIPeVaKLEgLpVkvg=",
-        version = "v0.4.0",
+        sum = "h1:n2a8QNdAb0sZNpU9R1ALUXBbY+w51fCQDN+7EdxNBsY=",
+        version = "v0.5.0",
     )
     go_repository(
         name = "org_golang_x_text",
         build_file_proto_mode = "disable_global",
         importpath = "golang.org/x/text",
-        sum = "h1:3XmdazWV+ubf7QgHSTWeykHOci5oeekaGJBLkrkaw4k=",
-        version = "v0.6.0",
+        sum = "h1:4BRB4x83lYWy72KwLD/qYDuTu7q9PjSagHvijDw7cLo=",
+        version = "v0.7.0",
     )
     go_repository(
         name = "org_golang_x_time",
