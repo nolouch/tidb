@@ -32,7 +32,6 @@ import (
 	"github.com/pingcap/tidb/planner/core"
 	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/sessiontxn"
-	"github.com/pingcap/tidb/sessiontxn/staleread"
 	"github.com/pingcap/tidb/table"
 	"github.com/pingcap/tidb/table/temptable"
 	"github.com/pingcap/tidb/util/chunk"
@@ -537,77 +536,18 @@ func (e *DDLExec) getRecoverTableByTableName(tableName *ast.TableName) (*model.J
 }
 
 func (e *DDLExec) executeFlashBackCluster(s *ast.FlashBackToTimestampStmt) error {
-	flashbackTS, err := staleread.CalculateAsOfTsExpr(e.ctx, s.FlashbackTS)
-	if err != nil {
-		return err
-	}
-
-	return domain.GetDomain(e.ctx).DDL().FlashbackCluster(e.ctx, flashbackTS)
+	return errServerlessUnsupportedFeature
 }
 
 func (e *DDLExec) executeFlashbackTable(s *ast.FlashBackTableStmt) error {
-	job, tblInfo, err := e.getRecoverTableByTableName(s.Table)
-	if err != nil {
-		return err
-	}
-	if len(s.NewName) != 0 {
-		tblInfo.Name = model.NewCIStr(s.NewName)
-	}
-	// Check the table ID was not exists.
-	is := domain.GetDomain(e.ctx).InfoSchema()
-	tbl, ok := is.TableByID(tblInfo.ID)
-	if ok {
-		return infoschema.ErrTableExists.GenWithStack("Table '%-.192s' already been flashback to '%-.192s', can't be flashback repeatedly", s.Table.Name.O, tbl.Meta().Name.O)
-	}
-
-	m, err := domain.GetDomain(e.ctx).GetSnapshotMeta(job.StartTS)
-	if err != nil {
-		return err
-	}
-	autoIDs, err := m.GetAutoIDAccessors(job.SchemaID, job.TableID).Get()
-	if err != nil {
-		return err
-	}
-
-	recoverInfo := &ddl.RecoverInfo{
-		SchemaID:      job.SchemaID,
-		TableInfo:     tblInfo,
-		DropJobID:     job.ID,
-		SnapshotTS:    job.StartTS,
-		AutoIDs:       autoIDs,
-		OldSchemaName: job.SchemaName,
-		OldTableName:  s.Table.Name.L,
-	}
-	// Call DDL RecoverTable.
-	err = domain.GetDomain(e.ctx).DDL().RecoverTable(e.ctx, recoverInfo)
-	return err
+	return errServerlessUnsupportedFeature
 }
 
 // executeFlashbackDatabase represents a restore schema executor.
 // It is built from "flashback schema" statement,
 // is used to recover the schema that deleted by mistake.
 func (e *DDLExec) executeFlashbackDatabase(s *ast.FlashBackDatabaseStmt) error {
-	dbName := s.DBName
-	if len(s.NewName) > 0 {
-		dbName = model.NewCIStr(s.NewName)
-	}
-	// Check the Schema Name was not exists.
-	is := domain.GetDomain(e.ctx).InfoSchema()
-	if is.SchemaExists(dbName) {
-		return infoschema.ErrDatabaseExists.GenWithStackByArgs(dbName)
-	}
-	recoverSchemaInfo, err := e.getRecoverDBByName(s.DBName)
-	if err != nil {
-		return err
-	}
-	// Check the Schema ID was not exists.
-	if schema, ok := is.SchemaByID(recoverSchemaInfo.ID); ok {
-		return infoschema.ErrDatabaseExists.GenWithStack("Schema '%-.192s' already been recover to '%-.192s', can't be recover repeatedly", s.DBName, schema.Name.O)
-	}
-	recoverSchemaInfo.Name = dbName
-	// Call DDL RecoverSchema.
-	err = domain.GetDomain(e.ctx).DDL().RecoverSchema(e.ctx, recoverSchemaInfo)
-	return err
+	return errServerlessUnsupportedFeature
 }
 
 func (e *DDLExec) getRecoverDBByName(schemaName model.CIStr) (recoverSchemaInfo *ddl.RecoverSchemaInfo, err error) {
