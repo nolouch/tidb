@@ -242,19 +242,21 @@ func main() {
 	keyspaceMeta, err := getServerlessInfo()
 	mainErrHandler(err)
 
-	// Setup RU Limit when keyspaceMeta is non-empty.
-	if keyspaceMeta != nil && config.GetGlobalConfig().EnableRULimit {
-		log.Info("setting up serverless resource control", zap.Uint32("keyspaceID", keyspaceMeta.GetId()))
-		config.DefaultResourceGroup = strconv.FormatUint(uint64(keyspaceMeta.GetId()), 10)
-		tikv.EnableResourceControl()
-	}
-
-	if keyspaceMeta != nil && keyspaceMeta.Config != nil {
-		if clusterID, ok := keyspaceMeta.Config["serverless_cluster_id"]; ok {
-			// Rewrite the AutoScalerCluster with keyspace meta.
-			config.UpdateGlobal(func(c *config.Config) {
-				c.AutoScalerClusterID = clusterID
-			})
+	var keyspaceID uint32
+	if keyspaceMeta != nil {
+		keyspaceID = keyspaceMeta.GetId()
+		if config.GetGlobalConfig().EnableRULimit {
+			log.Info("setting up serverless resource control", zap.Uint32("keyspaceID", keyspaceID))
+			config.DefaultResourceGroup = strconv.FormatUint(uint64(keyspaceID), 10)
+			tikv.EnableResourceControl()
+		}
+		if keyspaceMeta.Config != nil {
+			if clusterID, ok := keyspaceMeta.Config["serverless_cluster_id"]; ok {
+				// Rewrite the AutoScalerCluster with keyspace meta.
+				config.UpdateGlobal(func(c *config.Config) {
+					c.AutoScalerClusterID = clusterID
+				})
+			}
 		}
 	}
 
@@ -266,7 +268,8 @@ func main() {
 		err = checkTempStorageQuota()
 		mainErrHandler(err)
 	}
-	err = setupLog()
+
+	err = setupLog(keyspaceID)
 	mainErrHandler(err)
 	_, err = setupExtensions()
 	mainErrHandler(err)
@@ -965,13 +968,14 @@ func setGlobalVars() error {
 	return nil
 }
 
-func setupLog() error {
+func setupLog(keyspaceID uint32) error {
 	cfg := config.GetGlobalConfig()
 
 	opt := zap.WrapCore(func(core zapcore.Core) zapcore.Core {
 		keyspaceName := keyspace.GetKeyspaceNameBySettings()
 		if !keyspace.IsKeyspaceNameEmpty(keyspaceName) {
-			core = core.With([]zap.Field{zap.String("keyspaceName", keyspaceName)})
+			core = core.With([]zap.Field{zap.String("keyspaceName", keyspaceName),
+				zap.Uint32("keyspaceID", keyspaceID)})
 		}
 		return core
 	})
