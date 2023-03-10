@@ -42,11 +42,13 @@ const (
 	serverlessVersion5 = 5
 	// serverlessVersion6 fixes few push down executor name.
 	serverlessVersion6 = 6
+	// serverlessVersion7 disable async commit.
+	serverlessVersion7 = 7
 )
 
 // currentServerlessVersion is defined as a variable, so we can modify its value for testing.
 // please make sure this is the largest version
-var currentServerlessVersion int64 = serverlessVersion6
+var currentServerlessVersion int64 = serverlessVersion7
 
 var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer2,
@@ -54,6 +56,7 @@ var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer4,
 	upgradeToServerlessVer5,
 	upgradeToServerlessVer6,
+	upgradeToServerlessVer7,
 }
 
 // updateServerlessVersion updates serverless version variable in mysql.TiDB table.
@@ -213,6 +216,13 @@ func upgradeToServerlessVer6(s Session, ver int64) {
 		" SET name='get_format' WHERE name='GetFormat' and store_type = 'tiflash'")
 }
 
+func upgradeToServerlessVer7(s Session, ver int64) {
+	if ver >= serverlessVersion7 {
+		return
+	}
+	mustExecute(s, "set @@global.tidb_enable_async_commit=OFF;")
+}
+
 // Serverless bootstrap procedures.
 // NOTE: The following methods will only be executed once at doDMLWorks during TiDB Bootstrap,
 // therefore any modification of it requires addition to the serverless version upgrade function above
@@ -267,6 +277,9 @@ func bootstrapServerlessVariables(s Session) {
 	)
 	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
 		mysql.SystemDB, mysql.GlobalVariablesTable, variable.TiDBStmtSummaryMaxStmtCount, 1000, 1000,
+	)
+	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
+		mysql.SystemDB, mysql.GlobalVariablesTable, variable.TiDBEnableAsyncCommit, variable.Off, variable.Off,
 	)
 }
 

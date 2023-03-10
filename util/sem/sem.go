@@ -71,7 +71,6 @@ const (
 	tikvStoreStatus  = "tikv_store_status"
 	tiflashSegments  = "tiflash_segments"
 	tiflashTables    = "tiflash_tables"
-	
 	// Serverless tier slow query related tables.
 	slowQuery                       = "slow_query"
 	clusterSlowQuery                = "cluster_slow_query"
@@ -191,7 +190,8 @@ func IsInvisibleSysVar(varNameInLower string) bool {
 		variable.TiDBStmtSummaryFileMaxDays,
 		variable.TiDBStmtSummaryFileMaxBackups,
 		variable.TiDBStmtSummaryFilename,
-		tidbAuditRetractLog:
+		tidbAuditRetractLog,
+		variable.TiDBEnableAsyncCommit:
 		return true
 	}
 	return false
@@ -203,7 +203,6 @@ func IsRestrictedPrivilege(privNameInUpper string) bool {
 	if privNameInUpper == placementAdmin {
 		return true
 	}
-	
 	if len(privNameInUpper) < 12 {
 		return false
 	}
