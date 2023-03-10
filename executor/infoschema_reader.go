@@ -182,7 +182,7 @@ func (e *memtableRetriever) retrieve(ctx context.Context, sctx sessionctx.Contex
 		case infoschema.ClusterTableMemoryUsageOpsHistory:
 			err = e.setDataForClusterMemoryUsageOpsHistory(sctx)
 		case infoschema.TableResourceGroups:
-			err = e.setDataFromResourceGroups()
+			// err = e.setDataFromResourceGroups() // Serverless: hides resource groups from users.
 		}
 		if err != nil {
 			return nil, err
