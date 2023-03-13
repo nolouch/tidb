@@ -56,6 +56,9 @@ const (
 	// BackendLocal is a constant for choosing the "Local" backup in the configuration.
 	// In this mode, we write & sort kv pairs with local storage and directly write them to tikv.
 	BackendLocal = "local"
+	// BackendRemote is a constant for choosing the "Remote" backend in the configuration.
+	// In this mode, we write kv pairs to the remote worker.
+	BackendRemote = "remote"
 
 	// CheckpointDriverMySQL is a constant for choosing the "MySQL" checkpoint driver in the configuration.
 	CheckpointDriverMySQL = "mysql"
@@ -629,7 +632,6 @@ type FileRouteRule struct {
 }
 
 type TikvImporter struct {
-	// Deprecated: only used to keep the compatibility.
 	Addr                string                       `toml:"addr" json:"addr"`
 	Backend             string                       `toml:"backend" json:"backend"`
 	OnDuplicate         string                       `toml:"on-duplicate" json:"on-duplicate"`
@@ -845,6 +847,7 @@ func (cfg *Config) LoadFromGlobal(global *GlobalConfig) error {
 	cfg.Mydumper.SourceDir = global.Mydumper.SourceDir
 	cfg.Mydumper.Filter = global.Mydumper.Filter
 	cfg.TikvImporter.Backend = global.TikvImporter.Backend
+	cfg.TikvImporter.Addr = global.TikvImporter.RemoteAddr
 	cfg.TikvImporter.SortedKVDir = global.TikvImporter.SortedKVDir
 	cfg.Checkpoint.Enable = global.Checkpoint.Enable
 	cfg.PostRestore.Checksum = global.PostRestore.Checksum
@@ -1033,6 +1036,11 @@ func (cfg *Config) AdjustCommon() (bool, error) {
 			cfg.App.RegionConcurrency = cpuCount
 		}
 		cfg.DefaultVarsForImporterAndLocalBackend()
+	case BackendRemote:
+		cfg.DefaultVarsForImporterAndLocalBackend()
+		cfg.PostRestore.Checksum = OpLevelOff
+		cfg.PostRestore.Analyze = OpLevelOff
+		cfg.PostRestore.Compact = false
 	default:
 		return mustHaveInternalConnections, common.ErrInvalidConfig.GenWithStack("unsupported `tikv-importer.backend` (%s)", cfg.TikvImporter.Backend)
 	}

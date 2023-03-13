@@ -60,6 +60,7 @@ type GlobalMydumper struct {
 
 type GlobalImporter struct {
 	Backend     string `toml:"backend" json:"backend"`
+	RemoteAddr  string `toml:"remote-addr" json:"remote-addr"`
 	SortedKVDir string `toml:"sorted-kv-dir" json:"sorted-kv-dir"`
 }
 
@@ -152,7 +153,8 @@ func LoadGlobalConfig(args []string, extraFlags func(*flag.FlagSet)) (*GlobalCon
 	tidbStatusPort := fs.Int("tidb-status", 0, "TiDB server status port (default 10080)")
 	pdAddr := fs.String("pd-urls", "", "PD endpoint address")
 	dataSrcPath := fs.String("d", "", "Directory of the dump to import")
-	backend := flagext.ChoiceVar(fs, "backend", "", `delivery backend: local, tidb`, "", "local", "tidb")
+	backend := flagext.ChoiceVar(fs, "backend", "", `delivery backend: local, tidb, remote`, "", "local", "tidb", "remote")
+	remoteAddr := fs.String("remote-addr", "", "address of remote backend")
 	sortedKVDir := fs.String("sorted-kv-dir", "", "path for KV pairs when local backend enabled")
 	enableCheckpoint := fs.Bool("enable-checkpoint", true, "whether to enable checkpoints")
 	noSchema := fs.Bool("no-schema", false, "ignore schema files, get schema directly from TiDB instead")
@@ -231,6 +233,9 @@ func LoadGlobalConfig(args []string, extraFlags func(*flag.FlagSet)) (*GlobalCon
 	}
 	if *backend != "" {
 		cfg.TikvImporter.Backend = *backend
+	}
+	if *remoteAddr != "" {
+		cfg.TikvImporter.RemoteAddr = *remoteAddr
 	}
 	if *sortedKVDir != "" {
 		cfg.TikvImporter.SortedKVDir = *sortedKVDir

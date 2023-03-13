@@ -36,6 +36,7 @@ import (
 	"github.com/pingcap/tidb/br/pkg/lightning/backend"
 	"github.com/pingcap/tidb/br/pkg/lightning/backend/kv"
 	"github.com/pingcap/tidb/br/pkg/lightning/backend/local"
+	"github.com/pingcap/tidb/br/pkg/lightning/backend/remote"
 	"github.com/pingcap/tidb/br/pkg/lightning/backend/tidb"
 	"github.com/pingcap/tidb/br/pkg/lightning/checkpoints"
 	"github.com/pingcap/tidb/br/pkg/lightning/common"
@@ -365,6 +366,11 @@ func NewRestoreControllerWithPauser(
 		err = verifyLocalFile(ctx, cpdb, cfg.TikvImporter.SortedKVDir)
 		if err != nil {
 			return nil, err
+		}
+	case config.BackendRemote:
+		backend, err = remote.NewRemoteBackend(ctx, tls, cfg, p.Glue, p.KeyspaceName)
+		if err != nil {
+			return nil, common.NormalizeOrWrapErr(common.ErrUnknown, err)
 		}
 	default:
 		return nil, common.ErrUnknownBackend.GenWithStackByArgs(cfg.TikvImporter.Backend)

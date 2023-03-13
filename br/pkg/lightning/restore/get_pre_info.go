@@ -296,6 +296,8 @@ func NewPreRestoreInfoGetter(
 			encBuilder = tidb.NewEncodingBuilder()
 		case config.BackendLocal:
 			encBuilder = local.NewEncodingBuilder(context.Background())
+		case config.BackendRemote:
+			encBuilder = local.NewEncodingBuilder(context.Background())
 		default:
 			return nil, common.ErrUnknownBackend.GenWithStackByArgs(cfg.TikvImporter.Backend)
 		}
