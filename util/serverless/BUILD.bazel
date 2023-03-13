@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "serverless",
+    srcs = ["feature_control.go"],
+    importpath = "github.com/pingcap/tidb/util/serverless",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//parser/ast",
+        "//parser/model",
+        "//util/dbterror",
+    ],
+)

@@ -1112,4 +1112,7 @@ const (
 	ErrTiKVMaxTimestampNotSynced = 9011
 	ErrTiFlashServerTimeout      = 9012
 	ErrTiFlashServerBusy         = 9013
+
+	// Serverless tier errors.
+	ErrNotSupportedOnServerless = 20001
 )

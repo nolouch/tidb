@@ -1119,4 +1119,7 @@ var MySQLErrName = map[uint16]*mysql.ErrMessage{
 	ErrPrometheusAddrIsNotSet:    mysql.Message("Prometheus address is not set in PD and etcd", nil),
 	ErrTiKVStaleCommand:          mysql.Message("TiKV server reports stale command", nil),
 	ErrTiKVMaxTimestampNotSynced: mysql.Message("TiKV max timestamp is not synced", nil),
+
+	// Serverless Tier errors.
+	ErrNotSupportedOnServerless: mysql.Message("'%s' is not supported on the Serverless Tier.", nil),
 }

@@ -1071,6 +1071,11 @@ error = '''
 %s is not supported. Reason: %s. Try %s.
 '''
 
+["ddl:20001"]
+error = '''
+'%s' is not supported on the Serverless Tier.
+'''
+
 ["ddl:3102"]
 error = '''
 Expression of generated column '%s' contains a disallowed function.

@@ -120,6 +120,7 @@ go_library(
         "//util/ranger",
         "//util/resourcegrouptag",
         "//util/rowDecoder",
+        "//util/serverless",
         "//util/set",
         "//util/slice",
         "//util/sqlexec",

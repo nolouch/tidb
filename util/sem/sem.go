@@ -63,14 +63,21 @@ const (
 	restrictedPriv        = "RESTRICTED_"
 	tidbAuditRetractLog   = "tidb_audit_redact_log" // sysvar installed by a plugin
 
-	placementAdmin = "PLACEMENT_ADMIN"
+	placementAdmin     = "PLACEMENT_ADMIN"
+	backupAdmin        = "BACKUP_ADMIN"
+	restoreAdmin       = "RESTORE_ADMIN"
+	resourceGroupAdmin = "RESOURCE_GROUP_ADMIN"
 
 	// Additional tables for serverless tier.
-	clusterInfo      = "cluster_info"
-	tikvRegionStatus = "tikv_region_status"
-	tikvStoreStatus  = "tikv_store_status"
-	tiflashSegments  = "tiflash_segments"
-	tiflashTables    = "tiflash_tables"
+	clusterInfo           = "cluster_info"
+	tikvRegionStatus      = "tikv_region_status"
+	tikvStoreStatus       = "tikv_store_status"
+	tiflashSegments       = "tiflash_segments"
+	tiflashTables         = "tiflash_tables"
+	resourceGroups        = "resource_groups"
+	tidbHotRegionsHistory = "tidb_hot_regions_history"
+	tidbServersInfo       = "tidb_servers_info"
+
 	// Serverless tier slow query related tables.
 	slowQuery                       = "slow_query"
 	clusterSlowQuery                = "cluster_slow_query"
@@ -132,7 +139,8 @@ func IsInvisibleTable(dbLowerName, tblLowerName string) bool {
 			inspectionRules, inspectionSummary, metricsSummary, metricsSummaryByLabel, metricsTables, tidbHotRegions,
 			clusterInfo, tikvRegionStatus, tikvStoreStatus, tiflashSegments, tiflashTables, clusterSlowQuery,
 			slowQuery, statementsSummary, statementsSummaryEvicted, statementsSummaryHistory, clusterStatementsSummary,
-			clusterStatementsSummaryEvicted, clusterStatementsSummaryHistory:
+			clusterStatementsSummaryEvicted, clusterStatementsSummaryHistory, resourceGroups, tidbHotRegionsHistory,
+			tidbServersInfo:
 			return true
 		}
 	case performanceSchema:
@@ -191,7 +199,8 @@ func IsInvisibleSysVar(varNameInLower string) bool {
 		variable.TiDBStmtSummaryFileMaxBackups,
 		variable.TiDBStmtSummaryFilename,
 		tidbAuditRetractLog,
-		variable.TiDBEnableAsyncCommit:
+		variable.TiDBEnableAsyncCommit,
+		variable.DataDir:
 		return true
 	}
 	return false
@@ -200,7 +209,12 @@ func IsInvisibleSysVar(varNameInLower string) bool {
 // IsRestrictedPrivilege returns true if the privilege shuld not be satisfied by SUPER
 // As most dynamic privileges are.
 func IsRestrictedPrivilege(privNameInUpper string) bool {
-	if privNameInUpper == placementAdmin {
+	switch privNameInUpper {
+	case
+		placementAdmin,
+		backupAdmin,
+		restoreAdmin,
+		resourceGroupAdmin:
 		return true
 	}
 	if len(privNameInUpper) < 12 {
