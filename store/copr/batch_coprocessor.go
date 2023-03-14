@@ -580,6 +580,7 @@ func filterAliveStoresHelper(ctx context.Context, stores []string, ttl time.Dura
 
 func getTiFlashComputeRPCContextByConsistentHash(ids []tikv.RegionVerID, storesStr []string) (res []*tikv.RPCContext, err error) {
 	hasher := consistent.New()
+	hasher.NumberOfReplicas = 200
 	for _, addr := range storesStr {
 		hasher.Add(addr)
 	}
@@ -1313,11 +1314,15 @@ func buildBatchCopTasksConsistentHashForPD(bo *backoff.Backoffer,
 		}
 		getStoreElapsed = time.Since(getStoreStart)
 
+		storesStr := make([]string, 0, len(stores))
+		for _, s := range stores {
+			storesStr = append(storesStr, s.GetAddr())
+		}
 		var rpcCtxs []*tikv.RPCContext
 		if dispatchPolicy == tiflashcompute.DispatchPolicyRR {
 			rpcCtxs, err = getTiFlashComputeRPCContextByRoundRobin(regionIDs, stores)
 		} else if dispatchPolicy == tiflashcompute.DispatchPolicyConsistentHash {
-			rpcCtxs, err = cache.GetTiFlashComputeRPCContextByConsistentHash(bo.TiKVBackoffer(), regionIDs, stores)
+			rpcCtxs, err = getTiFlashComputeRPCContextByConsistentHash(regionIDs, storesStr)
 		} else {
 			err = errors.Errorf("unexpected dispatch policy %v", dispatchPolicy)
 		}
