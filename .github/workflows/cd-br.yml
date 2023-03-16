@@ -21,6 +21,7 @@ jobs:
       AWS_ROLE_ARN: ${{ secrets.DBAAS_DEV_AWS_ROLE }}
       AWS_REGION: us-west-2
       GITHUB_TOKEN: ${{ secrets.GIT_ACTION_BOT }}
+      GCR_IMAGE: gcr.io/pingcap-public/serverless/br:v6.6.0
     steps:
       - name: Check out Code
         uses: actions/checkout@v2
@@ -53,7 +54,7 @@ jobs:
         run: |
           aws ecr describe-repositories --repository-names ${{ env.ECR_REPO }} || aws ecr create-repository --repository-name ${{ env.ECR_REPO }} || exit 1
 
-      - name: Build and Push Latest Images
+      - name: Build and Push to ECR
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -64,3 +65,25 @@ jobs:
             GITHUB_TOKEN=${{ secrets.GIT_ACTION_BOT }}
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+
+      - name: Set up Cloud SDK
+        if: ${{ github.ref == 'refs/heads/keyspace-on-release-6.6' && github.event_name == 'push' }}
+        uses: google-github-actions/setup-gcloud@v0
+
+      - name: Configure Gcloud
+        if: ${{ github.ref == 'refs/heads/keyspace-on-release-6.6' && github.event_name == 'push' }}
+        run: |
+          gcloud auth configure-docker gcr.io --quiet
+
+      - name: Build and Push to GCR
+        uses: docker/build-push-action@v2
+        if: ${{ github.ref == 'refs/heads/keyspace-on-release-6.6' && github.event_name == 'push' }}
+        with:
+          context: .
+          file: br/Dockerfile
+          platforms: "linux/amd64,linux/arm64"
+          push: true
+          build-args: |
+            GITHUB_TOKEN=${{ secrets.GIT_ACTION_BOT }}
+          tags: |
+            ${{ env.GCR_IMAGE }}
