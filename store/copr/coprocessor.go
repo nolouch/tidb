@@ -1627,12 +1627,18 @@ func (worker *copIteratorWorker) handleCollectExecutionInfo(bo *Backoffer, rpcCt
 	}
 	sd := &util.ScanDetail{}
 	td := util.TimeDetail{}
-	td.MergeFromTimeDetail(resp.pbResp.ExecDetailsV2.GetTimeDetailV2(), resp.pbResp.ExecDetails.GetTimeDetail())
 	if pbDetails := resp.pbResp.ExecDetailsV2; pbDetails != nil {
+		// Take values in `ExecDetailsV2` first.
+		if pbDetails.TimeDetail != nil || pbDetails.TimeDetailV2 != nil {
+			td.MergeFromTimeDetail(pbDetails.TimeDetailV2, pbDetails.TimeDetail)
+		}
 		if scanDetailV2 := pbDetails.ScanDetailV2; scanDetailV2 != nil {
 			sd.MergeFromScanDetailV2(scanDetailV2)
 		}
 	} else if pbDetails := resp.pbResp.ExecDetails; pbDetails != nil {
+		if timeDetail := pbDetails.TimeDetail; timeDetail != nil {
+			td.MergeFromTimeDetail(nil, timeDetail)
+		}
 		if scanDetail := pbDetails.ScanDetail; scanDetail != nil {
 			if scanDetail.Write != nil {
 				sd.ProcessedKeys = scanDetail.Write.Processed
