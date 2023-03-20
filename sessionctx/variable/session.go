@@ -1365,7 +1365,7 @@ type SessionVars struct {
 
 	// TiFlashComputeDispatchPolicy indicates how to dipatch task to tiflash_compute nodes.
 	// Only for disaggregated-tiflash mode.
-	TiFlashComputeDispatchPolicy int
+	TiFlashComputeDispatchPolicy tiflashcompute.DispatchPolicy
 }
 
 // planReplayerSessionFinishedTaskKeyLen is used to control the max size for the finished plan replayer task key in session

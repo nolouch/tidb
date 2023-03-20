@@ -1193,7 +1193,7 @@ const (
 	DefTiDBEnableResourceControl                           = false
 	DefTiDBPessimisticTransactionAggressiveLocking         = false
 	DefTiDBEnablePlanCacheForParamLimit                    = true
-	DefTiFlashComputeDispatchPolicy                        = tiflashcompute.DispatchPolicyRRStr
+	DefTiFlashComputeDispatchPolicy                        = tiflashcompute.DispatchPolicyConsistentHashStr
 )
 
 // Process global variables.
