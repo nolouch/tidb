@@ -103,12 +103,17 @@ func TrySetupGlobalResourceController(ctx context.Context, serverID uint64, s kv
 		return errors.New("cannot setup up resource controller, should use tikv storage")
 	}
 
+	ruConfig := rmclient.DefaultRequestUnitConfig()
+	// serverless uses 1.7x RU cost
+	ruConfig.ReadBaseCost *= 1.7
+	ruConfig.WriteBaseCost *= 1.7
+
 	opts := []rmclient.ResourceControlCreateOption{
 		rmclient.EnableSingleGroupByKeyspace(),
 		rmclient.WithMaxWaitDuration(time.Second * 30),
 	}
 
-	control, err := rmclient.NewResourceGroupController(ctx, serverID, store.GetPDClient(), rmclient.DefaultRequestUnitConfig(), opts...)
+	control, err := rmclient.NewResourceGroupController(ctx, serverID, store.GetPDClient(), &ruConfig, opts...)
 	if err != nil {
 		return err
 	}
