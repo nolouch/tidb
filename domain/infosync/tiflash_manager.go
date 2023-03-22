@@ -402,6 +402,11 @@ func makeBaseRule() placement.TiFlashRawRule {
 				Op:     placement.In,
 				Values: []string{"tiflash"},
 			},
+			{
+				Key:    "engine_role",
+				Op:     placement.NotIn,
+				Values: []string{"write"},
+			},
 		},
 	}
 }
