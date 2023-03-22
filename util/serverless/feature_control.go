@@ -17,14 +17,22 @@ package serverless
 import (
 	"fmt"
 
+	"github.com/pingcap/log"
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/util/dbterror"
 )
 
+// EnvSkipFeatureControl is a flag to skip feature control, it can be changed during compile.
+var EnvSkipFeatureControl = "false"
+
 // VerifyStatement checks if the statement node is supported on serverless tier,
 // returns error if it's not.
 func VerifyStatement(stmt ast.Node) error {
+	if EnvSkipFeatureControl == "true" {
+		log.Warn("skip feature control, all statements are allowed")
+		return nil
+	}
 	switch x := stmt.(type) {
 	case *ast.DeallocateStmt,
 		*ast.DeleteStmt,
@@ -77,22 +85,22 @@ func VerifyStatement(stmt ast.Node) error {
 func verifyDDL(stmt ast.DDLNode) error {
 	switch s := stmt.(type) {
 	case
-			*ast.CreateDatabaseStmt,
-			*ast.AlterDatabaseStmt,
-			*ast.DropDatabaseStmt,
-			*ast.DropTableStmt,
-			*ast.DropSequenceStmt,
-			*ast.RenameTableStmt,
-			*ast.CreateViewStmt,
-			*ast.CreateSequenceStmt,
-			*ast.CreateIndexStmt,
-			*ast.DropIndexStmt,
-			*ast.LockTablesStmt,
-			*ast.UnlockTablesStmt,
-			*ast.CleanupTableLockStmt,
-			*ast.RepairTableStmt,
-			*ast.TruncateTableStmt,
-			*ast.AlterSequenceStmt:
+		*ast.CreateDatabaseStmt,
+		*ast.AlterDatabaseStmt,
+		*ast.DropDatabaseStmt,
+		*ast.DropTableStmt,
+		*ast.DropSequenceStmt,
+		*ast.RenameTableStmt,
+		*ast.CreateViewStmt,
+		*ast.CreateSequenceStmt,
+		*ast.CreateIndexStmt,
+		*ast.DropIndexStmt,
+		*ast.LockTablesStmt,
+		*ast.UnlockTablesStmt,
+		*ast.CleanupTableLockStmt,
+		*ast.RepairTableStmt,
+		*ast.TruncateTableStmt,
+		*ast.AlterSequenceStmt:
 		return nil
 	case *ast.CreateTableStmt:
 		for _, option := range s.Options {
@@ -138,29 +146,29 @@ func verifyDDL(stmt ast.DDLNode) error {
 func verifySimple(stmt ast.Node) error {
 	switch s := stmt.(type) {
 	case
-			*ast.GrantRoleStmt,
-			*ast.FlushStmt,
-			*ast.BeginStmt,
-			*ast.CommitStmt,
-			*ast.SavepointStmt,
-			*ast.ReleaseSavepointStmt,
-			*ast.RollbackStmt,
-			*ast.CreateUserStmt,
-			*ast.AlterUserStmt,
-			*ast.DropUserStmt,
-			*ast.RenameUserStmt,
-			*ast.SetPwdStmt,
-			*ast.SetSessionStatesStmt,
-			*ast.KillStmt,
-			*ast.BinlogStmt,
-			*ast.DropStatsStmt,
-			*ast.SetRoleStmt,
-			*ast.RevokeRoleStmt,
-			*ast.SetDefaultRoleStmt,
-			*ast.AdminStmt,
-			*ast.GrantStmt,
-			*ast.RevokeStmt,
-			*ast.NonTransactionalDMLStmt:
+		*ast.GrantRoleStmt,
+		*ast.FlushStmt,
+		*ast.BeginStmt,
+		*ast.CommitStmt,
+		*ast.SavepointStmt,
+		*ast.ReleaseSavepointStmt,
+		*ast.RollbackStmt,
+		*ast.CreateUserStmt,
+		*ast.AlterUserStmt,
+		*ast.DropUserStmt,
+		*ast.RenameUserStmt,
+		*ast.SetPwdStmt,
+		*ast.SetSessionStatesStmt,
+		*ast.KillStmt,
+		*ast.BinlogStmt,
+		*ast.DropStatsStmt,
+		*ast.SetRoleStmt,
+		*ast.RevokeRoleStmt,
+		*ast.SetDefaultRoleStmt,
+		*ast.AdminStmt,
+		*ast.GrantStmt,
+		*ast.RevokeStmt,
+		*ast.NonTransactionalDMLStmt:
 		return nil
 	case *ast.UseStmt:
 		dbname := model.NewCIStr(s.DBName)

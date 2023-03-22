@@ -88,6 +88,11 @@ ifneq "$(REGISTER_METRICS_INIT)" ""
 	LDFLAGS += -X "github.com/pingcap/tidb/metrics.EnvRegisterMetricsAtInit=$(REGISTER_METRICS_INIT)"
 endif
 
+# Overwrites the feature control flag and skip feature control, this is helpful during tests.
+ifneq "$(SKIP_FEATURE_CONTROL)" ""
+	LDFLAGS += -X "github.com/pingcap/tidb/util/serverless.EnvSkipFeatureControl=$(SKIP_FEATURE_CONTROL)"
+endif
+
 TEST_LDFLAGS =  -X "github.com/pingcap/tidb/config.checkBeforeDropLDFlag=1"
 COVERAGE_SERVER_LDFLAGS =  -X "github.com/pingcap/tidb/tidb-server.isCoverageServer=1"
 

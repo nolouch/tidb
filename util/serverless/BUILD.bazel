@@ -9,5 +9,6 @@ go_library(
         "//parser/ast",
         "//parser/model",
         "//util/dbterror",
+        "@com_github_pingcap_log//:log",
     ],
 )
