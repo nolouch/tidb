@@ -15,6 +15,8 @@
 package metrics
 
 import (
+	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -25,6 +27,8 @@ const (
 	TagProjectID = "project_id"
 	// TagClusterID for cluster_id
 	TagClusterID = "cluster_id"
+	// TagKeyspaceID for keyspace_id
+	TagKeyspaceID = "keyspace_id"
 )
 
 // Identify serverless cluster. Should be setup before register metrics.
@@ -36,11 +40,12 @@ var (
 )
 
 // SetServerlessLabels sets tenantID, projectID and clusterID.
-func SetServerlessLabels(serverlessTenantID, serverlessProjectID, serverlessClusterID string) {
+func SetServerlessLabels(serverlessTenantID, serverlessProjectID, serverlessClusterID string, keyspaceID uint32) {
 	ServerlessLabels = make(prometheus.Labels)
 	ServerlessLabels[TagTenantID] = serverlessTenantID
 	ServerlessLabels[TagProjectID] = serverlessProjectID
 	ServerlessLabels[TagClusterID] = serverlessClusterID
+	ServerlessLabels[TagKeyspaceID] = fmt.Sprintf("%d", keyspaceID)
 
 	ServerlessTenantID = serverlessTenantID
 	ServerlessProjectID = serverlessProjectID
