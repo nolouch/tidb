@@ -17,6 +17,7 @@ go_library(
     importpath = "github.com/pingcap/tidb/util/collate",
     visibility = ["//visibility:public"],
     deps = [
+        "//config",
         "//parser/charset",
         "//parser/mysql",
         "//parser/terror",
@@ -42,6 +43,7 @@ go_test(
     embed = [":collate"],
     flaky = True,
     deps = [
+        "//config",
         "//testkit/testsetup",
         "@com_github_stretchr_testify//require",
         "@org_uber_go_goleak//:goleak",

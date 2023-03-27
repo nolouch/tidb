@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/pingcap/tidb/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -177,4 +178,22 @@ func TestGetCollator(t *testing.T) {
 	defer SetNewCollationEnabledForTest(false)
 	require.IsType(t, &gbkBinCollator{}, GetCollator("gbk_bin"))
 	require.IsType(t, &gbkBinCollator{}, GetCollatorByID(87))
+}
+
+func TestGetCollationByName(t *testing.T) {
+	cfg := config.GetGlobalConfig()
+	oldKeyspace := cfg.KeyspaceName
+	oldRewrite := cfg.RewriteCollations
+
+	cfg.KeyspaceName = "tenant-keyspace"
+	cfg.RewriteCollations = map[string]map[string]string{"tenant-keyspace": map[string]string{"utf8mb4_0900_ai_ci": "utf8mb4_unicode_ci"}}
+
+	defer func() {
+		cfg.KeyspaceName = oldKeyspace
+		cfg.RewriteCollations = oldRewrite
+	}()
+
+	collation, err := GetCollationByName("utf8mb4_0900_ai_ci")
+	require.NoError(t, err)
+	require.Equal(t, collation.Name, "utf8mb4_unicode_ci")
 }

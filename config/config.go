@@ -323,6 +323,9 @@ type Config struct {
 	Ratelimit RatelimitConfig `toml:"ratelimit" json:"ratelimit"`
 	// BootstrapControl is used to control serverless bootstrap procedure.
 	BootstrapControl BootstrapControl `toml:"bootstrap-control" json:"bootstrap-control"`
+
+	// Rewrite collations for certain keyspaces
+	RewriteCollations map[string]map[string]string `toml:"rewrite-collations" json:"rewrite-collations"`
 }
 
 // UpdateTempStoragePath is to update the `TempStoragePath` if port/statusPort was changed
@@ -1064,6 +1067,7 @@ var defaultConf = Config{
 	TiDBEnableExitCheck:                  false,
 	Ratelimit:                            defaultRatelimitConfig(),
 	BootstrapControl:                     defaultBootstrapControl(),
+	RewriteCollations:                    make(map[string]map[string]string),
 }
 
 var (

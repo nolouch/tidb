@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 
 	"github.com/pingcap/errors"
+	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/parser/charset"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/parser/terror"
@@ -228,6 +229,11 @@ func SubstituteMissingCollationToDefault(co string) string {
 
 // GetCollationByName wraps charset.GetCollationByName, it checks the collation.
 func GetCollationByName(name string) (coll *charset.Collation, err error) {
+	if rewrite, ok := config.GetGlobalConfig().RewriteCollations[config.GetGlobalKeyspaceName()]; ok {
+		if newName, ok := rewrite[name]; ok {
+			name = newName
+		}
+	}
 	if coll, err = charset.GetCollationByName(name); err != nil {
 		return nil, errors.Trace(err)
 	}
