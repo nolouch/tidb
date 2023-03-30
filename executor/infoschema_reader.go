@@ -3062,16 +3062,23 @@ func (e *TiFlashSystemTableRetriever) initialize(sctx sessionctx.Context, tiflas
 			if !foundPort {
 				return errors.Errorf("engine-store.http_port/https_port not found in server %s", info.Address)
 			}
+			var portValueInt int
 			switch portValue := port.(type) {
 			case float64:
-				e.instanceInfos = append(e.instanceInfos, tiflashInstanceInfo{
-					id:  info.Address,
-					url: fmt.Sprintf("%s://%s:%d", portProtocol, hostAndStatusPort[0], int(portValue)),
-				})
-				e.instanceCount += 1
+				portValueInt = int(portValue)
+			case string:
+				portValueInt, err = strconv.Atoi(portValue)
+				if err != nil {
+					return errors.Errorf("parse server(%s) engine-store.http_port(%s) from string to int failed: %v", info.Address, portValue, err)
+				}
 			default:
 				return errors.Errorf("engine-store.http_port value(%p) unexpected in server %s", port, info.Address)
 			}
+			e.instanceInfos = append(e.instanceInfos, tiflashInstanceInfo{
+				id:  info.Address,
+				url: fmt.Sprintf("%s://%s:%d", portProtocol, hostAndStatusPort[0], portValueInt),
+			})
+			e.instanceCount += 1
 		} else {
 			return errors.Errorf("engine-store config not found in server %s", info.Address)
 		}
