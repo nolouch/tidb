@@ -44,11 +44,13 @@ const (
 	serverlessVersion6 = 6
 	// serverlessVersion7 disable async commit.
 	serverlessVersion7 = 7
+	// serverlessVersion8 adjusts push-down blacklist for CSE and TiFlash 6.5
+	serverlessVersion8 = 8
 )
 
 // currentServerlessVersion is defined as a variable, so we can modify its value for testing.
 // please make sure this is the largest version
-var currentServerlessVersion int64 = serverlessVersion7
+var currentServerlessVersion int64 = serverlessVersion8
 
 var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer2,
@@ -57,6 +59,7 @@ var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer5,
 	upgradeToServerlessVer6,
 	upgradeToServerlessVer7,
+	upgradeToServerlessVer8,
 }
 
 // updateServerlessVersion updates serverless version variable in mysql.TiDB table.
@@ -223,6 +226,44 @@ func upgradeToServerlessVer7(s Session, ver int64) {
 	mustExecute(s, "set @@global.tidb_enable_async_commit=OFF;")
 }
 
+func upgradeToServerlessVer8(s Session, ver int64) {
+	if ver >= serverlessVersion8 {
+		return
+	}
+
+	// Remove executors from pushdown_blacklist that tiflash 6.5 supports.
+	mustExecute(s, "DELETE FROM mysql.expr_pushdown_blacklist WHERE LOWER(name) IN "+
+		"('hex',"+
+		"'get_format',"+
+		"'space',"+
+		"'cast.casttimeasduration',"+
+		"'reverse',"+
+		"'elt',"+
+		"'repeat',"+
+		"'rightshift',"+
+		"'leftshift',"+
+		"'json_unquote',"+
+		"'json_extract',"+
+		"'regexp',"+
+		"'regexp_like',"+
+		"'regexp_substr',"+
+		"'regexp_instr',"+
+		"'cast.castjsonasstring',"+
+		"'extract.extractduration') "+
+		"AND LOWER(store_type) = 'tiflash'")
+
+	// Remove executors from pushdown_blacklist that cse 6.5 supports.
+	mustExecute(s, "DELETE FROM mysql.expr_pushdown_blacklist WHERE LOWER(name) IN "+
+		"('regexp',"+
+		"'regexp_like',"+
+		"'regexp_substr',"+
+		"'regexp_instr',"+
+		"'regexp_replace',"+
+		"'json_contains',"+
+		"'json_valid') "+
+		"AND LOWER(store_type) = 'tikv'")
+}
+
 // Serverless bootstrap procedures.
 // NOTE: The following methods will only be executed once at doDMLWorks during TiDB Bootstrap,
 // therefore any modification of it requires addition to the serverless version upgrade function above
@@ -232,32 +273,7 @@ func upgradeToServerlessVer7(s Session, ver int64) {
 // This is required when using CSE and TiFlash at a lower version than TiDB.
 func bootstrapServerlessPushdownBlacklist(s Session) {
 	mustExecute(s, "INSERT HIGH_PRIORITY INTO mysql.expr_pushdown_blacklist VALUES "+
-		"('Regexp', 'tikv', 'Compatibility with tikv 6.1'), "+
-		"('regexp_like', 'tikv', 'Compatibility with tikv 6.1'), "+
-		"('regexp_substr', 'tikv', 'Compatibility with tikv 6.1'), "+
-		"('regexp_instr', 'tikv', 'Compatibility with tikv 6.1'), "+
-		"('regexp_replace', 'tikv', 'Compatibility with tikv 6.1'), "+
-		"('json_contains','tikv', 'Compatibility with tikv 6.1'), "+
-		"('Hex', 'tiflash', 'Compatibility with tiflash 6.1'), "+
-		"('get_format', 'tiflash', 'Compatibility with tiflash 6.1'), "+
-		"('Space', 'tiflash', 'Compatibility with tiflash 6.1'), "+
-		"('Cast.CastTimeAsDuration', 'tiflash', 'Compatibility with tiflash 6.1'), "+
-		"('Reverse', 'tiflash', 'Compatibility with tiflash 6.1'), "+
-		"('Elt', 'tiflash', 'Compatibility with tiflash 6.1'), "+
-		"('Repeat', 'tiflash', 'Compatibility with tiflash 6.1'), "+
-		"('RightShift', 'tiflash', 'Compatibility with tiflash 6.1'), "+
-		// For serverless tidb release 6.6.
-		"('LeftShift', 'tiflash', 'Compatibility with tiflash 6.1'),"+
-		"('json_valid','tikv', 'Compatibility with tikv 6.1'),"+
-		"('json_unquote','tiflash', 'Compatibility with tiflash 6.1'),"+
-		"('json_extract','tiflash', 'Compatibility with tiflash 6.1'),"+
-		"('regexp','tiflash', 'Compatibility with tiflash 6.1'),"+
-		"('regexp_like','tiflash', 'Compatibility with tiflash 6.1'),"+
-		"('regexp_substr','tiflash', 'Compatibility with tiflash 6.1'),"+
-		"('regexp_instr','tiflash', 'Compatibility with tiflash 6.1'),"+
 		"('regexp_replace','tiflash', 'Compatibility with tiflash 6.1'),"+
-		"('Cast.CastJsonAsString','tiflash', 'Compatibility with tiflash 6.1'),"+
-		"('Extract.ExtractDuration','tiflash', 'Compatibility with tiflash 6.1'),"+
 		"('least.LeastString','tiflash', 'Compatibility with tiflash 6.1'),"+
 		"('greatest.GreatestString','tiflash', 'Compatibility with tiflash 6.1'),"+
 		"('unhex','tiflash', 'Compatibility with tiflash 6.1')",
