@@ -196,12 +196,19 @@ func GlobalInfoSyncerInit(
 	codec tikv.Codec,
 	skipRegisterToDashBoard bool,
 ) (*InfoSyncer, error) {
+	var keyspaceServerIDPath string
+	if codec.GetKeyspace() != nil {
+		keyspaceServerIDPath = fmt.Sprintf("%d_%s", codec.GetKeyspaceID(), id)
+	} else {
+		keyspaceServerIDPath = id
+	}
+	logutil.BgLogger().Info("GlobalInfoSyncerInit.", zap.String("server_id", id))
 	is := &InfoSyncer{
 		etcdCli:           etcdCli,
 		unprefixedEtcdCli: unprefixedEtcdCli,
 		info:              getServerInfo(id, serverIDGetter),
 		serverInfoPath:    fmt.Sprintf("%s/%s", ServerInformationPath, id),
-		minStartTSPath:    fmt.Sprintf("%s/%s", ServerMinStartTSPath, id),
+		minStartTSPath:    fmt.Sprintf("%s/%s", ServerMinStartTSPath, keyspaceServerIDPath),
 	}
 	err := is.init(ctx, skipRegisterToDashBoard)
 	if err != nil {
