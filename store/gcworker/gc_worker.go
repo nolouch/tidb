@@ -540,13 +540,14 @@ func (w *GCWorker) checkPrepare(ctx context.Context) (bool, uint64, error) {
 	return true, newSafePointValue, nil
 }
 
-func (w *GCWorker) calcGlobalMinStartTS(ctx context.Context) (uint64, error) {
+func (w *GCWorker) calcGlobalMinStartTS(ctx context.Context) (uint64, string, error) {
 	kvs, err := w.tikvStore.GetSafePointKV().GetWithPrefix(infosync.ServerMinStartTSPath)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 
 	var globalMinStartTS uint64 = math.MaxUint64
+	var globalMinStartTSPath string
 	for _, v := range kvs {
 		minStartTS, err := strconv.ParseUint(string(v.Value), 10, 64)
 		if err != nil {
@@ -555,14 +556,15 @@ func (w *GCWorker) calcGlobalMinStartTS(ctx context.Context) (uint64, error) {
 		}
 		if minStartTS < globalMinStartTS {
 			globalMinStartTS = minStartTS
+			globalMinStartTSPath = string(v.Key)
 		}
 	}
-	return globalMinStartTS, nil
+	return globalMinStartTS, globalMinStartTSPath, nil
 }
 
 // calcNewSafePoint uses the current global transaction min start timestamp to calculate the new safe point.
 func (w *GCWorker) calcSafePointByMinStartTS(ctx context.Context, safePoint uint64) uint64 {
-	globalMinStartTS, err := w.calcGlobalMinStartTS(ctx)
+	globalMinStartTS, globalMinStartTSPath, err := w.calcGlobalMinStartTS(ctx)
 	if err != nil {
 		logutil.Logger(ctx).Warn("get all minStartTS failed", zap.Error(err))
 		return safePoint
@@ -580,6 +582,7 @@ func (w *GCWorker) calcSafePointByMinStartTS(ctx context.Context, safePoint uint
 		logutil.Logger(ctx).Info("[gc worker] gc safepoint blocked by a running session",
 			zap.String("uuid", w.uuid),
 			zap.Uint64("globalMinStartTS", globalMinStartTS),
+			zap.String("globalMinStartTSPath", globalMinStartTSPath),
 			zap.Uint64("globalMinStartAllowedTS", globalMinStartAllowedTS),
 			zap.Uint64("safePoint", safePoint))
 		safePoint = globalMinStartAllowedTS
