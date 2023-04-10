@@ -71,7 +71,7 @@ require (
 	github.com/pingcap/errors v0.11.5-0.20221009092201-b66cddb77c32
 	github.com/pingcap/failpoint v0.0.0-20220801062533-2eaa32854a6c
 	github.com/pingcap/fn v0.0.0-20200306044125-d5540d389059
-	github.com/pingcap/kvproto v0.0.0-20230321031922-1319c217eb47
+	github.com/pingcap/kvproto v0.0.0-20230407040905-68d0eebd564a
 	github.com/pingcap/log v1.1.1-0.20221116035753-734d527bc87c
 	github.com/pingcap/sysutil v0.0.0-20220114020952-ea68d2dbf5b4
 	github.com/pingcap/tidb/parser v0.0.0-20211011031125-9b13dc409c5e
@@ -112,17 +112,17 @@ require (
 	go.uber.org/goleak v1.2.0
 	go.uber.org/multierr v1.10.0
 	go.uber.org/zap v1.24.0
-	golang.org/x/exp v0.0.0-20221023144134-a1e5550cf13e
+	golang.org/x/exp v0.0.0-20230108222341-4b8118a2686a
 	golang.org/x/net v0.8.0
-	golang.org/x/oauth2 v0.5.0
+	golang.org/x/oauth2 v0.6.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.6.0
 	golang.org/x/term v0.6.0
 	golang.org/x/text v0.8.0
 	golang.org/x/time v0.3.0
-	golang.org/x/tools v0.6.0
-	google.golang.org/api v0.110.0
-	google.golang.org/grpc v1.53.0
+	golang.org/x/tools v0.7.0
+	google.golang.org/api v0.114.0
+	google.golang.org/grpc v1.54.0
 	gopkg.in/yaml.v2 v2.4.0
 	honnef.co/go/tools v0.4.0
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0
@@ -131,9 +131,9 @@ require (
 
 require (
 	cloud.google.com/go v0.110.0 // indirect
-	cloud.google.com/go/compute v1.18.0 // indirect
+	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	cloud.google.com/go/iam v0.12.0 // indirect
+	cloud.google.com/go/iam v0.13.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v0.8.1 // indirect
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
@@ -164,6 +164,7 @@ require (
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/elastic/gosigar v0.14.2 // indirect
+	github.com/elliotchance/pie/v2 v2.1.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible // indirect
@@ -176,7 +177,7 @@ require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/licensecheck v0.3.1 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
-	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
+	github.com/googleapis/gax-go/v2 v2.7.1 // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect
@@ -220,6 +221,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/onsi/gomega v1.23.0 // indirect
 	github.com/petermattis/goid v0.0.0-20211229010228-4d14c490ee36 // indirect
+	github.com/phf/go-queue v0.0.0-20170504031614-9abe38d0371d // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pingcap/check v0.0.0-20200212061837-5e12011dc712 // indirect
 	github.com/pingcap/goleveldb v0.0.0-20191226122134-f82aafb29989 // indirect
@@ -236,9 +238,11 @@ require (
 	github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749 // indirect
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
+	github.com/sony/gobreaker v0.5.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/tiancaiamao/gp v0.0.0-20221230034425-4025bc8a4d4a // indirect
+	github.com/tikv/pd v0.0.0-20230313083840-3e3ae55f68ac // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802 // indirect
@@ -261,10 +265,10 @@ require (
 	go.opentelemetry.io/proto/otlp v0.7.0 // indirect
 	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20221208152030-732eee02a75a // indirect
-	golang.org/x/mod v0.8.0 // indirect
+	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230320184635-7606e756e683 // indirect
+	google.golang.org/genproto v0.0.0-20230331144136-dcfb400f0633 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -276,5 +280,6 @@ replace (
 	// fix potential security issue(CVE-2020-26160) introduced by indirect dependency.
 	github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.6-0.20210809144907-32ab6a8243d7+incompatible
 	github.com/pingcap/tidb/parser => ./parser
+	github.com/tikv/client-go/v2 => github.com/tikv/client-go/v2 v2.0.7-0.20230410042134-055f17756d0f
 	go.opencensus.io => go.opencensus.io v0.23.1-0.20220331163232-052120675fac
 )
