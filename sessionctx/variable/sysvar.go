@@ -2334,10 +2334,6 @@ var defaultSysVars = []*SysVar{
 		},
 	},
 	{Scope: ScopeGlobal, Name: TiDBEnableResourceControl, Value: BoolToOnOff(DefTiDBEnableResourceControl), Type: TypeBool, SetGlobal: func(ctx context.Context, vars *SessionVars, s string) error {
-		if TiDBOptOn(s) {
-			logutil.BgLogger().Info("refuse to enable resource control")
-			return errors.New("serverless clusters do not support resource control configurations")
-		}
 		if TiDBOptOn(s) != EnableResourceControl.Load() {
 			EnableResourceControl.Store(TiDBOptOn(s))
 			(*SetGlobalResourceControl.Load())(TiDBOptOn(s))

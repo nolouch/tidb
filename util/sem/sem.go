@@ -200,6 +200,7 @@ func IsInvisibleSysVar(varNameInLower string) bool {
 		variable.TiDBStmtSummaryFilename,
 		tidbAuditRetractLog,
 		variable.TiDBEnableAsyncCommit,
+		variable.TiDBEnableResourceControl,
 		variable.DataDir:
 		return true
 	}
