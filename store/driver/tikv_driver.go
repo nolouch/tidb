@@ -110,7 +110,7 @@ func TrySetupGlobalResourceController(ctx context.Context, serverID uint64, s kv
 
 	opts := []rmclient.ResourceControlCreateOption{
 		rmclient.EnableSingleGroupByKeyspace(),
-		rmclient.WithMaxWaitDuration(time.Second * 30),
+		rmclient.WithMaxWaitDuration(time.Hour),
 	}
 
 	control, err := rmclient.NewResourceGroupController(ctx, serverID, store.GetPDClient(), &ruConfig, opts...)
