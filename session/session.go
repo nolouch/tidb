@@ -2174,6 +2174,9 @@ func (s *session) ExecuteStmt(ctx context.Context, stmtNode ast.StmtNode) (sqlex
 	resourceGroupName := s.GetSessionVars().ResourceGroupName
 	if len(resourceGroupName) > 0 && resourceGroupName != variable.DefaultResourceGroupName {
 		metrics.ResourceGroupQueryTotalCounter.WithLabelValues(resourceGroupName).Inc()
+	} else if len(config.DefaultResourceGroup) > 0 {
+		// For serverless mode, we need to record the query total counter for the default resource group.
+		metrics.ResourceGroupQueryTotalCounter.WithLabelValues(config.DefaultResourceGroup).Inc()
 	}
 
 	if err != nil {
