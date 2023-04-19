@@ -17,6 +17,8 @@ import (
 const (
 	standbyState   = "standby"
 	activatedState = "activated"
+
+	exitWaitDuration = time.Duration(2) * time.Second
 )
 
 // ActivateRequest is the request body for activating the tidb server.
@@ -93,8 +95,12 @@ func Handler() *http.ServeMux {
 		}
 	})
 	mux.HandleFunc("/tidb-pool/exit", func(w http.ResponseWriter, r *http.Request) {
-		logutil.BgLogger().Info("receiving exit signal, exiting...")
-		os.Exit(0)
+		logutil.BgLogger().Info("receiving exit signal, exit after 2s...")
+		w.WriteHeader(http.StatusOK)
+		go func() {
+			time.Sleep(exitWaitDuration)
+			os.Exit(0)
+		}()
 	})
 	return mux
 }
