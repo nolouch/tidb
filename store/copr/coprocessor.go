@@ -1124,14 +1124,16 @@ func (worker *copIteratorWorker) handleTaskOnce(bo *Backoffer, task *copTask, ch
 	cacheKey, cacheValue := worker.buildCacheKey(task, &copReq)
 
 	req := tikvrpc.NewReplicaReadRequest(task.cmdType, &copReq, options.GetTiKVReplicaReadType(worker.req.ReplicaRead), &worker.replicaReadSeed, kvrpcpb.Context{
-		IsolationLevel:    isolationLevelToPB(worker.req.IsolationLevel),
-		Priority:          priorityToPB(worker.req.Priority),
-		NotFillCache:      worker.req.NotFillCache,
-		RecordTimeStat:    true,
-		RecordScanStat:    true,
-		TaskId:            worker.req.TaskID,
-		RequestSource:     task.requestSource.GetRequestSource(),
-		ResourceGroupName: worker.req.ResourceGroupName,
+		IsolationLevel: isolationLevelToPB(worker.req.IsolationLevel),
+		Priority:       priorityToPB(worker.req.Priority),
+		NotFillCache:   worker.req.NotFillCache,
+		RecordTimeStat: true,
+		RecordScanStat: true,
+		TaskId:         worker.req.TaskID,
+		RequestSource:  task.requestSource.GetRequestSource(),
+		ResourceControlContext: &kvrpcpb.ResourceControlContext{
+			ResourceGroupName: worker.req.ResourceGroupName,
+		},
 	})
 	if worker.req.ResourceGroupTagger != nil {
 		worker.req.ResourceGroupTagger(req)
