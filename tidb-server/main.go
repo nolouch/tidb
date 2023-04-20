@@ -222,10 +222,6 @@ func main() {
 		config.UpdateGlobal(func(c *config.Config) {
 			c.KeyspaceName = activateRequest.KeyspaceName
 		})
-		maxIdleSeconds := int(config.GetGlobalConfig().MaxIdleSeconds)
-		if maxIdleSeconds > 0 {
-			standby.StartWatchLastActive(maxIdleSeconds)
-		}
 		// replace mainErrHandler to make sure standby handler can exit gracefully.
 		mainErrHandler = func(err error) {
 			if err != nil {
@@ -323,6 +319,13 @@ func main() {
 	// To prevent misuse, set a flag to indicate that register new error will panic immediately.
 	// For regression of issue like https://github.com/pingcap/tidb/issues/28190
 	terror.RegisterFinish()
+
+	if config.GetGlobalConfig().StandByMode {
+		maxIdleSeconds := int(config.GetGlobalConfig().MaxIdleSeconds)
+		if maxIdleSeconds > 0 {
+			standby.StartWatchLastActive(svr, maxIdleSeconds)
+		}
+	}
 
 	if config.GetGlobalConfig().KeyspaceActivateMode {
 		mainErrHandler(err)

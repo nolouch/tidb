@@ -22,7 +22,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -105,6 +104,12 @@ const (
 	tidbShardBucketCount = 256
 )
 
+const (
+	// maxSleepSeconds = math.MaxFloat64/float64(time.Second.Nanoseconds())
+	// Serverless supports a maximum sleep time of 300 seconds.
+	maxSleepSeconds = 300
+)
+
 type sleepFunctionClass struct {
 	baseFunctionClass
 }
@@ -151,8 +156,8 @@ func (b *builtinSleepSig) evalInt(row chunk.Row) (int64, bool, error) {
 		return 0, false, nil
 	}
 
-	if val > math.MaxFloat64/float64(time.Second.Nanoseconds()) {
-		return 0, false, errIncorrectArgs.GenWithStackByArgs("sleep")
+	if val > maxSleepSeconds {
+		return 0, false, errIncorrectArgs.GenWithStack("sleep() argument is greater than %v", maxSleepSeconds)
 	}
 
 	if isKilled := doSleep(val, sessVars); isKilled {

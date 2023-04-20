@@ -694,7 +694,7 @@ func (s *Server) checkConnectionCount() error {
 // ShowProcessList implements the SessionManager interface.
 func (s *Server) ShowProcessList() map[uint64]*util.ProcessInfo {
 	rs := make(map[uint64]*util.ProcessInfo)
-	for connID, pi := range s.getUserProcessList() {
+	for connID, pi := range s.GetUserProcessList() {
 		rs[connID] = pi
 	}
 	if s.dom != nil {
@@ -705,7 +705,8 @@ func (s *Server) ShowProcessList() map[uint64]*util.ProcessInfo {
 	return rs
 }
 
-func (s *Server) getUserProcessList() map[uint64]*util.ProcessInfo {
+// GetUserProcessList returns all process info that are created by user.
+func (s *Server) GetUserProcessList() map[uint64]*util.ProcessInfo {
 	s.rwlock.RLock()
 	defer s.rwlock.RUnlock()
 	rs := make(map[uint64]*util.ProcessInfo)
