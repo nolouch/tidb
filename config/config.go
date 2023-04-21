@@ -319,8 +319,6 @@ type Config struct {
 	SkipGCDropTable bool `toml:"skip-gc-drop-table" json:"skip-gc-drop-table"`
 	// SkipRedoDeleteRangeGC is used to control whether to skip redo delege range gc in gc worker.
 	SkipRedoDeleteRangeGC bool `toml:"skip-gc-delete-range" json:"skip-gc-delete-range"`
-	// Ratelimit is used to control the rate limit of the tenant requests.
-	Ratelimit RatelimitConfig `toml:"ratelimit" json:"ratelimit"`
 	// BootstrapControl is used to control serverless bootstrap procedure.
 	BootstrapControl BootstrapControl `toml:"bootstrap-control" json:"bootstrap-control"`
 
@@ -1065,7 +1063,6 @@ var defaultConf = Config{
 	TiDBMaxReuseChunk:                    64,
 	TiDBMaxReuseColumn:                   256,
 	TiDBEnableExitCheck:                  false,
-	Ratelimit:                            defaultRatelimitConfig(),
 	BootstrapControl:                     defaultBootstrapControl(),
 	RewriteCollations:                    make(map[string]map[string]string),
 }

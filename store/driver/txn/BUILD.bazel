@@ -15,8 +15,6 @@ go_library(
     importpath = "github.com/pingcap/tidb/store/driver/txn",
     visibility = ["//visibility:public"],
     deps = [
-        "//config",
-        "//keyspace",
         "//kv",
         "//parser/model",
         "//parser/mysql",

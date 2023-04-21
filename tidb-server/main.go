@@ -387,9 +387,6 @@ func getServerlessInfo() (*keyspacepb.KeyspaceMeta, error) {
 		return nil, err
 	}
 
-	log.Info("start rate limit")
-	keyspace.Limiter.StartAdjustLimit(etcdAddrs, keyspaceMeta.Id)
-
 	metrics.SetServerlessLabels(keyspaceMeta.Config["serverless_tenant_id"],
 		keyspaceMeta.Config["serverless_project_id"],
 		keyspaceMeta.Config["serverless_cluster_id"],
