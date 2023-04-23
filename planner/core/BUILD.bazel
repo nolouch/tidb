@@ -123,6 +123,7 @@ go_library(
         "//util/dbterror",
         "//util/disjointset",
         "//util/domainutil",
+        "//util/errmsg",
         "//util/execdetails",
         "//util/hack",
         "//util/hint",

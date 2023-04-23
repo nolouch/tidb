@@ -1114,5 +1114,6 @@ const (
 	ErrTiFlashServerBusy         = 9013
 
 	// Serverless tier errors.
-	ErrNotSupportedOnServerless = 20001
+	ErrNotSupportedOnServerless     = 20001
+	ErrClientResourceGroupThrottled = 20002
 )

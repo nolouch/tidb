@@ -61,6 +61,7 @@ import (
 	"github.com/pingcap/tidb/util"
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/collate"
+	"github.com/pingcap/tidb/util/errmsg"
 	"github.com/pingcap/tidb/util/etcd"
 	"github.com/pingcap/tidb/util/format"
 	"github.com/pingcap/tidb/util/hack"
@@ -640,7 +641,7 @@ func (e *ShowExec) fetchShowColumns(ctx context.Context) error {
 	checker := privilege.GetPrivilegeManager(e.ctx)
 	activeRoles := e.ctx.GetSessionVars().ActiveRoles
 	if checker != nil && e.ctx.GetSessionVars().User != nil && !checker.RequestVerification(activeRoles, e.DBName.O, tb.Meta().Name.O, "", mysql.InsertPriv|mysql.SelectPriv|mysql.UpdatePriv|mysql.ReferencesPriv) {
-		return e.tableAccessDenied("SELECT", tb.Meta().Name.O)
+		return errmsg.WithInvisibleTableErrTag(e.tableAccessDenied("SELECT", tb.Meta().Name.O))
 	}
 
 	var cols []*table.Column

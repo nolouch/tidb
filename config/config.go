@@ -321,9 +321,10 @@ type Config struct {
 	SkipRedoDeleteRangeGC bool `toml:"skip-gc-delete-range" json:"skip-gc-delete-range"`
 	// BootstrapControl is used to control serverless bootstrap procedure.
 	BootstrapControl BootstrapControl `toml:"bootstrap-control" json:"bootstrap-control"`
-
 	// Rewrite collations for certain keyspaces
 	RewriteCollations map[string]map[string]string `toml:"rewrite-collations" json:"rewrite-collations"`
+	// ExtendedErrorMsgs is used to store the extended error message for some error.
+	ExtendedErrorMsgs map[string]string `toml:"extended-error-msgs" json:"extended-error-msgs"`
 }
 
 // UpdateTempStoragePath is to update the `TempStoragePath` if port/statusPort was changed
@@ -1065,6 +1066,7 @@ var defaultConf = Config{
 	TiDBEnableExitCheck:                  false,
 	BootstrapControl:                     defaultBootstrapControl(),
 	RewriteCollations:                    make(map[string]map[string]string),
+	ExtendedErrorMsgs:                    make(map[string]string),
 }
 
 var (

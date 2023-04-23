@@ -22,7 +22,9 @@ import (
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/terror"
 	"github.com/pingcap/tidb/util/dbterror"
+	"github.com/pingcap/tidb/util/errmsg"
 	tikverr "github.com/tikv/client-go/v2/error"
+	pderr "github.com/tikv/pd/client/errs"
 )
 
 // tikv error instance
@@ -53,6 +55,8 @@ var (
 	ErrPDServerTimeout = dbterror.ClassTiKV.NewStd(errno.ErrPDServerTimeout)
 	// ErrRegionUnavailable is the error when region is not available.
 	ErrRegionUnavailable = dbterror.ClassTiKV.NewStd(errno.ErrRegionUnavailable)
+	// ErrErrResourceGroupThrottled is the error when exceeded resource group quota limitation.
+	ErrClientResourceGroupThrottled = dbterror.ClassTiKV.NewStd(errno.ErrClientResourceGroupThrottled)
 	// ErrUnknown is the unknow error.
 	ErrUnknown = dbterror.ClassTiKV.NewStd(errno.ErrUnknown)
 )
@@ -148,6 +152,10 @@ func ToTiDBErr(err error) error {
 
 	if stderrs.Is(err, tikverr.ErrRegionUnavailable) {
 		return ErrRegionUnavailable
+	}
+
+	if stderrs.Is(err, pderr.ErrClientResourceGroupThrottled) {
+		return errmsg.WithResourceUnitErrTag(ErrClientResourceGroupThrottled)
 	}
 
 	var tokenLimit *tikverr.ErrTokenLimit

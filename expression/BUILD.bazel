@@ -91,6 +91,7 @@ go_library(
         "//util/dbterror",
         "//util/disjointset",
         "//util/encrypt",
+        "//util/errmsg",
         "//util/generatedexpr",
         "//util/hack",
         "//util/logutil",

@@ -50,6 +50,7 @@ import (
 	"github.com/pingcap/tidb/util"
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/collate"
+	"github.com/pingcap/tidb/util/errmsg"
 	"github.com/pingcap/tidb/util/hack"
 	"github.com/pingcap/tidb/util/logutil"
 	"github.com/pingcap/tidb/util/mathutil"
@@ -1134,7 +1135,7 @@ func (e *SimpleExec) executeCreateUser(ctx context.Context, s *ast.CreateUserStm
 	users := make([]*auth.UserIdentity, 0, len(s.Specs))
 	for _, spec := range s.Specs {
 		if userPrefix != "" && !s.IsCreateRole && !strings.HasPrefix(spec.User.Username, userPrefix+".") && spec.User.Username != "cloud_admin" {
-			return ErrUserNameNeedPrefix.GenWithStackByArgs(userPrefix, userPrefix, spec.User.Username)
+			return errmsg.WithUserPrefixErrTag(ErrUserNameNeedPrefix.GenWithStackByArgs(userPrefix, userPrefix, spec.User.Username))
 		}
 		if len(spec.User.Username) > auth.UserNameMaxLength {
 			return ErrWrongStringLength.GenWithStackByArgs(spec.User.Username, "user name", auth.UserNameMaxLength)

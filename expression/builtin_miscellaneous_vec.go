@@ -27,6 +27,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/util/chunk"
+	"github.com/pingcap/tidb/util/errmsg"
 	"github.com/pingcap/tidb/util/vitess"
 )
 
@@ -334,7 +335,7 @@ func (b *builtinSleepSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) e
 		}
 
 		if val > maxSleepSeconds {
-			return errIncorrectArgs.GenWithStack("sleep() argument is greater than %v", maxSleepSeconds)
+			return errmsg.WithMaxSleepSecondsErrTag(errIncorrectArgs.GenWithStack("sleep() argument is greater than %v", maxSleepSeconds))
 		}
 
 		if isKilled := doSleep(val, sessVars); isKilled {

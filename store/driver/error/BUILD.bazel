@@ -10,8 +10,10 @@ go_library(
         "//kv",
         "//parser/terror",
         "//util/dbterror",
+        "//util/errmsg",
         "@com_github_pingcap_errors//:errors",
         "@com_github_tikv_client_go_v2//error",
+        "@com_github_tikv_pd_client//errs",
     ],
 )
 

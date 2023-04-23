@@ -1408,7 +1408,7 @@ Ingest failed: %s
 
 ["domain:8027"]
 error = '''
-Information schema is out of date: schema failed to update in 1 lease, please make sure TiDB can connect to TiKV
+Information schema is out of date: schema failed to update in 1 lease, please make sure TiDB can connect to TiKV.
 '''
 
 ["domain:8028"]
@@ -2704,6 +2704,11 @@ Lock wait timeout exceeded; try restarting transaction
 ["tikv:1317"]
 error = '''
 Query execution was interrupted
+'''
+
+["tikv:20002"]
+error = '''
+Exceeded resource group quota limitation
 '''
 
 ["tikv:3572"]

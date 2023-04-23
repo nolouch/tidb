@@ -76,6 +76,7 @@ go_library(
         "//util/cpuprofile",
         "//util/dbterror",
         "//util/deadlockhistory",
+        "//util/errmsg",
         "//util/execdetails",
         "//util/fastrand",
         "//util/gcutil",

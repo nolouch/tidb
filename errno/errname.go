@@ -961,7 +961,7 @@ var MySQLErrName = map[uint16]*mysql.ErrMessage{
 	ErrInvalidTxn:                       mysql.Message("invalid transaction", nil),
 	ErrEntryTooLarge:                    mysql.Message("entry too large, the max entry size is %d, the size of data is %d", nil),
 	ErrNotImplemented:                   mysql.Message("not implemented", nil),
-	ErrInfoSchemaExpired:                mysql.Message("Information schema is out of date: schema failed to update in 1 lease, please make sure TiDB can connect to TiKV", nil),
+	ErrInfoSchemaExpired:                mysql.Message("Information schema is out of date: schema failed to update in 1 lease, please make sure TiDB can connect to TiKV.", nil),
 	ErrInfoSchemaChanged:                mysql.Message("Information schema is changed during the execution of the statement(for example, table definition may be updated by other DDL ran in parallel). If you see this error often, try increasing `tidb_max_delta_schema_count`", nil),
 	ErrBadNumber:                        mysql.Message("Bad Number", nil),
 	ErrCastAsSignedOverflow:             mysql.Message("Cast to signed converted positive out-of-range integer to it's negative complement", nil),
@@ -1104,6 +1104,7 @@ var MySQLErrName = map[uint16]*mysql.ErrMessage{
 
 	ErrColumnInChange:               mysql.Message("column %s id %d does not exist, this column may have been updated by other DDL ran in parallel", nil),
 	ErrResourceGroupSupportDisabled: mysql.Message("Resource control feature is disabled. Run `SET GLOBAL tidb_enable_resource_control='on'` to enable the feature", nil),
+	ErrClientResourceGroupThrottled: mysql.Message("Exceeded resource group quota limitation", nil),
 
 	// TiKV/PD errors.
 	ErrPDServerTimeout:           mysql.Message("PD server timeout: %s", nil),

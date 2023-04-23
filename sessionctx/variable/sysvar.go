@@ -36,6 +36,7 @@ import (
 	"github.com/pingcap/tidb/types"
 	_ "github.com/pingcap/tidb/types/parser_driver" // for parser driver
 	"github.com/pingcap/tidb/util/collate"
+	"github.com/pingcap/tidb/util/errmsg"
 	"github.com/pingcap/tidb/util/gctuner"
 	"github.com/pingcap/tidb/util/logutil"
 	"github.com/pingcap/tidb/util/mathutil"
@@ -1001,7 +1002,7 @@ var defaultSysVars = []*SysVar{
 			if TiDBOptOn(val) {
 				return nil
 			}
-			return errors.New("require_secure_transport can not be disabled")
+			return errmsg.WithRequireSecureTransportErrTag(errors.New("require_secure_transport can not be disabled"))
 		},
 	},
 	{Scope: ScopeGlobal, Name: TiDBStatsLoadPseudoTimeout, Value: BoolToOnOff(DefTiDBStatsLoadPseudoTimeout), Type: TypeBool,
