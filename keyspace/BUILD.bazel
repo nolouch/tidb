@@ -2,14 +2,21 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "keyspace",
-    srcs = ["keyspace.go"],
+    srcs = [
+        "keyspace.go",
+        "ratelimit.go",
+    ],
     importpath = "github.com/pingcap/tidb/keyspace",
     visibility = ["//visibility:public"],
     deps = [
         "//config",
         "//kv",
+        "//util",
+        "//util/codec",
+        "//util/logutil",
         "@com_github_pingcap_kvproto//pkg/kvrpcpb",
         "@com_github_tikv_client_go_v2//tikv",
+        "@org_uber_go_zap//:zap",
     ],
 )
 
