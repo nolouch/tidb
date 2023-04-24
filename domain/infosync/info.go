@@ -1183,6 +1183,16 @@ func GetTiFlashGroupRules(ctx context.Context, group string) ([]placement.TiFlas
 	return is.tiflashReplicaManager.GetGroupRules(ctx, group)
 }
 
+// GetPlacementRule is a helper function to get placement rule by table id.
+func GetPlacementRule(ctx context.Context, tableID int64) (*placement.TiFlashRule, error) {
+	is, err := getGlobalInfoSyncer()
+	if err != nil {
+		return nil, err
+	}
+
+	return is.tiflashReplicaManager.GetPlacementRule(ctx, tableID)
+}
+
 // PostTiFlashAccelerateSchedule sends `regions/accelerate-schedule` request.
 func PostTiFlashAccelerateSchedule(ctx context.Context, tableID int64) error {
 	is, err := getGlobalInfoSyncer()

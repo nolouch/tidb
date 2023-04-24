@@ -218,6 +218,8 @@ var (
 	PullTiFlashPdTick = atomicutil.NewUint64(30 * 5)
 	// UpdateTiFlashStoreTick indicates the number of intervals before we fully update TiFlash stores.
 	UpdateTiFlashStoreTick = atomicutil.NewUint64(5)
+	// RefreshRulesTick indicates the number of intervals before we refresh TiFlash rules.
+	RefreshRulesTick = atomicutil.NewUint64(10)
 	// PollTiFlashBackoffMaxTick is the max tick before we try to update TiFlash replica availability for one table.
 	PollTiFlashBackoffMaxTick TiFlashTick = 10
 	// PollTiFlashBackoffMinTick is the min tick before we try to update TiFlash replica availability for one table.
@@ -350,7 +352,7 @@ func updateTiFlashStores(pollTiFlashContext *TiFlashManagementContext) error {
 	return nil
 }
 
-func pollAvailableTableProgress(schemas infoschema.InfoSchema, ctx sessionctx.Context, pollTiFlashContext *TiFlashManagementContext) {
+func pollAvailableTableProgress(schemas infoschema.InfoSchema, pollTiFlashContext *TiFlashManagementContext) {
 	pollMaxCount := RefreshProgressMaxTableCount
 	failpoint.Inject("PollAvailableTableProgressMaxCount", func(val failpoint.Value) {
 		pollMaxCount = uint64(val.(int))
@@ -440,7 +442,7 @@ func (d *ddl) refreshTiFlashTicker(ctx sessionctx.Context, pollTiFlashContext *T
 		return errors.New("Schema is nil")
 	}
 
-	pollAvailableTableProgress(schema, ctx, pollTiFlashContext)
+	pollAvailableTableProgress(schema, pollTiFlashContext)
 
 	var tableList = make([]TiFlashReplicaStatus, 0)
 
@@ -542,6 +544,94 @@ func (d *ddl) refreshTiFlashTicker(ctx sessionctx.Context, pollTiFlashContext *T
 	return nil
 }
 
+type pending struct {
+	ID        int64
+	TableInfo *model.TableInfo
+	DBInfo    *model.DBInfo
+}
+
+// refreshTiFlashPlacementRules will refresh the placement rules of TiFlash replicas if on tick.
+// 1. It will scan all the meta and check if there is any TiFlash replica.
+// 2. If there is, it will check if the placement rules are missing.
+// 3. If the placement rules are missing, it will add by submit a ActionSetTiFlashReplica job to repair the entire table.
+func (d *ddl) refreshTiFlashPlacementRules(sctx sessionctx.Context, tick uint64) error {
+	if tick%RefreshRulesTick.Load() != 0 {
+		return nil
+	}
+	schema := d.GetInfoSchemaWithInterceptor(sctx)
+	if schema == nil {
+		return errors.New("Schema is nil")
+	}
+
+	var pendings []pending
+
+	for _, db := range schema.AllSchemas() {
+		tables := schema.SchemaTables(db.Name)
+		for _, tbl := range tables {
+			tblInfo := tbl.Meta()
+			if tblInfo.TiFlashReplica == nil {
+				continue
+			}
+
+			if ps := tblInfo.GetPartitionInfo(); ps != nil {
+				collectPendings := func(ps []model.PartitionDefinition) {
+					for _, p := range ps {
+						pendings = append(pendings, pending{
+							ID:        p.ID,
+							TableInfo: tblInfo,
+							DBInfo:    db,
+						})
+					}
+				}
+				collectPendings(ps.Definitions)
+				collectPendings(ps.AddingDefinitions)
+			} else {
+				pendings = append(pendings, pending{
+					ID:        tblInfo.ID,
+					TableInfo: tblInfo,
+					DBInfo:    db,
+				})
+			}
+		}
+	}
+
+	fixed := make(map[int64]struct{})
+	for _, replica := range pendings {
+		if _, ok := fixed[replica.TableInfo.ID]; ok {
+			continue
+		}
+		rule, err := infosync.GetPlacementRule(d.ctx, replica.ID)
+		if err != nil {
+			logutil.BgLogger().Warn("get placement rule err", zap.Error(err))
+			continue
+		}
+		// rule is missing
+		if rule == nil && replica.TableInfo.TiFlashReplica.Count > 0 {
+			job := &model.Job{
+				SchemaID:   replica.DBInfo.ID,
+				TableID:    replica.TableInfo.ID,
+				SchemaName: replica.DBInfo.Name.L,
+				TableName:  replica.TableInfo.Name.L,
+				Type:       model.ActionSetTiFlashReplica,
+				BinlogInfo: &model.HistoryInfo{},
+				Args: []interface{}{&model.TiFlashReplicaInfo{
+					Count:          replica.TableInfo.TiFlashReplica.Count,
+					LocationLabels: replica.TableInfo.TiFlashReplica.LocationLabels,
+				}},
+			}
+			err = d.DoDDLJob(sctx, job)
+			err = d.callHookOnChanged(job, err)
+			if err != nil {
+				logutil.BgLogger().Warn("fix placement rule err", zap.Error(err))
+			} else {
+				logutil.BgLogger().Info("fix placement rule success", zap.Int64("tableID", replica.TableInfo.ID))
+				fixed[replica.TableInfo.ID] = struct{}{}
+			}
+		}
+	}
+	return nil
+}
+
 func (d *ddl) PollTiFlashRoutine() {
 	pollTiflashContext, err := NewTiFlashManagementContext()
 	if err != nil {
@@ -588,6 +678,7 @@ func (d *ddl) PollTiFlashRoutine() {
 							logutil.BgLogger().Warn("refreshTiFlashTicker returns error", zap.Error(err))
 						}
 					}
+					_ = d.refreshTiFlashPlacementRules(sctx, pollTiflashContext.PollCounter)
 				} else {
 					infosync.CleanTiFlashProgressCache()
 				}
