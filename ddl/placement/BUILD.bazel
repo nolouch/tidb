@@ -13,10 +13,13 @@ go_library(
     importpath = "github.com/pingcap/tidb/ddl/placement",
     visibility = ["//visibility:public"],
     deps = [
+        "//config",
         "//parser/model",
         "//tablecodec",
         "//util/codec",
+        "//util/slice",
         "@com_github_pingcap_failpoint//:failpoint",
+        "@com_github_pingcap_kvproto//pkg/metapb",
         "@in_gopkg_yaml_v2//:yaml_v2",
         "@org_golang_x_exp//slices",
     ],

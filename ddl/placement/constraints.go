@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pingcap/kvproto/pkg/metapb"
+	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/util/slice"
 	"gopkg.in/yaml.v2"
 )
 
@@ -109,4 +112,54 @@ func (constraints *Constraints) Add(label Constraint) error {
 		*constraints = append(*constraints, label)
 	}
 	return nil
+}
+
+func (c *Constraint) match(s labels) bool {
+	switch c.Op {
+	case In:
+		label := getLabelValues(s, c.Key)
+		return label != "" && slice.AnyOf(c.Values, func(i int) bool { return c.Values[i] == label })
+	case NotIn:
+		label := getLabelValues(s, c.Key)
+		return label == "" || slice.NoneOf(c.Values, func(i int) bool { return c.Values[i] == label })
+	case Exists:
+		return getLabelValues(s, c.Key) != ""
+	case NotExists:
+		return getLabelValues(s, c.Key) == ""
+	}
+	return false
+}
+
+func getLabelValues(s labels, key string) string {
+	for _, label := range s.GetLabels() {
+		if strings.EqualFold(label.GetKey(), key) {
+			return label.GetValue()
+		}
+	}
+	return ""
+}
+
+type labels interface {
+	GetLabels() []*metapb.StoreLabel
+}
+
+// MatchConstraints checks if the store matches the constraints.
+func MatchConstraints(s labels, constraints Constraints) bool {
+	if s == nil {
+		return false
+	}
+
+	return slice.AllOf(constraints, func(i int) bool {
+		return constraints[i].match(s)
+	})
+}
+
+// GetTiFlashConstraintsFromConfig returns the constraints from config.
+func GetTiFlashConstraintsFromConfig() Constraints {
+	constraints := config.GetGlobalConfig().TiFlashConstraints
+	res := make(Constraints, len(constraints))
+	for i, c := range constraints {
+		res[i] = Constraint{Key: c.Key, Op: ConstraintOp(c.Op), Values: c.Values}
+	}
+	return res
 }

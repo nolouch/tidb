@@ -32,6 +32,7 @@ import (
 	"github.com/pingcap/errors"
 	deadlockpb "github.com/pingcap/kvproto/pkg/deadlock"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
+	"github.com/pingcap/kvproto/pkg/metapb"
 	"github.com/pingcap/tidb/ddl/placement"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
@@ -917,6 +918,18 @@ type StoreBaseStat struct {
 	StatusAddress  string       `json:"status_address"`
 	GitHash        string       `json:"git_hash"`
 	StartTimestamp int64        `json:"start_timestamp"`
+}
+
+// GetLabels returns the labels of the store.
+func (s StoreBaseStat) GetLabels() []*metapb.StoreLabel {
+	labels := make([]*metapb.StoreLabel, len(s.Labels))
+	for i, label := range s.Labels {
+		labels[i] = &metapb.StoreLabel{
+			Key:   label.Key,
+			Value: label.Value,
+		}
+	}
+	return labels
 }
 
 // StoreLabel stores the information of one store label.

@@ -34,6 +34,7 @@ import (
 	zaplog "github.com/pingcap/log"
 	logbackupconf "github.com/pingcap/tidb/br/pkg/streamhelper/config"
 	"github.com/pingcap/tidb/parser/terror"
+	"github.com/pingcap/tidb/store/pdtypes"
 	"github.com/pingcap/tidb/util/logutil"
 	"github.com/pingcap/tidb/util/tiflashcompute"
 	"github.com/pingcap/tidb/util/tikvutil"
@@ -94,6 +95,34 @@ const (
 	DefAuthTokenRefreshInterval = time.Hour
 	// EnvVarKeyspaceName is the system env name for keyspace name.
 	EnvVarKeyspaceName = "KEYSPACE_NAME"
+)
+
+const (
+	engineLabelKey                  = "engine"
+	engineLabelTiFlash              = "tiflash"
+	engineRoleLabelKey              = "engine_role"
+	engineRoleLabelTiFlashWriteNode = "write"
+)
+
+var (
+	defaultTiFlashConstraints = []Constraint{
+		{
+			Key:    engineLabelKey,
+			Op:     string(pdtypes.In),
+			Values: []string{engineLabelTiFlash},
+		},
+		{
+			Key:    engineRoleLabelKey,
+			Op:     string(pdtypes.NotIn),
+			Values: []string{engineRoleLabelTiFlashWriteNode},
+		},
+	}
+	allowOps = map[string]bool{
+		string(pdtypes.In):        true,
+		string(pdtypes.NotIn):     true,
+		string(pdtypes.Exists):    true,
+		string(pdtypes.NotExists): true,
+	}
 )
 
 // Valid config maps
@@ -326,7 +355,15 @@ type Config struct {
 	// Rewrite collations for certain keyspaces
 	RewriteCollations map[string]map[string]string `toml:"rewrite-collations" json:"rewrite-collations"`
 	// ExtendedErrorMsgs is used to store the extended error message for some error.
-	ExtendedErrorMsgs map[string]string `toml:"extended-error-msgs" json:"extended-error-msgs"`
+	ExtendedErrorMsgs  map[string]string `toml:"extended-error-msgs" json:"extended-error-msgs"`
+	TiFlashConstraints []Constraint      `toml:"tiflash-constraints" json:"tiflash-constraints"`
+}
+
+// Constraint is used to store the constraints for tiflash.
+type Constraint struct {
+	Key    string   `toml:"key" json:"key"`
+	Op     string   `toml:"op" json:"op"`
+	Values []string `toml:"values" json:"values"`
 }
 
 // UpdateTempStoragePath is to update the `TempStoragePath` if port/statusPort was changed
@@ -1070,6 +1107,7 @@ var defaultConf = Config{
 	BootstrapControl:                     defaultBootstrapControl(),
 	RewriteCollations:                    make(map[string]map[string]string),
 	ExtendedErrorMsgs:                    make(map[string]string),
+	TiFlashConstraints:                   defaultTiFlashConstraints,
 }
 
 var (
@@ -1396,6 +1434,13 @@ func (c *Config) Valid() error {
 	// check mode
 	if c.StandByMode && c.KeyspaceActivateMode {
 		return fmt.Errorf("can't set standby and keyspace-activate mode at the same time")
+	}
+
+	// Check tiflash constraints
+	for _, constraint := range c.TiFlashConstraints {
+		if _, ok := allowOps[constraint.Op]; !ok {
+			return fmt.Errorf("invalid tiflash constraint op %s, only supports %v", constraint.Op, allowOps)
+		}
 	}
 
 	// test log level

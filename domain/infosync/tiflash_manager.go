@@ -390,24 +390,13 @@ type mockTiFlashReplicaManagerCtx struct {
 
 func makeBaseRule() placement.TiFlashRawRule {
 	return placement.TiFlashRawRule{
-		GroupID:  placement.TiFlashRuleGroupID,
-		ID:       "",
-		Index:    placement.RuleIndexTiFlash,
-		Override: false,
-		Role:     placement.Learner,
-		Count:    2,
-		Constraints: []placement.Constraint{
-			{
-				Key:    "engine",
-				Op:     placement.In,
-				Values: []string{"tiflash"},
-			},
-			{
-				Key:    "engine_role",
-				Op:     placement.NotIn,
-				Values: []string{"write"},
-			},
-		},
+		GroupID:     placement.TiFlashRuleGroupID,
+		ID:          "",
+		Index:       placement.RuleIndexTiFlash,
+		Override:    false,
+		Role:        placement.Learner,
+		Count:       2,
+		Constraints: placement.GetTiFlashConstraintsFromConfig(),
 	}
 }
 

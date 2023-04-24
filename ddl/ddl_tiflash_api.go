@@ -29,6 +29,7 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
+	"github.com/pingcap/tidb/ddl/placement"
 	ddlutil "github.com/pingcap/tidb/ddl/util"
 	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/infoschema"
@@ -329,15 +330,6 @@ func (d *ddl) UpdateTiFlashHTTPAddress(store *helper.StoreStat) error {
 	return nil
 }
 
-func hasLabel(labels []helper.StoreLabel, targetKey string, targetVal string) bool {
-	for _, l := range labels {
-		if l.Key == targetKey && l.Value == targetVal {
-			return true
-		}
-	}
-	return false
-}
-
 func updateTiFlashStores(pollTiFlashContext *TiFlashManagementContext) error {
 	// We need the up-to-date information about TiFlash stores.
 	// Since TiFlash Replica synchronize may happen immediately after new TiFlash stores are added.
@@ -349,7 +341,7 @@ func updateTiFlashStores(pollTiFlashContext *TiFlashManagementContext) error {
 	pollTiFlashContext.TiFlashStores = make(map[int64]helper.StoreStat)
 	for _, store := range tikvStats.Stores {
 		// todo: remove check s3-wn after s3 is stable.
-		if hasLabel(store.Store.Labels, "engine", "tiflash") && !hasLabel(store.Store.Labels, "engine_role", "write") {
+		if placement.MatchConstraints(store.Store, placement.GetTiFlashConstraintsFromConfig()) {
 			pollTiFlashContext.TiFlashStores[store.Store.ID] = store
 			logutil.BgLogger().Debug("Found tiflash store", zap.Int64("id", store.Store.ID), zap.String("Address", store.Store.Address), zap.String("StatusAddress", store.Store.StatusAddress))
 		}
