@@ -355,8 +355,14 @@ type Config struct {
 	// Rewrite collations for certain keyspaces
 	RewriteCollations map[string]map[string]string `toml:"rewrite-collations" json:"rewrite-collations"`
 	// ExtendedErrorMsgs is used to store the extended error message for some error.
-	ExtendedErrorMsgs  map[string]string `toml:"extended-error-msgs" json:"extended-error-msgs"`
-	TiFlashConstraints []Constraint      `toml:"tiflash-constraints" json:"tiflash-constraints"`
+	ExtendedErrorMsgs map[string]string `toml:"extended-error-msgs" json:"extended-error-msgs"`
+	TiFlashReplicas   TiFlashReplicas   `toml:"tiflash-replicas" json:"tiflash-replicas"`
+}
+
+// TiFlashReplicas is used to control the format of TiFlash placement rules committed to PD.
+type TiFlashReplicas struct {
+	Constraints []Constraint `toml:"constraints" json:"constraints"`
+	MinCount    uint64       `toml:"min-count" json:"min-count"`
 }
 
 // Constraint is used to store the constraints for tiflash.
@@ -1107,7 +1113,10 @@ var defaultConf = Config{
 	BootstrapControl:                     defaultBootstrapControl(),
 	RewriteCollations:                    make(map[string]map[string]string),
 	ExtendedErrorMsgs:                    make(map[string]string),
-	TiFlashConstraints:                   defaultTiFlashConstraints,
+	TiFlashReplicas: TiFlashReplicas{
+		Constraints: defaultTiFlashConstraints,
+		MinCount:    1,
+	},
 }
 
 var (
@@ -1437,7 +1446,7 @@ func (c *Config) Valid() error {
 	}
 
 	// Check tiflash constraints
-	for _, constraint := range c.TiFlashConstraints {
+	for _, constraint := range c.TiFlashReplicas.Constraints {
 		if _, ok := allowOps[constraint.Op]; !ok {
 			return fmt.Errorf("invalid tiflash constraint op %s, only supports %v", constraint.Op, allowOps)
 		}

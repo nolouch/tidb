@@ -156,7 +156,7 @@ func MatchConstraints(s labels, constraints Constraints) bool {
 
 // GetTiFlashConstraintsFromConfig returns the constraints from config.
 func GetTiFlashConstraintsFromConfig() Constraints {
-	constraints := config.GetGlobalConfig().TiFlashConstraints
+	constraints := config.GetGlobalConfig().TiFlashReplicas.Constraints
 	res := make(Constraints, len(constraints))
 	for i, c := range constraints {
 		res[i] = Constraint{Key: c.Key, Op: ConstraintOp(c.Op), Values: c.Values}
