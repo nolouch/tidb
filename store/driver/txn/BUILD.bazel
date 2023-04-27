@@ -27,6 +27,7 @@ go_library(
         "//tablecodec",
         "//types",
         "//util",
+        "//util/errmsg",
         "//util/logutil",
         "//util/tracing",
         "@com_github_pingcap_errors//:errors",

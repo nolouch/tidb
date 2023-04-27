@@ -32,6 +32,7 @@ import (
 	derr "github.com/pingcap/tidb/store/driver/error"
 	"github.com/pingcap/tidb/store/driver/options"
 	"github.com/pingcap/tidb/tablecodec"
+	"github.com/pingcap/tidb/util/errmsg"
 	"github.com/pingcap/tidb/util/logutil"
 	"github.com/pingcap/tidb/util/tracing"
 	tikverr "github.com/tikv/client-go/v2/error"
@@ -142,17 +143,18 @@ func (txn *tikvTxn) Commit(ctx context.Context) error {
 					"You have reached max transaction limit %s of Serverless Tier cluster",
 					humanReadable(keyspace.Limiter.MaxToken()))
 				cfg := config.GetGlobalConfig().Ratelimit
-				if usage < cfg.LowSpeedWatermark {
-					return errors.New(txnLimit + ".")
-				}
-				if usage < cfg.BlockWriteWatermark {
-					return errors.New(fmt.Sprintf("%s when total used data %s is more than soft "+
-						"limit %s at beta stage.", txnLimit, humanReadable(usage), humanReadable(cfg.LowSpeedCapacity)))
-				}
-				return errors.New(fmt.Sprintf("%s when total used data %s is more than twice of "+
+				err := errors.New(fmt.Sprintf("%s when total used data %s is more than twice of "+
 					"soft limit %s at beta stage. Please delete some of your data to reclaim spaces. "+
 					"Be aware that deleting data is also throttled and can be slow.",
 					txnLimit, humanReadable(usage), humanReadable(cfg.LowSpeedWatermark)))
+				if usage < cfg.LowSpeedWatermark {
+					err = errors.New(txnLimit + ".")
+				}
+				if usage < cfg.BlockWriteWatermark {
+					err = errors.New(fmt.Sprintf("%s when total used data %s is more than soft "+
+						"limit %s at beta stage.", txnLimit, humanReadable(usage), humanReadable(cfg.LowSpeedCapacity)))
+				}
+				return errmsg.WithRatelimitErrTag(err)
 			}
 			time.Sleep(wait + time.Millisecond*10)
 		}

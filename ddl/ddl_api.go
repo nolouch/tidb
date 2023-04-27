@@ -61,6 +61,7 @@ import (
 	"github.com/pingcap/tidb/util/collate"
 	"github.com/pingcap/tidb/util/dbterror"
 	"github.com/pingcap/tidb/util/domainutil"
+	"github.com/pingcap/tidb/util/errmsg"
 	"github.com/pingcap/tidb/util/hack"
 	"github.com/pingcap/tidb/util/logutil"
 	"github.com/pingcap/tidb/util/mathutil"
@@ -5419,7 +5420,7 @@ func (d *ddl) AlterTableSetTiFlashReplica(ctx sessionctx.Context, ident ast.Iden
 	minCount := config.GetGlobalConfig().TiFlashReplicas.MinCount
 	if replicaInfo.Count < minCount {
 		replicaInfo.Count = minCount
-		warning := fmt.Errorf("TiFlash replicas count is too small, it has been automatically adjusted to %d", minCount)
+		warning := errmsg.WithMinTiFlashReplicaErrTag(fmt.Errorf("TiFlash replicas count is too small, it has been automatically adjusted to %d", minCount))
 		ctx.GetSessionVars().StmtCtx.AppendWarning(warning)
 	}
 

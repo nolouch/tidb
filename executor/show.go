@@ -1790,14 +1790,17 @@ func (e *ShowExec) fetchShowWarnings(errOnly bool) error {
 		if errOnly && w.Level != stmtctx.WarnLevelError {
 			continue
 		}
+		var sqlErr *mysql.SQLError
+
 		warn := errors.Cause(w.Err)
 		switch x := warn.(type) {
 		case *terror.Error:
-			sqlErr := terror.ToSQLError(x)
-			e.appendRow([]interface{}{w.Level, int64(sqlErr.Code), sqlErr.Message})
+			sqlErr = terror.ToSQLError(x)
 		default:
-			e.appendRow([]interface{}{w.Level, int64(mysql.ErrUnknown), warn.Error()})
+			sqlErr = mysql.NewErrf(mysql.ErrUnknown, "%s", nil, warn.Error())
 		}
+		errmsg.ExtendErrorMessage(w.Err, sqlErr)
+		e.appendRow([]interface{}{w.Level, int64(sqlErr.Code), sqlErr.Message})
 	}
 	return nil
 }

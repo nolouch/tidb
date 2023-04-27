@@ -107,6 +107,7 @@ go_library(
         "//util/collate",
         "//util/dbterror",
         "//util/domainutil",
+        "//util/errmsg",
         "//util/filter",
         "//util/gcutil",
         "//util/generic",

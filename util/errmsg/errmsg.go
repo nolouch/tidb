@@ -20,6 +20,8 @@ const (
 	errServerlessNotSupport
 	errInvisibleTable
 	errInvisibleSysVar
+	errRatelimit
+	errMinTiFlashReplica
 )
 
 // The tag name is used to find the extended error message from config file.
@@ -46,6 +48,10 @@ func (e errTag) errTagName() string {
 		return "invisible-table-error"
 	case errInvisibleSysVar:
 		return "invisible-sysvar-error"
+	case errRatelimit:
+		return "ratelimit-error"
+	case errMinTiFlashReplica:
+		return "min-tiflash-replica-error"
 	default:
 		return "unknown"
 	}
@@ -88,6 +94,16 @@ func WithInvisibleTableErrTag(err error) error {
 // WithInvisibleSysVarErrTag is used to add a tag to the invisible sysvar error.
 func WithInvisibleSysVarErrTag(err error) error {
 	return withErrTag(err, errInvisibleSysVar)
+}
+
+// WithRatelimitErrTag is used to add a tag to the ratelimit error.
+func WithRatelimitErrTag(err error) error {
+	return withErrTag(err, errRatelimit)
+}
+
+// WithMinTiFlashReplicaErrTag is used to add a tag to the min tiflash replica error.
+func WithMinTiFlashReplicaErrTag(err error) error {
+	return withErrTag(err, errMinTiFlashReplica)
 }
 
 func getErrTag(err error) errTag {
