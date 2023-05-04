@@ -229,6 +229,9 @@ func main() {
 				terror.MustNil(err)
 			}
 		}
+	} else {
+		// If not set keyspace in config,try to get keyspace name from env
+		keyspace.GetKeyspaceNameBySettings()
 	}
 
 	err := registerStores()

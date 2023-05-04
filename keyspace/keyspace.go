@@ -16,6 +16,7 @@ package keyspace
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	"github.com/pingcap/tidb/config"
@@ -26,6 +27,9 @@ import (
 const (
 	// tidbKeyspaceEtcdPathPrefix is the keyspace prefix for etcd namespace
 	tidbKeyspaceEtcdPathPrefix = "/keyspaces/tidb/"
+
+	// EnvVarKeyspaceName is the system env name for keyspace name.
+	EnvVarKeyspaceName = "KEYSPACE_NAME"
 )
 
 // CodecV1 represents api v1 codec.
@@ -42,6 +46,14 @@ func MakeKeyspaceEtcdNamespace(c tikv.Codec) string {
 // GetKeyspaceNameBySettings is used to get Keyspace name setting.
 func GetKeyspaceNameBySettings() (keyspaceName string) {
 	keyspaceName = config.GetGlobalConfig().KeyspaceName
+	if !IsKeyspaceNameEmpty(keyspaceName) {
+		return keyspaceName
+	}
+
+	keyspaceName = os.Getenv(EnvVarKeyspaceName)
+	config.UpdateGlobal(func(c *config.Config) {
+		c.KeyspaceName = keyspaceName
+	})
 	return keyspaceName
 }
 
