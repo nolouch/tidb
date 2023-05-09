@@ -37,7 +37,6 @@ import (
 	"math/rand"
 	"net"
 	"net/http" //nolint:goimports
-
 	// For pprof
 	_ "net/http/pprof" // #nosec G108
 	"os"
@@ -130,6 +129,7 @@ type Server struct {
 	driver            IDriver
 	listener          net.Listener
 	socket            net.Listener
+	zeroConnCond      *sync.Cond
 	rwlock            sync.RWMutex
 	concurrentLimiter *TokenLimiter
 	clients           map[uint64]*clientConn
@@ -209,6 +209,7 @@ func NewServer(cfg *config.Config, driver IDriver) (*Server, error) {
 		globalConnID:      util.NewGlobalConnID(0, true),
 		internalSessions:  make(map[interface{}]struct{}, 100),
 	}
+	s.zeroConnCond = sync.NewCond(&s.rwlock)
 	s.capability = defaultCapability
 	setTxnScope()
 	setSystemTimeZoneVariable()
@@ -496,10 +497,25 @@ func (s *Server) startShutdown() {
 	s.rwlock.RUnlock()
 	// give the load balancer a chance to receive a few unhealthy health reports
 	// before acquiring the s.rwlock and blocking connections.
-	waitTime := time.Duration(s.cfg.GracefulWaitBeforeShutdown) * time.Second
-	if waitTime > 0 {
-		logutil.BgLogger().Info("waiting for stray connections before starting shutdown process", zap.Duration("waitTime", waitTime))
-		time.Sleep(waitTime)
+	maxWaitTime := time.Duration(s.cfg.GracefulWaitBeforeShutdown) * time.Second
+	if maxWaitTime > 0 {
+		logutil.BgLogger().Info("waiting for stray connections before starting shutdown process", zap.Duration("maxWaitTime", maxWaitTime))
+
+		done := make(chan struct{}, 1)
+		go func() {
+			s.rwlock.Lock()
+			for len(s.clients) > 0 {
+				s.zeroConnCond.Wait()
+			}
+			s.rwlock.Unlock()
+			done <- struct{}{}
+		}()
+		select {
+		case <-time.After(maxWaitTime):
+			logutil.BgLogger().Info("timed out waiting for stray connections to close")
+		case <-done:
+			logutil.BgLogger().Info("all stray connections have been closed")
+		}
 	}
 }
 

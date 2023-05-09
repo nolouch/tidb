@@ -286,6 +286,12 @@ func (cc *clientConn) Close() error {
 }
 
 func closeConn(cc *clientConn, connections int) error {
+	defer func() {
+		if connections == 0 {
+			cc.server.zeroConnCond.Broadcast()
+		}
+	}()
+
 	metrics.ConnGauge.Set(float64(connections))
 	if cc.bufReadConn != nil {
 		err := cc.bufReadConn.Close()
@@ -1866,8 +1872,8 @@ func (cc *clientConn) prefetchPointPlanKeys(ctx context.Context, stmts []ast.Stm
 		}
 	}
 	pointPlans := make([]plannercore.Plan, len(stmts))
-	var idxKeys []kv.Key //nolint: prealloc
-	var rowKeys []kv.Key //nolint: prealloc
+	var idxKeys []kv.Key // nolint: prealloc
+	var rowKeys []kv.Key // nolint: prealloc
 	sc := vars.StmtCtx
 	for i, stmt := range stmts {
 		if _, ok := stmt.(*ast.UseStmt); ok {
