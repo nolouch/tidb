@@ -1,0 +1,116 @@
+name: Lightning-CD
+
+on:
+  push:
+    branches: ["keyspace-on-release-6.6"]
+  pull_request:
+    branches: ["keyspace-on-release-6.6"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Image & Push To ECR
+    runs-on: self-hosted
+    outputs:
+      dev-image: ${{ steps.login-ecr-dev.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+      prod-image: ${{ steps.login-ecr-prod.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+    env:
+      ECR_REPO: tidbcloud/serverless/tidb-lightning
+      GITHUB_TOKEN: ${{ secrets.GIT_ACTION_BOT }}
+      GCR_REPO: gcr.io/pingcap-public/serverless/tidb-lightning
+      GCR_TAG: v6.6.0
+      IS_RELEASE_BRANCH: ${{ github.ref == 'refs/heads/keyspace-on-release-6.6' && github.event_name == 'push' }}
+    steps:
+      - name: Check out Code
+        uses: actions/checkout@v2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        with:
+          platforms: "linux/amd64,linux/arm64"
+
+      - name: Setup Docker Context
+        run: |
+          docker --context tls-env info || docker context create tls-env
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          endpoint: tls-env
+
+      - name: Install AWS CLI
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          sudo ./aws/install --update
+
+      # Login to ECR Dev
+      - name: Login to ECR-dev
+        id: login-ecr-dev
+        uses: aws-actions/amazon-ecr-login@v1
+        env:
+          AWS_ROLE_ARN: ${{ secrets.DBAAS_DEV_AWS_ROLE }}
+          AWS_REGION: us-west-2
+
+      - name: Make Sure the Image Repos Exist - ecr dev
+        env:
+          AWS_ROLE_ARN: ${{ secrets.DBAAS_DEV_AWS_ROLE }}
+          AWS_REGION: us-west-2
+        run: |
+          aws ecr describe-repositories --repository-names ${{ env.ECR_REPO }} || aws ecr create-repository --repository-name ${{ env.ECR_REPO }} || exit 1
+
+      # Login to ECR Prod
+      - name: Login to ECR-prod
+        if: env.IS_RELEASE_BRANCH == 'true'
+        id: login-ecr-prod
+        uses: aws-actions/amazon-ecr-login@v1
+        env:
+          AWS_ROLE_ARN: ${{ secrets.DBAAS_PROD_AWS_ROLE }}
+          AWS_REGION: us-west-2
+
+      - name: Make Sure the Image Repos Exist - ecr prod
+        if: env.IS_RELEASE_BRANCH == 'true'
+        env:
+          AWS_ROLE_ARN: ${{ secrets.DBAAS_PROD_AWS_ROLE }}
+          AWS_REGION: us-west-2
+        run: |
+          aws ecr describe-repositories --repository-names ${{ env.ECR_REPO }} || aws ecr create-repository --repository-name ${{ env.ECR_REPO }} || exit 1
+      
+
+      # Login to GCR
+      - name: Set up Cloud SDK
+        if: env.IS_RELEASE_BRANCH == 'true'
+        uses: google-github-actions/setup-gcloud@v0
+
+      - name: Configure Gcloud
+        if: env.IS_RELEASE_BRANCH == 'true'
+        run: |
+          gcloud auth configure-docker gcr.io --quiet
+          
+
+      # Setup Tags
+      - name: Set tags conditionally
+        run: |
+          if [ "$IS_RELEASE_BRANCH" = "true" ]; then
+            echo "TAGS=${{ steps.login-ecr-dev.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }},"\
+            "${{ steps.login-ecr-prod.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }},"\
+            "${{ env.GCR_REPO }}:${{ env.GCR_TAG }},"\
+            "${{ env.GCR_REPO }}:${{ github.sha }}" >> $GITHUB_ENV
+          else
+            echo "TAGS=${{ steps.login-ecr-dev.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}" >> $GITHUB_ENV
+          fi
+
+      # Build and Push
+      - name: Build and Push Images
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: br/pkg/lightning/Dockerfile
+          platforms: "linux/amd64,linux/arm64"
+          push: true
+          build-args: |
+            GITHUB_TOKEN=${{ secrets.GIT_ACTION_BOT }}
+          tags: ${{ env.TAGS }}
