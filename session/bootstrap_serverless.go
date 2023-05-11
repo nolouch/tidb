@@ -46,11 +46,18 @@ const (
 	serverlessVersion7 = 7
 	// serverlessVersion8 adjusts push-down blacklist for CSE and TiFlash 6.5
 	serverlessVersion8 = 8
+	// serverlessVersion9 change variable `max_execution_time` to `30m`.
+	serverlessVersion9 = 9
+)
+
+const (
+	// defaultMaxExecutionTime is the max execution time for serverless.
+	defaultMaxExecutionTime = int(30 * time.Minute / time.Millisecond)
 )
 
 // currentServerlessVersion is defined as a variable, so we can modify its value for testing.
 // please make sure this is the largest version
-var currentServerlessVersion int64 = serverlessVersion8
+var currentServerlessVersion int64 = serverlessVersion9
 
 var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer2,
@@ -60,6 +67,7 @@ var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer6,
 	upgradeToServerlessVer7,
 	upgradeToServerlessVer8,
+	upgradeToServerlessVer9,
 }
 
 // updateServerlessVersion updates serverless version variable in mysql.TiDB table.
@@ -264,6 +272,13 @@ func upgradeToServerlessVer8(s Session, ver int64) {
 		"AND LOWER(store_type) = 'tikv'")
 }
 
+func upgradeToServerlessVer9(s Session, ver int64) {
+	if ver >= serverlessVersion9 {
+		return
+	}
+	mustExecute(s, "set @@global.max_execution_time=%?", defaultMaxExecutionTime)
+}
+
 // Serverless bootstrap procedures.
 // NOTE: The following methods will only be executed once at doDMLWorks during TiDB Bootstrap,
 // therefore any modification of it requires addition to the serverless version upgrade function above
@@ -296,6 +311,12 @@ func bootstrapServerlessVariables(s Session) {
 	)
 	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
 		mysql.SystemDB, mysql.GlobalVariablesTable, variable.TiDBEnableAsyncCommit, variable.Off, variable.Off,
+	)
+	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
+		mysql.SystemDB, mysql.GlobalVariablesTable,
+		variable.MaxExecutionTime,
+		defaultMaxExecutionTime,
+		defaultMaxExecutionTime,
 	)
 }
 
