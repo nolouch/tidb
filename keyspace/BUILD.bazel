@@ -15,6 +15,7 @@ go_library(
         "//util/codec",
         "//util/logutil",
         "@com_github_pingcap_kvproto//pkg/kvrpcpb",
+        "@com_github_pkg_errors//:errors",
         "@com_github_tikv_client_go_v2//tikv",
         "@org_uber_go_zap//:zap",
     ],

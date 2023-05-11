@@ -21,6 +21,7 @@ import (
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/kv"
+	"github.com/pkg/errors"
 	"github.com/tikv/client-go/v2/tikv"
 )
 
@@ -62,7 +63,17 @@ func IsKeyspaceNameEmpty(keyspaceName string) bool {
 	return keyspaceName == ""
 }
 
-// IsKvStorageKeyspaceSet return true if you get keyspace meta successes
+// IsKvStorageKeyspaceSet return true if you get keyspace meta successes.
 func IsKvStorageKeyspaceSet(store kv.Storage) bool {
 	return store.GetCodec().GetKeyspace() != nil
+}
+
+// CheckKeyspaceName checks whether the keyspace name is equal to the name in the configuration.
+func CheckKeyspaceName(keyspaceName string) error {
+	configKeyspaceName := GetKeyspaceNameBySettings()
+	// If the keyspace name is not set in the configuration, it is not checked.
+	if keyspaceName == configKeyspaceName {
+		return nil
+	}
+	return errors.Errorf("keyspace name: %s is not equal setting: %s", keyspaceName, configKeyspaceName)
 }

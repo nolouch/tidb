@@ -37,6 +37,7 @@ go_library(
         "//expression",
         "//extension",
         "//infoschema",
+        "//keyspace",
         "//kv",
         "//meta",
         "//metrics",

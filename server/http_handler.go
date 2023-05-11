@@ -42,6 +42,7 @@ import (
 	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/executor"
 	"github.com/pingcap/tidb/infoschema"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta"
 	"github.com/pingcap/tidb/parser/model"
@@ -92,11 +93,12 @@ const (
 
 // For query string
 const (
-	qTableID   = "table_id"
-	qLimit     = "limit"
-	qJobID     = "start_job_id"
-	qOperation = "op"
-	qSeconds   = "seconds"
+	qTableID      = "table_id"
+	qLimit        = "limit"
+	qJobID        = "start_job_id"
+	qOperation    = "op"
+	qSeconds      = "seconds"
+	qKeyspaceName = "keyspace"
 )
 
 const (
@@ -1177,6 +1179,13 @@ func writeDBTablesData(w http.ResponseWriter, tbs []table.Table) {
 // ServeHTTP handles request of list a database or table's schemas.
 func (h schemaHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	schema, err := h.schema()
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	expectedKeyspaceName := req.URL.Query().Get(qKeyspaceName)
+	err = keyspace.CheckKeyspaceName(expectedKeyspaceName)
 	if err != nil {
 		writeError(w, err)
 		return
