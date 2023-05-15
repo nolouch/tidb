@@ -22,6 +22,7 @@ import (
 
 	"github.com/pingcap/tidb/br/pkg/lightning/backend"
 	"github.com/pingcap/tidb/br/pkg/lightning/backend/local"
+	"github.com/pingcap/tidb/br/pkg/lightning/backend/remote"
 	"github.com/pingcap/tidb/br/pkg/lightning/checkpoints"
 	"github.com/pingcap/tidb/br/pkg/lightning/config"
 	"github.com/pingcap/tidb/br/pkg/lightning/errormanager"
@@ -86,7 +87,10 @@ func createLocalBackend(ctx context.Context, cfg *Config, glue glue.Glue) (backe
 		logutil.BgLogger().Error(LitErrCreateBackendFail, zap.Error(err))
 		return backend.Backend{}, err
 	}
-
+	if len(cfg.Lightning.TikvImporter.Addr) > 0 {
+		logutil.BgLogger().Info("[ddl-ingest] create remote backend for adding index", zap.String("keyspaceName", cfg.KeyspaceName))
+		return remote.NewRemoteBackend(ctx, tls, cfg.Lightning, glue, cfg.KeyspaceName)
+	}
 	logutil.BgLogger().Info("[ddl-ingest] create local backend for adding index", zap.String("keyspaceName", cfg.KeyspaceName))
 	errorMgr := errormanager.New(nil, cfg.Lightning, log.Logger{Logger: logutil.BgLogger()})
 	return local.NewLocalBackend(ctx, tls, cfg.Lightning, glue, int(LitRLimit), errorMgr, cfg.KeyspaceName)

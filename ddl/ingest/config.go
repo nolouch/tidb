@@ -57,6 +57,7 @@ func genConfig(memRoot MemRoot, jobID int64, unique bool) (*Config, error) {
 	} else {
 		cfg.TikvImporter.DuplicateResolution = lightning.DupeResAlgNone
 	}
+	cfg.TikvImporter.Addr = tidbCfg.TiKVAPIServiceAddr
 	cfg.TiDB.PdAddr = tidbCfg.Path
 	cfg.TiDB.Host = "127.0.0.1"
 	cfg.TiDB.StatusPort = int(tidbCfg.Status.StatusPort)

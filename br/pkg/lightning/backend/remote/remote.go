@@ -372,11 +372,13 @@ func (b *remoteBackend) LocalWriter(_ context.Context, _ *backend.LocalWriterCon
 }
 
 func (b *remoteBackend) CollectLocalDuplicateRows(ctx context.Context, tbl table.Table, tableName string, opts *kv.SessionOptions) (bool, error) {
-	panic("Unsupported Operation")
+	// Duplicate check is done on the remote side during writing.
+	return false, nil
 }
 
 func (b *remoteBackend) CollectRemoteDuplicateRows(ctx context.Context, tbl table.Table, tableName string, opts *kv.SessionOptions) (bool, error) {
-	panic("Unsupported Operation")
+	// Duplicate check is done on the remote side during writing.
+	return false, nil
 }
 
 func (b *remoteBackend) ResolveDuplicateRows(ctx context.Context, tbl table.Table, tableName string, algorithm config.DuplicateResolutionAlgorithm) error {

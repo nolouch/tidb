@@ -218,6 +218,7 @@ type Config struct {
 	TiDBEdition                string                  `toml:"tidb-edition" json:"tidb-edition"`
 	TiDBReleaseVersion         string                  `toml:"tidb-release-version" json:"tidb-release-version"`
 	KeyspaceName               string                  `toml:"keyspace-name" json:"keyspace-name"`
+	TiKVAPIServiceAddr         string                  `toml:"tikv-api-service-addr" json:"tikv-api-service-addr"`
 	Log                        Log                     `toml:"log" json:"log"`
 	Instance                   Instance                `toml:"instance" json:"instance"`
 	Security                   Security                `toml:"security" json:"security"`

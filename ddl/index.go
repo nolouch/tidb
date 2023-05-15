@@ -848,7 +848,7 @@ func doReorgWorkForCreateIndex(w *worker, d *ddlCtx, t *meta.Meta, job *model.Jo
 			}
 			err = bc.FinishImport(indexInfo.ID, indexInfo.Unique, tbl)
 			if err != nil {
-				if kv.ErrKeyExists.Equal(err) || common.ErrFoundDuplicateKeys.Equal(err) {
+				if isKeyExistsError(err) {
 					logutil.BgLogger().Warn("[ddl] import index duplicate key, convert job to rollback", zap.String("job", job.String()), zap.Error(err))
 					if common.ErrFoundDuplicateKeys.Equal(err) {
 						err = convertToKeyExistsErr(err, indexInfo, tbl.Meta())
@@ -891,6 +891,12 @@ func doReorgWorkForCreateIndex(w *worker, d *ddlCtx, t *meta.Meta, job *model.Jo
 	default:
 		return false, 0, dbterror.ErrInvalidDDLState.GenWithStackByArgs("backfill", indexInfo.BackfillState)
 	}
+}
+
+func isKeyExistsError(err error) bool {
+	return kv.ErrKeyExists.Equal(err) ||
+		common.ErrFoundDuplicateKeys.Equal(err) ||
+		strings.Contains(strings.ToLower(err.Error()), "duplicate")
 }
 
 func doReorgWorkForCreateIndexWithDistReorg(w *worker, d *ddlCtx, t *meta.Meta, job *model.Job,
