@@ -213,6 +213,7 @@ func FetchRemoteDBModelsFromTLS(ctx context.Context, keyspace string, tls *commo
 		params.Add("keyspace", keyspace)
 	}
 	err := tls.GetJSON(ctx, "/schema", params, &dbs)
+  err = checkGetJSONError(err)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot read db schemas from remote")
 	}
@@ -229,6 +230,7 @@ func FetchRemoteTableModelsFromTLS(ctx context.Context, tls *common.TLS, keyspac
 		params.Add("keyspace", keyspace)
 	}
 	err := tls.GetJSON(ctx, "/schema/"+schema, params, &tables)
+  err = checkGetJSONError(err)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot read schema '%s' from remote", schema)
 	}
@@ -258,4 +260,13 @@ func CheckTiKVVersion(ctx context.Context, tls *common.TLS, pdAddr string, requi
 			return version.CheckVersion(component, *ver, requiredMinVersion, requiredMaxVersion)
 		},
 	)
+}
+
+func checkGetJSONError(err error) error {
+	matched, _ := regexp.MatchString("get (.*?) http status code != 200, message keyspace name: (.*?) is not equal setting: (.*?)", err.Error())
+	if matched {
+		reserved := strings.Split(err.Error(), "message")[0]
+		return errors.Errorf("%s message access denied", reserved)
+	}
+	return err
 }
