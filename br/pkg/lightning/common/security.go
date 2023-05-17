@@ -17,9 +17,11 @@ package common
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/br/pkg/httputil"
@@ -116,8 +118,12 @@ func (tc *TLS) WrapListener(l net.Listener) net.Listener {
 	return tls.NewListener(l, tc.inner)
 }
 
-func (tc *TLS) GetJSON(ctx context.Context, path string, v interface{}) error {
-	return GetJSON(ctx, tc.client, tc.url+path, v)
+func (tc *TLS) GetJSON(ctx context.Context, path string, params *url.Values, v interface{}) error {
+	url := tc.url + path
+	if params != nil {
+		url = fmt.Sprintf("%s?%s", url, params.Encode())
+	}
+	return GetJSON(ctx, tc.client, url, v)
 }
 
 // ToPDSecurityOption converts the TLS configuration to a PD security option.

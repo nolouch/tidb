@@ -1150,7 +1150,7 @@ func (cfg *Config) CheckAndAdjustTiDBPort(ctx context.Context, mustHaveInternalC
 		}
 
 		var settings tidbcfg.Config
-		err = tls.GetJSON(ctx, "/settings", &settings)
+		err = tls.GetJSON(ctx, "/settings", nil, &settings)
 		if err != nil {
 			return common.ErrInvalidConfig.Wrap(err).GenWithStack("cannot fetch settings from TiDB, please manually fill in `tidb.port` and `tidb.pd-addr`")
 		}

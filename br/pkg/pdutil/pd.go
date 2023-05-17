@@ -1046,7 +1046,7 @@ func FetchPDVersion(ctx context.Context, tls *common.TLS, pdAddr string) (*semve
 	var rawVersion struct {
 		Version string `json:"version"`
 	}
-	err := tls.WithHost(pdAddr).GetJSON(ctx, "/pd/api/v1/version", &rawVersion)
+	err := tls.WithHost(pdAddr).GetJSON(ctx, "/pd/api/v1/version", nil, &rawVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

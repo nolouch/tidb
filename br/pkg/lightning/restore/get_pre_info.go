@@ -134,7 +134,7 @@ func NewTargetInfoGetterImpl(
 	case config.BackendTiDB:
 		backendTargetInfoGetter = tidb.NewTargetInfoGetter(targetDB)
 	case config.BackendLocal:
-		backendTargetInfoGetter = local.NewTargetInfoGetter(tls, targetDBGlue, cfg.TiDB.PdAddr)
+		backendTargetInfoGetter = local.NewTargetInfoGetter(tls, targetDBGlue, cfg.TiDB.PdAddr, cfg.TikvImporter.KeyspaceName)
 	default:
 		return nil, common.ErrUnknownBackend.GenWithStackByArgs(cfg.TikvImporter.Backend)
 	}
@@ -231,7 +231,7 @@ func (g *TargetInfoGetterImpl) GetTargetSysVariablesForImport(ctx context.Contex
 // It uses the PD interface through TLS to get the information.
 func (g *TargetInfoGetterImpl) GetReplicationConfig(ctx context.Context) (*pdtypes.ReplicationConfig, error) {
 	result := new(pdtypes.ReplicationConfig)
-	if err := g.tls.WithHost(g.cfg.TiDB.PdAddr).GetJSON(ctx, pdReplicate, &result); err != nil {
+	if err := g.tls.WithHost(g.cfg.TiDB.PdAddr).GetJSON(ctx, pdReplicate, nil, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return result, nil
@@ -242,7 +242,7 @@ func (g *TargetInfoGetterImpl) GetReplicationConfig(ctx context.Context) (*pdtyp
 // It uses the PD interface through TLS to get the information.
 func (g *TargetInfoGetterImpl) GetStorageInfo(ctx context.Context) (*pdtypes.StoresInfo, error) {
 	result := new(pdtypes.StoresInfo)
-	if err := g.tls.WithHost(g.cfg.TiDB.PdAddr).GetJSON(ctx, pdStores, result); err != nil {
+	if err := g.tls.WithHost(g.cfg.TiDB.PdAddr).GetJSON(ctx, pdStores, nil, result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return result, nil
@@ -253,7 +253,7 @@ func (g *TargetInfoGetterImpl) GetStorageInfo(ctx context.Context) (*pdtypes.Sto
 // It uses the PD interface through TLS to get the information.
 func (g *TargetInfoGetterImpl) GetEmptyRegionsInfo(ctx context.Context) (*pdtypes.RegionsInfo, error) {
 	result := new(pdtypes.RegionsInfo)
-	if err := g.tls.WithHost(g.cfg.TiDB.PdAddr).GetJSON(ctx, pdEmptyRegions, &result); err != nil {
+	if err := g.tls.WithHost(g.cfg.TiDB.PdAddr).GetJSON(ctx, pdEmptyRegions, nil, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return result, nil

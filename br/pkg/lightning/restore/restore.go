@@ -806,7 +806,7 @@ func (rc *Controller) restoreSchema(ctx context.Context) error {
 	}
 	// For local backend, we need DBInfo.ID to operate the global autoid allocator.
 	if isLocalBackend(rc.cfg) {
-		dbs, err := tikv.FetchRemoteDBModelsFromTLS(ctx, rc.tls)
+		dbs, err := tikv.FetchRemoteDBModelsFromTLS(ctx, rc.keyspaceName, rc.tls)
 		if err != nil {
 			return errors.Trace(err)
 		}

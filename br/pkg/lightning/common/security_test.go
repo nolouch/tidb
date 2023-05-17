@@ -46,10 +46,10 @@ func TestGetJSONInsecure(t *testing.T) {
 	require.NoError(t, err)
 
 	var result struct{ Path string }
-	err = tls.GetJSON(ctx, "/aaa", &result)
+	err = tls.GetJSON(ctx, "/aaa", nil, &result)
 	require.NoError(t, err)
 	require.Equal(t, "/aaa", result.Path)
-	err = tls.GetJSON(ctx, "/bbbb", &result)
+	err = tls.GetJSON(ctx, "/bbbb", nil, &result)
 	require.NoError(t, err)
 	require.Equal(t, "/bbbb", result.Path)
 }
@@ -62,10 +62,10 @@ func TestGetJSONSecure(t *testing.T) {
 	tls := common.NewTLSFromMockServer(mockServer)
 
 	var result struct{ Path string }
-	err := tls.GetJSON(ctx, "/ccc", &result)
+	err := tls.GetJSON(ctx, "/ccc", nil, &result)
 	require.NoError(t, err)
 	require.Equal(t, "/ccc", result.Path)
-	err = tls.GetJSON(ctx, "/dddd", &result)
+	err = tls.GetJSON(ctx, "/dddd", nil, &result)
 	require.NoError(t, err)
 	require.Equal(t, "/dddd", result.Path)
 }

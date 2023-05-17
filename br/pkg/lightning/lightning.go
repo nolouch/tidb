@@ -575,7 +575,8 @@ func (l *Lightning) run(taskCtx context.Context, taskCfg *config.Config, o *opti
 
 	var keyspaceName string
 	if taskCfg.TikvImporter.Backend == config.BackendLocal || taskCfg.TikvImporter.Backend == config.BackendRemote {
-		if taskCfg.TikvImporter.KeyspaceName == "" {
+		keyspaceName = taskCfg.TikvImporter.KeyspaceName
+		if keyspaceName == "" {
 			keyspaceName, err = getKeyspaceName(g)
 			if err != nil {
 				o.logger.Warn("unable to get keyspace name, lightning will use empty keyspace name", zap.Error(err))

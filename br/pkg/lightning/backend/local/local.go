@@ -273,21 +273,23 @@ type targetInfoGetter struct {
 	tls          *common.TLS
 	targetDBGlue glue.Glue
 	pdAddr       string
+	keyspaceName string
 }
 
 // NewTargetInfoGetter creates an TargetInfoGetter with local backend implementation.
-func NewTargetInfoGetter(tls *common.TLS, g glue.Glue, pdAddr string) backend.TargetInfoGetter {
+func NewTargetInfoGetter(tls *common.TLS, g glue.Glue, pdAddr, keyspaceName string) backend.TargetInfoGetter {
 	return &targetInfoGetter{
 		tls:          tls,
 		targetDBGlue: g,
 		pdAddr:       pdAddr,
+		keyspaceName: keyspaceName,
 	}
 }
 
 // FetchRemoteTableModels obtains the models of all tables given the schema name.
 // It implements the `TargetInfoGetter` interface.
 func (g *targetInfoGetter) FetchRemoteTableModels(ctx context.Context, schemaName string) ([]*model.TableInfo, error) {
-	return tikv.FetchRemoteTableModelsFromTLS(ctx, g.tls, schemaName)
+	return tikv.FetchRemoteTableModelsFromTLS(ctx, g.tls, g.keyspaceName, schemaName)
 }
 
 // CheckRequirements performs the check whether the backend satisfies the version requirements.
@@ -564,7 +566,7 @@ func NewLocalBackend(
 		writeLimiter:            writeLimiter,
 		logger:                  log.FromContext(ctx),
 		encBuilder:              NewEncodingBuilder(ctx),
-		targetInfoGetter:        NewTargetInfoGetter(tls, g, cfg.TiDB.PdAddr),
+		targetInfoGetter:        NewTargetInfoGetter(tls, g, cfg.TiDB.PdAddr, keyspaceName),
 		shouldCheckWriteStall:   cfg.Cron.SwitchMode.Duration == 0,
 	}
 	if m, ok := metric.FromContext(ctx); ok {
@@ -2142,7 +2144,7 @@ func getSplitConfFromStore(ctx context.Context, host string, tls *common.TLS) (i
 			} `json:"coprocessor"`
 		}
 	)
-	if err := tls.WithHost(host).GetJSON(ctx, "/config", &nested); err != nil {
+	if err := tls.WithHost(host).GetJSON(ctx, "/config", nil, &nested); err != nil {
 		return 0, 0, errors.Trace(err)
 	}
 	splitSize, err := units.FromHumanSize(nested.Coprocessor.RegionSplitSize)

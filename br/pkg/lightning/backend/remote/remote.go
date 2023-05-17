@@ -104,7 +104,7 @@ func NewRemoteBackend(
 	keyspace := pdCliForTiKV.GetCodec().GetKeyspace()
 	worker := &remoteBackend{
 		encBuilder:       local.NewEncodingBuilder(ctx),
-		targetInfoGetter: local.NewTargetInfoGetter(tls, g, cfg.TiDB.PdAddr),
+		targetInfoGetter: local.NewTargetInfoGetter(tls, g, cfg.TiDB.PdAddr, keyspaceName),
 		workerAddr:       cfg.TikvImporter.Addr,
 		pdCtl:            pdCtl,
 		tls:              tls,
