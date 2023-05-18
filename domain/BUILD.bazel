@@ -64,6 +64,7 @@ go_library(
         "//util/memoryusagealarm",
         "//util/printer",
         "//util/replayer",
+        "//util/serverless",
         "//util/servermemorylimit",
         "//util/sqlexec",
         "//util/syncutil",
