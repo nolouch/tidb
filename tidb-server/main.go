@@ -368,6 +368,7 @@ func getServerlessInfo() (*keyspacepb.KeyspaceMeta, error) {
 		KeyPath:  cfg.Security.ClusterSSLKey,
 	},
 		pd.WithCustomTimeoutOption(time.Duration(cfg.PDClient.PDServerTimeout)*time.Second),
+		pd.WithInitMetricsOption(false),
 	)
 	if err != nil {
 		return nil, err

@@ -30,6 +30,7 @@ import (
 	tidb_config "github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/kv"
+	"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/store/copr"
 	derr "github.com/pingcap/tidb/store/driver/error"
@@ -171,7 +172,8 @@ func (d TiKVDriver) OpenWithOptions(path string, options ...Option) (kv.Storage,
 			}),
 		),
 		pd.WithCustomTimeoutOption(time.Duration(d.pdConfig.PDServerTimeout)*time.Second),
-		pd.WithForwardingOption(config.GetGlobalConfig().EnableForwarding))
+		pd.WithForwardingOption(config.GetGlobalConfig().EnableForwarding),
+		pd.WithMetricsLabels(metrics.ServerlessLabels))
 
 	if err != nil {
 		return nil, errors.Trace(err)
