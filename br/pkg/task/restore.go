@@ -546,7 +546,7 @@ func runRestore(c context.Context, g glue.Glue, cmdName string, cfg *RestoreConf
 	// Restore needs domain to do DDL.
 	needDomain := true
 	keepaliveCfg := GetKeepalive(&cfg.Config)
-	mgr, err := NewMgr(ctx, g, cfg.PD, cfg.TLS, keepaliveCfg, cfg.CheckRequirements, needDomain, conn.NormalVersionChecker)
+	mgr, err := NewMgr(ctx, g, cfg.KeyspaceName, cfg.PD, cfg.TLS, keepaliveCfg, cfg.CheckRequirements, needDomain, conn.NormalVersionChecker)
 	if err != nil {
 		return errors.Trace(err)
 	}

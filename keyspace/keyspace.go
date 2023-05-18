@@ -23,6 +23,7 @@ import (
 	"github.com/pingcap/tidb/kv"
 	"github.com/pkg/errors"
 	"github.com/tikv/client-go/v2/tikv"
+	pd "github.com/tikv/pd/client"
 )
 
 const (
@@ -76,4 +77,14 @@ func CheckKeyspaceName(keyspaceName string) error {
 		return nil
 	}
 	return errors.Errorf("keyspace name: %s is not equal setting: %s", keyspaceName, configKeyspaceName)
+}
+
+// BuildAPIContext is used to build APIContext.
+func BuildAPIContext(keyspaceName string) (apiContext pd.APIContext) {
+	if len(keyspaceName) == 0 {
+		apiContext = pd.NewAPIContextV1()
+	} else {
+		apiContext = pd.NewAPIContextV2(keyspaceName)
+	}
+	return
 }

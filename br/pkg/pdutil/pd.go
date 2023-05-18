@@ -26,6 +26,7 @@ import (
 	berrors "github.com/pingcap/tidb/br/pkg/errors"
 	"github.com/pingcap/tidb/br/pkg/httputil"
 	"github.com/pingcap/tidb/br/pkg/lightning/common"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/store/pdtypes"
 	"github.com/pingcap/tidb/util/codec"
 	pd "github.com/tikv/pd/client"
@@ -229,6 +230,7 @@ type PdController struct {
 // NewPdController creates a new PdController.
 func NewPdController(
 	ctx context.Context,
+	keyspaceName string,
 	pdAddrs string,
 	tlsConf *tls.Config,
 	securityOption pd.SecurityOption,
@@ -262,8 +264,9 @@ func NewPdController(
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize)),
 		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(maxMsgSize)),
 	}
-	pdClient, err := pd.NewClientWithContext(
-		ctx, addrs, securityOption,
+
+	pdClient, err := pd.NewClientWithAPIContext(
+		ctx, keyspace.BuildAPIContext(keyspaceName), addrs, securityOption,
 		pd.WithGRPCDialOptions(maxCallMsgSize...),
 		// If the time too short, we may scatter a region many times, because
 		// the interface `ScatterRegions` may time out.

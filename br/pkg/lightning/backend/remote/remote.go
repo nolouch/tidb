@@ -86,7 +86,7 @@ func NewRemoteBackend(
 	g glue.Glue,
 	keyspaceName string,
 ) (backend.Backend, error) {
-	pdCtl, err := pdutil.NewPdController(ctx, cfg.TiDB.PdAddr, tls.TLSConfig(), tls.ToPDSecurityOption())
+	pdCtl, err := pdutil.NewPdController(ctx, keyspaceName, cfg.TiDB.PdAddr, tls.TLSConfig(), tls.ToPDSecurityOption())
 	if err != nil {
 		return backend.MakeBackend(nil), common.NormalizeOrWrapErr(common.ErrCreatePDClient, err)
 	}

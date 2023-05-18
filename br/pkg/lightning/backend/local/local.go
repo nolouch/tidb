@@ -464,7 +464,7 @@ func NewLocalBackend(
 	localFile := cfg.TikvImporter.SortedKVDir
 	rangeConcurrency := cfg.TikvImporter.RangeConcurrency
 
-	pdCtl, err := pdutil.NewPdController(ctx, cfg.TiDB.PdAddr, tls.TLSConfig(), tls.ToPDSecurityOption())
+	pdCtl, err := pdutil.NewPdController(ctx, keyspaceName, cfg.TiDB.PdAddr, tls.TLSConfig(), tls.ToPDSecurityOption())
 	if err != nil {
 		return backend.MakeBackend(nil), common.NormalizeOrWrapErr(common.ErrCreatePDClient, err)
 	}

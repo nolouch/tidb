@@ -28,6 +28,7 @@ import (
 	deadlockpb "github.com/pingcap/kvproto/pkg/deadlock"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	tidb_config "github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/store/copr"
@@ -158,7 +159,7 @@ func (d TiKVDriver) OpenWithOptions(path string, options ...Option) (kv.Storage,
 		return nil, errors.Trace(err)
 	}
 
-	pdCli, err := pd.NewClient(etcdAddrs, pd.SecurityOption{
+	pdCli, err := pd.NewClientWithAPIContext(context.Background(), keyspace.BuildAPIContext(keyspaceName), etcdAddrs, pd.SecurityOption{
 		CAPath:   d.security.ClusterSSLCA,
 		CertPath: d.security.ClusterSSLCert,
 		KeyPath:  d.security.ClusterSSLKey,

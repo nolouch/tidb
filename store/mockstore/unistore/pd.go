@@ -17,12 +17,12 @@ package unistore
 import (
 	"context"
 	"errors"
-	"github.com/pingcap/kvproto/pkg/meta_storagepb"
 	"math"
 	"sync"
 	"sync/atomic"
 
 	"github.com/pingcap/kvproto/pkg/keyspacepb"
+	"github.com/pingcap/kvproto/pkg/meta_storagepb"
 	"github.com/pingcap/kvproto/pkg/pdpb"
 	rmpb "github.com/pingcap/kvproto/pkg/resource_manager"
 	us "github.com/pingcap/tidb/store/mockstore/unistore/tikv"
@@ -105,6 +105,10 @@ func (c *pdClient) GetTSAsync(ctx context.Context) pd.TSFuture {
 
 func (c *pdClient) GetLocalTSAsync(ctx context.Context, dcLocation string) pd.TSFuture {
 	return &mockTSFuture{c, ctx, false}
+}
+
+func (c *pdClient) GetMinTS(ctx context.Context) (int64, int64, error) {
+	return 0, 0, nil
 }
 
 type mockTSFuture struct {

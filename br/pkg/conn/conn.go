@@ -130,6 +130,7 @@ func checkStoresAlive(ctx context.Context,
 func NewMgr(
 	ctx context.Context,
 	g glue.Glue,
+	keyspaceName string,
 	pdAddrs string,
 	tlsConf *tls.Config,
 	securityOption pd.SecurityOption,
@@ -147,7 +148,7 @@ func NewMgr(
 
 	log.Info("new mgr", zap.String("pdAddrs", pdAddrs))
 
-	controller, err := pdutil.NewPdController(ctx, pdAddrs, tlsConf, securityOption)
+	controller, err := pdutil.NewPdController(ctx, keyspaceName, pdAddrs, tlsConf, securityOption)
 	if err != nil {
 		log.Error("fail to create pd controller", zap.Error(err))
 		return nil, errors.Trace(err)

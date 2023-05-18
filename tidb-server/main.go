@@ -362,7 +362,7 @@ func getServerlessInfo() (*keyspacepb.KeyspaceMeta, error) {
 		return nil, err
 	}
 
-	pdCli, err := pd.NewClient(etcdAddrs, pd.SecurityOption{
+	pdCli, err := pd.NewClientWithAPIContext(context.Background(), keyspace.BuildAPIContext(cfg.KeyspaceName), etcdAddrs, pd.SecurityOption{
 		CAPath:   cfg.Security.ClusterSSLCA,
 		CertPath: cfg.Security.ClusterSSLCert,
 		KeyPath:  cfg.Security.ClusterSSLKey,

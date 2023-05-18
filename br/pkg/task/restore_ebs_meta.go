@@ -126,7 +126,7 @@ func (h *restoreEBSMetaHelper) preRestore(ctx context.Context) error {
 		}
 	}
 
-	controller, err := pdutil.NewPdController(ctx, pdAddress, tlsConf, securityOption)
+	controller, err := pdutil.NewPdController(ctx, h.cfg.KeyspaceName, pdAddress, tlsConf, securityOption)
 	if err != nil {
 		log.Error("fail to create pd controller", zap.Error(err))
 		return errors.Trace(err)
