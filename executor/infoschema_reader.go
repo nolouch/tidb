@@ -2410,7 +2410,7 @@ func (e *memtableRetriever) setDataForMemoryUsage(ctx sessionctx.Context) error 
 
 	row := []types.Datum{
 		types.NewIntDatum(int64(memory.GetMemTotalIgnoreErr())),          // MEMORY_TOTAL
-		types.NewIntDatum(int64(memory.ServerMemoryLimit.Load())),        // MEMORY_LIMIT
+		types.NewIntDatum(int64(memory.GetMaxServerMemoryLimit())),       // MEMORY_LIMIT
 		types.NewIntDatum(int64(r.HeapInuse)),                            // MEMORY_CURRENT
 		types.NewIntDatum(int64(servermemorylimit.MemoryMaxUsed.Load())), // MEMORY_MAX_USED
 		currentOps,           // CURRENT_OPS

@@ -73,7 +73,6 @@ import (
 	"github.com/pingcap/tidb/util/memory"
 	"github.com/pingcap/tidb/util/memoryusagealarm"
 	"github.com/pingcap/tidb/util/replayer"
-	"github.com/pingcap/tidb/util/serverless"
 	"github.com/pingcap/tidb/util/servermemorylimit"
 	"github.com/pingcap/tidb/util/sqlexec"
 	"github.com/tikv/client-go/v2/tikv"
@@ -124,7 +123,6 @@ type Domain struct {
 	expensiveQueryHandle    *expensivequery.Handle
 	memoryUsageAlarmHandle  *memoryusagealarm.Handle
 	serverMemoryLimitHandle *servermemorylimit.Handle
-	memoryScaleHandle       *serverless.MemoryScaleHandle
 	// TODO: use Run for each process in future pr
 	wg                    *util.WaitGroupEnhancedWrapper
 	statsUpdating         atomicutil.Int32
@@ -952,7 +950,6 @@ func NewDomain(store kv.Storage, ddlLease time.Duration, statsLease time.Duratio
 	do.expensiveQueryHandle = expensivequery.NewExpensiveQueryHandle(do.exit)
 	do.memoryUsageAlarmHandle = memoryusagealarm.NewMemoryUsageAlarmHandle(do.exit)
 	do.serverMemoryLimitHandle = servermemorylimit.NewServerMemoryLimitHandle(do.exit)
-	do.memoryScaleHandle = serverless.NewMemoryScaleHandle(do.exit)
 	do.sysProcesses = SysProcesses{mu: &sync.RWMutex{}, procMap: make(map[uint64]sessionctx.Context)}
 	do.initDomainSysVars()
 	return do
@@ -2221,11 +2218,6 @@ func (do *Domain) MemoryUsageAlarmHandle() *memoryusagealarm.Handle {
 // ServerMemoryLimitHandle returns the expensive query handle.
 func (do *Domain) ServerMemoryLimitHandle() *servermemorylimit.Handle {
 	return do.serverMemoryLimitHandle
-}
-
-// MemoryScaleHandle returns the memory scale handle.
-func (do *Domain) MemoryScaleHandle() *serverless.MemoryScaleHandle {
-	return do.memoryScaleHandle
 }
 
 const (

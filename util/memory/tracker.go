@@ -38,12 +38,30 @@ var (
 	ServerMemoryLimitOriginText  = atomicutil.NewString("0")
 	ServerMemoryLimit            = atomicutil.NewUint64(0)
 	ServerMemoryLimitSessMinSize = atomicutil.NewUint64(128 << 20)
+	MaxServerMemoryLimit         = atomicutil.NewUint64(0)
+	MaxServerMemoryLimitText     = atomicutil.NewString("0")
 
 	QueryForceDisk       = atomicutil.NewInt64(0)
 	TriggerMemoryLimitGC = atomicutil.NewBool(false)
 	MemoryLimitGCLast    = atomicutil.NewTime(time.Time{})
 	MemoryLimitGCTotal   = atomicutil.NewInt64(0)
 )
+
+// GetMaxServerMemoryLimit returns the max memory limit.
+func GetMaxServerMemoryLimit() uint64 {
+	if limit := MaxServerMemoryLimit.Load(); limit > 0 {
+		return limit
+	}
+	return ServerMemoryLimit.Load()
+}
+
+// GetMaxServerMemoryLimitText returns the max memory limit text.
+func GetMaxServerMemoryLimitText() string {
+	if limit := MaxServerMemoryLimitText.Load(); limit != "" {
+		return limit
+	}
+	return ServerMemoryLimitOriginText.Load()
+}
 
 // Tracker is used to track the memory usage during query execution.
 // It contains an optional limit and can be arranged into a tree structure

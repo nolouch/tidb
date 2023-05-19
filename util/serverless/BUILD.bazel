@@ -11,7 +11,6 @@ go_library(
     deps = [
         "//parser/ast",
         "//parser/model",
-        "//util",
         "//util/dbterror",
         "//util/gctuner",
         "//util/logutil",

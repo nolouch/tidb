@@ -75,6 +75,7 @@ import (
 	"github.com/pingcap/tidb/util/memory"
 	"github.com/pingcap/tidb/util/printer"
 	"github.com/pingcap/tidb/util/sem"
+	"github.com/pingcap/tidb/util/serverless"
 	"github.com/pingcap/tidb/util/signal"
 	stmtsummaryv2 "github.com/pingcap/tidb/util/stmtsummary/v2"
 	"github.com/pingcap/tidb/util/sys/linux"
@@ -213,6 +214,10 @@ func main() {
 	}
 
 	mainErrHandler := func(err error) { terror.MustNil(err) }
+
+	quit := make(chan struct{})
+	defer close(quit)
+	serverless.StartMemoryScaler(quit)
 
 	if config.GetGlobalConfig().StandByMode {
 		activateRequest := standby.StartStandby(
@@ -1028,7 +1033,6 @@ func createServer(storage kv.Storage, dom *domain.Domain) (*server.Server, error
 	go dom.ExpensiveQueryHandle().SetSessionManager(svr).Run()
 	go dom.MemoryUsageAlarmHandle().SetSessionManager(svr).Run()
 	go dom.ServerMemoryLimitHandle().SetSessionManager(svr).Run()
-	go dom.MemoryScaleHandle().SetSessionManager(svr).Run()
 	dom.InfoSyncer().SetSessionManager(svr)
 	return svr, nil
 }

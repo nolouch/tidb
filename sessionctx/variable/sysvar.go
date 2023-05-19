@@ -893,7 +893,7 @@ var defaultSysVars = []*SysVar{
 	},
 	{Scope: ScopeGlobal, Name: TiDBServerMemoryLimit, Value: DefTiDBServerMemoryLimit, Type: TypeStr,
 		GetGlobal: func(_ context.Context, s *SessionVars) (string, error) {
-			return memory.ServerMemoryLimitOriginText.Load(), nil
+			return memory.GetMaxServerMemoryLimitText(), nil
 		},
 		Validation: func(s *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
 			_, str, err := parseMemoryLimit(s, normalizedValue, originalValue)
@@ -903,13 +903,15 @@ var defaultSysVars = []*SysVar{
 			return str, nil
 		},
 		SetGlobal: func(_ context.Context, s *SessionVars, val string) error {
-			bt, str, err := parseMemoryLimit(s, val, val)
-			if err != nil {
-				return err
-			}
-			memory.ServerMemoryLimitOriginText.Store(str)
-			memory.ServerMemoryLimit.Store(bt)
-			gctuner.GlobalMemoryLimitTuner.UpdateMemoryLimit()
+			// bt, str, err := parseMemoryLimit(s, val, val)
+			// if err != nil {
+			// 	return err
+			// }
+			// memory.ServerMemoryLimitOriginText.Store(str)
+			// memory.ServerMemoryLimit.Store(bt)
+			// gctuner.GlobalMemoryLimitTuner.UpdateMemoryLimit()
+			//
+			// skip in serverless cluster.
 			return nil
 		},
 	},
