@@ -213,8 +213,8 @@ func FetchRemoteDBModelsFromTLS(ctx context.Context, keyspace string, tls *commo
 		params.Add("keyspace", keyspace)
 	}
 	err := tls.GetJSON(ctx, "/schema", params, &dbs)
-  err = checkGetJSONError(err)
 	if err != nil {
+		err = checkGetJSONError(err)
 		return nil, errors.Annotatef(err, "cannot read db schemas from remote")
 	}
 	return dbs, nil
@@ -230,8 +230,8 @@ func FetchRemoteTableModelsFromTLS(ctx context.Context, tls *common.TLS, keyspac
 		params.Add("keyspace", keyspace)
 	}
 	err := tls.GetJSON(ctx, "/schema/"+schema, params, &tables)
-  err = checkGetJSONError(err)
 	if err != nil {
+		err = checkGetJSONError(err)
 		return nil, errors.Annotatef(err, "cannot read schema '%s' from remote", schema)
 	}
 	return tables, nil
