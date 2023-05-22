@@ -351,6 +351,8 @@ type Config struct {
 	SkipGCDropTable bool `toml:"skip-gc-drop-table" json:"skip-gc-drop-table"`
 	// SkipRedoDeleteRangeGC is used to control whether to skip redo delege range gc in gc worker.
 	SkipRedoDeleteRangeGC bool `toml:"skip-gc-delete-range" json:"skip-gc-delete-range"`
+	// ResolveLocksByKeyspace is used to control whether to do resolve locks by keyspace.
+	ResolveLocksByKeyspace bool `toml:"resolve-locks-by-keyspace" json:"resolve-locks-by-keyspace"`
 	// Ratelimit is used to control the rate limit of the tenant requests.
 	Ratelimit RatelimitConfig `toml:"ratelimit" json:"ratelimit"`
 	// BootstrapControl is used to control serverless bootstrap procedure.
@@ -1109,6 +1111,7 @@ var defaultConf = Config{
 	NewCollationsEnabledOnFirstBootstrap: true,
 	SkipGCDropTable:                      false,
 	SkipRedoDeleteRangeGC:                true,
+	ResolveLocksByKeyspace:               true,
 	EnableRULimit:                        false,
 	EnableAlterUserPessimistic:           false,
 	EnableGlobalKill:                     true,

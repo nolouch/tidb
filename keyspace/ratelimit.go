@@ -105,7 +105,7 @@ type PDRegionStats struct {
 }
 
 func (r *rateLimiter) adjustLimit(pdAddrs []string, keyspaceID uint32) {
-	start, end := r.keyspaceRange(keyspaceID)
+	start, end := GetKeyspaceTxnRange(keyspaceID)
 	for _, addr := range pdAddrs {
 		path := fmt.Sprintf("/pd/api/v1/stats/region?start_key=%s&end_key=%s", url.QueryEscape(string(start)), url.QueryEscape(string(end)))
 		res, err := util.InternalHTTPClient().Get(util.ComposeURL(addr, path))

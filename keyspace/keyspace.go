@@ -15,12 +15,14 @@
 package keyspace
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/kv"
+	"github.com/pingcap/tidb/util/codec"
 	"github.com/pkg/errors"
 	"github.com/tikv/client-go/v2/tikv"
 	pd "github.com/tikv/pd/client"
@@ -67,6 +69,33 @@ func IsKeyspaceNameEmpty(keyspaceName string) bool {
 // IsKvStorageKeyspaceSet return true if you get keyspace meta successes.
 func IsKvStorageKeyspaceSet(store kv.Storage) bool {
 	return store.GetCodec().GetKeyspace() != nil
+}
+
+// GetKeyspaceTxnPrefix return the keyspace txn prefix
+func GetKeyspaceTxnPrefix(keyspaceID uint32) []byte {
+	keyspaceIDBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(keyspaceIDBytes, keyspaceID)
+	txnLeftBound := codec.EncodeBytes(nil, append([]byte{'x'}, keyspaceIDBytes[1:]...))
+	return txnLeftBound
+}
+
+// GetKeyspaceTxnRange return the keyspace range prefix
+func GetKeyspaceTxnRange(keyspaceID uint32) ([]byte, []byte) {
+
+	// Get keyspace range
+	txnLeftBound := GetKeyspaceTxnPrefix(keyspaceID)
+
+	var txnRightBound []byte
+	if keyspaceID == 0xffffff {
+		var end [4]byte
+		binary.BigEndian.PutUint32(end[:], keyspaceID+1)
+		end[0] = 'x' + 1 // handle overflow for max keyspace id.
+		txnRightBound = codec.EncodeBytes(nil, end[:])
+	} else {
+		txnRightBound = GetKeyspaceTxnPrefix(keyspaceID + 1)
+	}
+
+	return txnLeftBound, txnRightBound
 }
 
 // CheckKeyspaceName checks whether the keyspace name is equal to the name in the configuration.
