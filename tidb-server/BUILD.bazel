@@ -50,6 +50,7 @@ go_library(
         "//util/printer",
         "//util/sem",
         "//util/serverless",
+        "//util/serverless/tidbworker",
         "//util/signal",
         "//util/stmtsummary/v2:stmtsummary",
         "//util/sys/linux",

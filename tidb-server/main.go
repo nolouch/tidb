@@ -76,6 +76,7 @@ import (
 	"github.com/pingcap/tidb/util/printer"
 	"github.com/pingcap/tidb/util/sem"
 	"github.com/pingcap/tidb/util/serverless"
+	"github.com/pingcap/tidb/util/serverless/tidbworker"
 	"github.com/pingcap/tidb/util/signal"
 	stmtsummaryv2 "github.com/pingcap/tidb/util/stmtsummary/v2"
 	"github.com/pingcap/tidb/util/sys/linux"
@@ -1065,6 +1066,9 @@ func closeDomainAndStorage(storage kv.Storage, dom *domain.Domain) {
 	tikv.StoreShuttingDown(1)
 	dom.Close()
 	copr.GlobalMPPFailedStoreProber.Stop()
+	if tidbworker.GlobalTiDBWorkerManager != nil {
+		tidbworker.GlobalTiDBWorkerManager.Close()
+	}
 	err := storage.Close()
 	terror.Log(errors.Trace(err))
 }

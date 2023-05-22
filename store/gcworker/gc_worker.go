@@ -51,6 +51,7 @@ import (
 	"github.com/pingcap/tidb/util/codec"
 	"github.com/pingcap/tidb/util/dbterror"
 	"github.com/pingcap/tidb/util/logutil"
+	"github.com/pingcap/tidb/util/serverless/tidbworker"
 	tikverr "github.com/tikv/client-go/v2/error"
 	tikvstore "github.com/tikv/client-go/v2/kv"
 	"github.com/tikv/client-go/v2/oracle"
@@ -851,6 +852,7 @@ func (w *GCWorker) deleteRanges(ctx context.Context, safePoint uint64, concurren
 		zap.String("uuid", w.uuid),
 		zap.Int("ranges", len(ranges)))
 	startTime := time.Now()
+	rangeCleared := 0
 	for _, r := range ranges {
 		startKey, endKey := r.Range()
 
@@ -899,12 +901,21 @@ func (w *GCWorker) deleteRanges(ctx context.Context, safePoint uint64, concurren
 				zap.Error(err))
 			continue
 		}
+		rangeCleared++
 	}
 	logutil.Logger(ctx).Info("[gc worker] finish delete ranges",
 		zap.String("uuid", w.uuid),
 		zap.Int("num of ranges", len(ranges)),
 		zap.Duration("cost time", time.Since(startTime)))
 	metrics.GCHistogram.WithLabelValues("delete_ranges").Observe(time.Since(startTime).Seconds())
+
+	// If all ranges have been cleared, we can clear the gc key with timestamp less than gc safe point.
+	if tidbworker.GlobalTiDBWorkerManager != nil && rangeCleared == len(ranges) {
+		err := tidbworker.GlobalTiDBWorkerManager.Clear(tidbworker.GCKey, oracle.GetTimeFromTS(safePoint))
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 

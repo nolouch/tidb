@@ -312,6 +312,8 @@ type Config struct {
 
 	EnableAlterUserPessimistic bool `toml:"enable-alter-user-pessimistic" json:"enable-alter-user-pessimistic"`
 
+	TiDBWorker TiDBWorker `toml:"tidb-worker" json:"tidb-worker"`
+
 	// The following items are deprecated. We need to keep them here temporarily
 	// to support the upgrade process. They can be removed in future.
 
@@ -925,6 +927,16 @@ type Experimental struct {
 	EnableNewCharset bool `toml:"enable-new-charset" json:"-"`
 }
 
+// TiDBWorker is the config for TiDB worker.
+type TiDBWorker struct {
+	// Enable indicates whether to start the TiDB worker manager.
+	Enable bool `toml:"enable" json:"enable"`
+	// IsWorker indicates whether this TiDB instance is a worker instance.
+	IsWorker bool `toml:"is-worker" json:"is-worker"`
+	// TimeWindowSeconds indicates the time window size in seconds for etcd key register.
+	TimeWindowSeconds int64 `toml:"time-window-seconds" json:"time-window-seconds"`
+}
+
 var defTiKVCfg = tikvcfg.DefaultConfig()
 var defaultConf = Config{
 	Host:                         DefHost,
@@ -1117,6 +1129,11 @@ var defaultConf = Config{
 	TiFlashReplicas: TiFlashReplicas{
 		Constraints: defaultTiFlashConstraints,
 		MinCount:    1,
+	},
+	TiDBWorker: TiDBWorker{
+		Enable:            false,
+		IsWorker:          false,
+		TimeWindowSeconds: 300,
 	},
 }
 

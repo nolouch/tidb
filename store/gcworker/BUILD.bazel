@@ -24,6 +24,7 @@ go_library(
         "//util/codec",
         "//util/dbterror",
         "//util/logutil",
+        "//util/serverless/tidbworker",
         "@com_github_pingcap_errors//:errors",
         "@com_github_pingcap_failpoint//:failpoint",
         "@com_github_pingcap_kvproto//pkg/errorpb",

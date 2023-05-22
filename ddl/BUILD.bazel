@@ -122,6 +122,7 @@ go_library(
         "//util/resourcegrouptag",
         "//util/rowDecoder",
         "//util/serverless",
+        "//util/serverless/tidbworker",
         "//util/set",
         "//util/slice",
         "//util/sqlexec",

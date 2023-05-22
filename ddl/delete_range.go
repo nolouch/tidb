@@ -31,8 +31,10 @@ import (
 	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/tablecodec"
 	"github.com/pingcap/tidb/util/logutil"
+	"github.com/pingcap/tidb/util/serverless/tidbworker"
 	"github.com/pingcap/tidb/util/sqlexec"
 	topsqlstate "github.com/pingcap/tidb/util/topsql/state"
+	"github.com/tikv/client-go/v2/oracle"
 	"go.uber.org/zap"
 )
 
@@ -264,6 +266,13 @@ func insertJobIntoDeleteRangeTable(ctx context.Context, sctx sessionctx.Context,
 	now, err := getNowTSO(sctx)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	if tidbworker.GlobalTiDBWorkerManager != nil {
+		nowTime := oracle.GetTimeFromTS(now)
+		if err := tidbworker.GlobalTiDBWorkerManager.Register(tidbworker.GCKey, nowTime); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	ctx = kv.WithInternalSourceType(ctx, getDDLRequestSource(job.Type))
