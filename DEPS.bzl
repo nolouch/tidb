@@ -3496,8 +3496,8 @@ def go_deps():
         name = "com_github_pingcap_kvproto",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/pingcap/kvproto",
-        sum = "h1:r7A9U1xjhTK26d6h+J1N5OR+d5Y2conQgi5qElNcKNY=",
-        version = "v0.0.0-20230518070549-2a7e63366ffa",
+        sum = "h1:iAIjJVgrPuXjpAiMDcJvz4Y4Qf4KypiCsqy3UVzU6FQ=",
+        version = "v0.0.0-20230523065550-8b641fa69bf3",
     )
     go_repository(
         name = "com_github_pingcap_log",
@@ -3612,15 +3612,15 @@ def go_deps():
         name = "com_github_prometheus_common",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/prometheus/common",
-        sum = "h1:iq+BVjvYLei5f27wiuNiB1DN6DYQkp1c8Bx0Vykh5us=",
-        version = "v0.43.0",
+        sum = "h1:+5BrQJwiBB9xsMygAB3TNvpQKOwlkc25LbISbrdOOfY=",
+        version = "v0.44.0",
     )
     go_repository(
         name = "com_github_prometheus_procfs",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/prometheus/procfs",
-        sum = "h1:wzCHvIvM5SxWqYvwgVL7yJY8Lz3PKn49KQtpgMYJfhI=",
-        version = "v0.9.0",
+        sum = "h1:UkG7GPYkO4UZyLnyXjaWYcgOSONqwdBqFUT95ugmt6I=",
+        version = "v0.10.0",
     )
     go_repository(
         name = "com_github_prometheus_prometheus",
@@ -4263,8 +4263,9 @@ def go_deps():
         name = "com_github_tikv_client_go_v2",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/tikv/client-go/v2",
-        sum = "h1:qaOS1jlB8n+Sln75fhzZVu6//r0mX07Q6yo7d4EoNus=",
-        version = "v2.0.8-0.20230517040746-31152f5c7b0f",
+        replace = "github.com/rleungx/client-go/v2",
+        sum = "h1:PCEvmS0VIr3QdUdZhcXls3LSkx3NMt3Zghkjj6b5UUg=",
+        version = "v2.0.0-20230522032658-068080857e18",
     )
     go_repository(
         name = "com_github_tikv_pd",
@@ -4278,8 +4279,8 @@ def go_deps():
         name = "com_github_tikv_pd_client",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/tikv/pd/client",
-        sum = "h1:2+KN8kFghkS0eUDjU1D2h2QcT2EHZWlejbjpBoJVy0A=",
-        version = "v0.0.0-20230519101537-1613e229103d",
+        sum = "h1:5a7sGUWNtKAadkCb38U6iao1cZrx8Hs08tjLuU2Y07w=",
+        version = "v0.0.0-20230523051937-8eddef57e922",
     )
     go_repository(
         name = "com_github_timakin_bodyclose",
@@ -6131,8 +6132,8 @@ def go_deps():
         name = "org_golang_x_oauth2",
         build_file_proto_mode = "disable_global",
         importpath = "golang.org/x/oauth2",
-        sum = "h1:qe6s0zUXlPX80/dITx3440hWZ7GwMwgDDyrSGTPJG/g=",
-        version = "v0.7.0",
+        sum = "h1:6dkIjl3j3LtZ/O3sTgZTMsLKSftL/B8Zgq4huOIIUu8=",
+        version = "v0.8.0",
     )
     go_repository(
         name = "org_golang_x_sync",

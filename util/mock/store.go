@@ -52,6 +52,9 @@ func (*Store) UUID() string { return "mock" }
 // CurrentVersion implements kv.Storage interface.
 func (*Store) CurrentVersion(_ string) (kv.Version, error) { return kv.Version{}, nil }
 
+// CurrentMinTimestamp implements kv.Storage interface.
+func (*Store) CurrentMinTimestamp() (uint64, error) { return 0, nil }
+
 // SupportDeleteRange implements kv.Storage interface.
 func (*Store) SupportDeleteRange() bool { return false }
 

@@ -88,7 +88,7 @@ type GCWorker struct {
 
 // NewGCWorker creates a GCWorker instance.
 func NewGCWorker(store kv.Storage, pdClient pd.Client) (*GCWorker, error) {
-	ver, err := store.CurrentVersion(kv.GlobalTxnScope)
+	ts, err := store.CurrentMinTimestamp()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -101,7 +101,7 @@ func NewGCWorker(store kv.Storage, pdClient pd.Client) (*GCWorker, error) {
 		return nil, errors.New("GC should run against TiKV storage")
 	}
 	worker := &GCWorker{
-		uuid:        strconv.FormatUint(ver.Ver, 16),
+		uuid:        strconv.FormatUint(ts, 16),
 		desc:        fmt.Sprintf("host:%s, pid:%d, start at %s", hostName, os.Getpid(), time.Now()),
 		store:       store,
 		tikvStore:   tikvStore,
@@ -594,11 +594,11 @@ func (w *GCWorker) calcSafePointByMinStartTS(ctx context.Context, safePoint uint
 }
 
 func (w *GCWorker) getOracleTime() (time.Time, error) {
-	currentVer, err := w.store.CurrentVersion(kv.GlobalTxnScope)
+	ts, err := w.store.CurrentMinTimestamp()
 	if err != nil {
 		return time.Time{}, errors.Trace(err)
 	}
-	return oracle.GetTimeFromTS(currentVer.Ver), nil
+	return oracle.GetTimeFromTS(ts), nil
 }
 
 func (w *GCWorker) checkGCEnable() (bool, error) {
@@ -2442,7 +2442,7 @@ type MockGCWorker struct {
 
 // NewMockGCWorker creates a MockGCWorker instance ONLY for test.
 func NewMockGCWorker(store kv.Storage) (*MockGCWorker, error) {
-	ver, err := store.CurrentVersion(kv.GlobalTxnScope)
+	ts, err := store.CurrentMinTimestamp()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2451,7 +2451,7 @@ func NewMockGCWorker(store kv.Storage) (*MockGCWorker, error) {
 		hostName = "unknown"
 	}
 	worker := &GCWorker{
-		uuid:        strconv.FormatUint(ver.Ver, 16),
+		uuid:        strconv.FormatUint(ts, 16),
 		desc:        fmt.Sprintf("host:%s, pid:%d, start at %s", hostName, os.Getpid(), time.Now()),
 		store:       store,
 		tikvStore:   store.(tikv.Storage),

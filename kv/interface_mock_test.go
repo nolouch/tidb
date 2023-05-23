@@ -224,6 +224,9 @@ func (s *mockStorage) CurrentVersion(txnScope string) (Version, error) {
 	return NewVersion(1), nil
 }
 
+// CurrentMinTimestamp returns current minimum timestamp across all keyspace groups.
+func (s *mockStorage) CurrentMinTimestamp() (uint64, error) { return 0, nil }
+
 func (s *mockStorage) GetClient() Client {
 	return nil
 }

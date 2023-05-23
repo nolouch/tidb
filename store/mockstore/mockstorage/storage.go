@@ -96,6 +96,11 @@ func (s *mockStorage) CurrentVersion(txnScope string) (kv.Version, error) {
 	return kv.NewVersion(ver), err
 }
 
+// CurrentMinTimestamp returns current minimum timestamp across all keyspace groups.
+func (s *mockStorage) CurrentMinTimestamp() (uint64, error) {
+	return s.KVStore.CurrentMinTimestamp()
+}
+
 // GetMinSafeTS return the minimal SafeTS of the storage with given txnScope.
 func (s *mockStorage) GetMinSafeTS(txnScope string) uint64 {
 	return 0
