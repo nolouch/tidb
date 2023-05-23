@@ -1355,8 +1355,8 @@ github.com/tikv/client-go/v2 v2.0.8-0.20230517040746-31152f5c7b0f h1:qaOS1jlB8n+
 github.com/tikv/client-go/v2 v2.0.8-0.20230517040746-31152f5c7b0f/go.mod h1:3JN8DVdRssDcDpIylDaPVxUGSPHS6xxRwCKGn8DFQE4=
 github.com/tikv/pd v0.0.0-20230420042919-0e0313adef1f h1:1BBlbLSCua+oK3xngEjPO2dj1oLcItJxhCzqYG6XANA=
 github.com/tikv/pd v0.0.0-20230420042919-0e0313adef1f/go.mod h1:2hGdvUNGLaCKLbEXC8JMiQz2JsbxEDCKGDOBGJTt0NQ=
-github.com/tikv/pd/client v0.0.0-20230518085737-f4241b0c82b0 h1:3CCUDAeumhOwVYLlMd8tuUGTn4FsZ6jyH/2qjPbaAxk=
-github.com/tikv/pd/client v0.0.0-20230518085737-f4241b0c82b0/go.mod h1:mpFdCB3vLT/8wP0xEtDe5aSqEtjwiSqI1hyqXgqDV40=
+github.com/tikv/pd/client v0.0.0-20230519101537-1613e229103d h1:2+KN8kFghkS0eUDjU1D2h2QcT2EHZWlejbjpBoJVy0A=
+github.com/tikv/pd/client v0.0.0-20230519101537-1613e229103d/go.mod h1:mpFdCB3vLT/8wP0xEtDe5aSqEtjwiSqI1hyqXgqDV40=
 github.com/timakin/bodyclose v0.0.0-20221125081123-e39cf3fc478e h1:MV6KaVu/hzByHP0UvJ4HcMGE/8a6A4Rggc/0wx2AvJo=
 github.com/timakin/bodyclose v0.0.0-20221125081123-e39cf3fc478e/go.mod h1:27bSVNWSBOHm+qRp1T9qzaIpsWEP6TbUnei/43HK+PQ=
 github.com/tklauser/go-sysconf v0.3.9/go.mod h1:11DU/5sG7UexIrp/O6g35hrWzu0JxlwQ3LSFUzyeuhs=
