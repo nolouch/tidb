@@ -3496,8 +3496,8 @@ def go_deps():
         name = "com_github_pingcap_kvproto",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/pingcap/kvproto",
-        sum = "h1:iAIjJVgrPuXjpAiMDcJvz4Y4Qf4KypiCsqy3UVzU6FQ=",
-        version = "v0.0.0-20230523065550-8b641fa69bf3",
+        sum = "h1:cJfWrdIWGKSkSk42iSP8e39/ziULdbGPFpuEQUA1jTM=",
+        version = "v0.0.0-20230525031401-d7e46660f443",
     )
     go_repository(
         name = "com_github_pingcap_log",
@@ -4263,9 +4263,9 @@ def go_deps():
         name = "com_github_tikv_client_go_v2",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/tikv/client-go/v2",
-        replace = "github.com/rleungx/client-go/v2",
-        sum = "h1:PCEvmS0VIr3QdUdZhcXls3LSkx3NMt3Zghkjj6b5UUg=",
-        version = "v2.0.0-20230522032658-068080857e18",
+        replace = "github.com/tikv/client-go/v2",
+        sum = "h1:Laa7PC77E/Myx9hjsNBKdl65glngIR/47vWEKFhz6jc=",
+        version = "v2.0.8-0.20230523080920-1d62208f0d72",
     )
     go_repository(
         name = "com_github_tikv_pd",
@@ -4279,8 +4279,8 @@ def go_deps():
         name = "com_github_tikv_pd_client",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/tikv/pd/client",
-        sum = "h1:5a7sGUWNtKAadkCb38U6iao1cZrx8Hs08tjLuU2Y07w=",
-        version = "v0.0.0-20230523051937-8eddef57e922",
+        sum = "h1:ogG2mQtLbcdaHUPRctbPDqaE7yD2IMnidEtw6/IZtIU=",
+        version = "v0.0.0-20230525042538-bf7edf586b9c",
     )
     go_repository(
         name = "com_github_timakin_bodyclose",
@@ -6046,8 +6046,8 @@ def go_deps():
         name = "org_golang_google_genproto",
         build_file_proto_mode = "disable_global",
         importpath = "google.golang.org/genproto",
-        sum = "h1:KpwkzHKEF7B9Zxg18WzOa7djJ+Ha5DzthMyZYQfEn2A=",
-        version = "v0.0.0-20230410155749-daa745c078e1",
+        sum = "h1:+55/MuGJORMxCrkAgo2595fMAnN/4rweCuwibbqrvpc=",
+        version = "v0.0.0-20230524185152-1884fd1fac28",
     )
     go_repository(
         name = "org_golang_google_grpc",
