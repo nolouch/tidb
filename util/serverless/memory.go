@@ -101,6 +101,7 @@ func (ms *MemoryScaler) report(stat *runtime.MemStats, limit uint64) {
 		logutil.BgLogger().Error("report memory usage failed", zap.Error(err))
 		return
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		logutil.BgLogger().Error("report memory usage failed", zap.Int("status", res.StatusCode))
 	}
@@ -125,6 +126,7 @@ func (ms *MemoryScaler) scaleMemory(to uint64) bool {
 		logutil.BgLogger().Error("scale memory failed", zap.Error(err))
 		return false
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		logutil.BgLogger().Error("scale memory failed", zap.Int("status", res.StatusCode))
 		return false
