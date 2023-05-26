@@ -306,14 +306,25 @@ func (w *GCWorker) tick(ctx context.Context) {
 }
 
 // getGCSafePoint returns the current gc safe point.
-func getGCSafePoint(ctx context.Context, pdClient pd.Client) (uint64, error) {
+func (w *GCWorker) getGCSafePoint(ctx context.Context, pdClient pd.Client) (uint64, error) {
 	// If there is try to set gc safepoint is 0, the interface will not set gc safepoint to 0,
 	// it will return current gc safepoint.
-	safePoint, err := pdClient.UpdateGCSafePoint(ctx, 0)
+	var gcSafePoint uint64
+	var err error
+	keyspaceID := w.store.GetCodec().GetKeyspaceID()
+	useSafePointV2 := config.GetGlobalConfig().UseSafePointV2
+	if useSafePointV2 {
+		gcSafePoint, err = pdClient.UpdateGCSafePointV2(ctx, uint32(keyspaceID), 0)
+		if err != nil {
+			return 0, errors.Trace(err)
+		}
+	} else {
+		gcSafePoint, err = pdClient.UpdateGCSafePoint(ctx, 0)
+	}
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
-	return safePoint, nil
+	return gcSafePoint, nil
 }
 
 func (w *GCWorker) logIsGCSafePointTooEarly(ctx context.Context, safePoint uint64) error {
@@ -337,7 +348,7 @@ func (w *GCWorker) runKeyspaceDeleteRange(ctx context.Context, concurrency int) 
 	// The GC safe point is updated only after the global GC have done resolveLocks phase globally.
 	// So, in the following code, resolveLocks must have been done by the global GC on the ranges to be deleted,
 	// so its safe to delete the ranges.
-	safePoint, err := getGCSafePoint(ctx, w.pdClient)
+	safePoint, err := w.getGCSafePoint(ctx, w.pdClient)
 	if err != nil {
 		logutil.Logger(ctx).Info("[gc worker] get gc safe point error", zap.Error(errors.Trace(err)))
 		return nil
@@ -408,7 +419,9 @@ func (w *GCWorker) leaderTick(ctx context.Context) error {
 	// If `keyspace-name` is set, the TiDB node will only do its own delete range, and will not calculate gc safe point and resolve locks.
 	// Note that when `keyspace-name` is set, `checkLeader` will be done within the key space.
 	// Therefore only one TiDB node in each key space will be responsible to do delete range.
-	if w.store.GetCodec().GetKeyspace() != nil {
+	useSafePointV2 := config.GetGlobalConfig().UseSafePointV2
+	if w.store.GetCodec().GetKeyspace() != nil && !useSafePointV2 {
+		// If we use global gc safe point, a tidb which has keyspace-name should only do delete range logic.
 		err = w.runKeyspaceGCJob(ctx, concurrency)
 		if err != nil {
 			return errors.Trace(err)
@@ -744,8 +757,25 @@ func (w *GCWorker) calcNewSafePoint(ctx context.Context, now time.Time) (*time.T
 // setGCWorkerServiceSafePoint sets the given safePoint as TiDB's service safePoint to PD, and returns the current minimal
 // service safePoint among all services.
 func (w *GCWorker) setGCWorkerServiceSafePoint(ctx context.Context, safePoint uint64) (uint64, error) {
+	var minSafePoint uint64
+	var err error
 	// Sets TTL to MAX to make it permanently valid.
-	minSafePoint, err := w.pdClient.UpdateServiceGCSafePoint(ctx, gcWorkerServiceSafePointID, math.MaxInt64, safePoint)
+	ttl := int64(math.MaxInt64)
+	keyspaceID := w.store.GetCodec().GetKeyspaceID()
+	useSafePointV2 := config.GetGlobalConfig().UseSafePointV2
+	if useSafePointV2 {
+		// It is the situation when the keyspace is set.
+		serviceID := fmt.Sprintf(gcWorkerServiceSafePointID+"-%d", keyspaceID)
+		minSafePoint, err = w.pdClient.UpdateServiceSafePointV2(ctx, uint32(keyspaceID), serviceID, ttl, safePoint)
+		logutil.Logger(ctx).Error("[gc worker] update keyspace service safe point",
+			zap.String("uuid", w.uuid),
+			zap.Uint64("req-service-safe-point", safePoint),
+			zap.Uint64("resp-min-safe-point", minSafePoint),
+			zap.Error(err))
+	} else {
+		// It is the situation when the keyspace is not set.
+		minSafePoint, err = w.pdClient.UpdateServiceGCSafePoint(ctx, gcWorkerServiceSafePointID, ttl, safePoint)
+	}
 	if err != nil {
 		logutil.Logger(ctx).Error("[gc worker] failed to update service safe point",
 			zap.String("uuid", w.uuid),
@@ -1888,7 +1918,19 @@ func (w *GCWorker) uploadSafePointToPD(ctx context.Context, safePoint uint64) er
 
 	bo := tikv.NewBackofferWithVars(ctx, gcOneRegionMaxBackoff, nil)
 	for {
-		newSafePoint, err = w.pdClient.UpdateGCSafePoint(ctx, safePoint)
+		keyspaceID := w.store.GetCodec().GetKeyspaceID()
+		useSafePointV2 := config.GetGlobalConfig().UseSafePointV2
+		if useSafePointV2 {
+			newSafePoint, err = w.pdClient.UpdateGCSafePointV2(ctx, uint32(keyspaceID), safePoint)
+			logutil.Logger(ctx).Error("[gc worker] update keyspace gc safe point",
+				zap.String("uuid", w.uuid),
+				zap.Uint64("req-gc-safe-point", safePoint),
+				zap.Uint64("resp-gc-safe-point", newSafePoint),
+				zap.Error(err))
+		} else {
+			newSafePoint, err = w.pdClient.UpdateGCSafePoint(ctx, safePoint)
+		}
+
 		if err != nil {
 			if errors.Cause(err) == context.Canceled {
 				return errors.Trace(err)

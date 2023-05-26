@@ -349,6 +349,8 @@ type Config struct {
 	TiDBEnableExitCheck bool `toml:"tidb-enable-exit-check" json:"tidb-enable-exit-check"`
 	// SkipGCDropTable is used to control whether to skip keyspace gc drop table range in gc worker.
 	SkipGCDropTable bool `toml:"skip-gc-drop-table" json:"skip-gc-drop-table"`
+	// UseSafePointV2 is used to control whether to use safe point v2 interface.
+	UseSafePointV2 bool `toml:"use-safe-point-v2" json:"use-safe-point-v2"`
 	// SkipRedoDeleteRangeGC is used to control whether to skip redo delege range gc in gc worker.
 	SkipRedoDeleteRangeGC bool `toml:"skip-gc-delete-range" json:"skip-gc-delete-range"`
 	// ResolveLocksByKeyspace is used to control whether to do resolve locks by keyspace.
@@ -1110,6 +1112,7 @@ var defaultConf = Config{
 	EnableForwarding:                     defTiKVCfg.EnableForwarding,
 	NewCollationsEnabledOnFirstBootstrap: true,
 	SkipGCDropTable:                      false,
+	UseSafePointV2:                       false,
 	SkipRedoDeleteRangeGC:                true,
 	ResolveLocksByKeyspace:               true,
 	EnableRULimit:                        false,
