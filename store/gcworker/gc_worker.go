@@ -1284,7 +1284,9 @@ func (w *GCWorker) resolveKeyspacesLocks(ctx context.Context, runner *rangetask.
 		return err
 	}
 
-	var lastRightBound []byte
+	// maxRightBound is the max right bound of all keyspaces,
+	// is used to find the range right of the last keyspace's range.
+	var maxRightBound []byte
 	// Start keyspaces resolve locks
 	for i := range keyspaces {
 		keyspaceMeta := keyspaces[i]
@@ -1294,7 +1296,10 @@ func (w *GCWorker) resolveKeyspacesLocks(ctx context.Context, runner *rangetask.
 
 		logutil.Logger(ctx).Info("[gc worker] start keyspace resolve locks", zap.Uint32("KeyspaceID", keyspaceMeta.Id))
 		txnLeftBound, txnRightBound = keyspace.GetKeyspaceTxnRange(keyspaceMeta.Id)
-		lastRightBound = txnRightBound
+		// Update maxRightBound if needed.
+		if bytes.Compare(txnRightBound, maxRightBound) > 0 {
+			maxRightBound = txnRightBound
+		}
 		err := w.legacyResolveKeyspaceLocks(ctx, txnLeftBound, txnRightBound, runner, safePoint)
 		if err != nil {
 			logutil.Logger(ctx).Warn("[gc worker] legacyResolveKeyspaceLocks err.", zap.Uint32("ErrKeyspaceID", keyspaceMeta.Id), zap.Error(errors.Trace(err)))
@@ -1302,11 +1307,11 @@ func (w *GCWorker) resolveKeyspacesLocks(ctx context.Context, runner *rangetask.
 		}
 	}
 
-	// Do range:[ last keyspace right bound , unbounded ) resolve locks.
+	// Do range:[ last keyspace right bound, unbounded ) resolve locks.
 	endKey := []byte("")
-	err = w.legacyResolveKeyspaceLocks(ctx, lastRightBound, endKey, runner, safePoint)
+	err = w.legacyResolveKeyspaceLocks(ctx, maxRightBound, endKey, runner, safePoint)
 	if err != nil {
-		logutil.Logger(ctx).Warn("[gc worker] legacyResolveKeyspaceLocks err.", zap.String("txnLeftBound", hex.EncodeToString(lastRightBound)), zap.String("txnLeftBound", hex.EncodeToString(endKey)), zap.Error(errors.Trace(err)))
+		logutil.Logger(ctx).Warn("[gc worker] legacyResolveKeyspaceLocks err.", zap.String("txnLeftBound", hex.EncodeToString(maxRightBound)), zap.String("txnRightBound", hex.EncodeToString(endKey)), zap.Error(errors.Trace(err)))
 		return err
 	}
 
