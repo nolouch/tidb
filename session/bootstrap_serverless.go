@@ -48,6 +48,8 @@ const (
 	serverlessVersion8 = 8
 	// serverlessVersion9 change variable `max_execution_time` to `30m`.
 	serverlessVersion9 = 9
+	// serverlessVersion10 disable 1pc.
+	serverlessVersion10 = 10
 )
 
 const (
@@ -57,7 +59,7 @@ const (
 
 // currentServerlessVersion is defined as a variable, so we can modify its value for testing.
 // please make sure this is the largest version
-var currentServerlessVersion int64 = serverlessVersion9
+var currentServerlessVersion int64 = serverlessVersion10
 
 var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer2,
@@ -68,6 +70,7 @@ var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer7,
 	upgradeToServerlessVer8,
 	upgradeToServerlessVer9,
+	upgradeToServerlessVer10,
 }
 
 // updateServerlessVersion updates serverless version variable in mysql.TiDB table.
@@ -279,6 +282,13 @@ func upgradeToServerlessVer9(s Session, ver int64) {
 	mustExecute(s, "set @@global.max_execution_time=%?", defaultMaxExecutionTime)
 }
 
+func upgradeToServerlessVer10(s Session, ver int64) {
+	if ver >= serverlessVersion10 {
+		return
+	}
+	mustExecute(s, "set @@global.tidb_enable_1pc=OFF")
+}
+
 // Serverless bootstrap procedures.
 // NOTE: The following methods will only be executed once at doDMLWorks during TiDB Bootstrap,
 // therefore any modification of it requires addition to the serverless version upgrade function above
@@ -311,6 +321,9 @@ func bootstrapServerlessVariables(s Session) {
 	)
 	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
 		mysql.SystemDB, mysql.GlobalVariablesTable, variable.TiDBEnableAsyncCommit, variable.Off, variable.Off,
+	)
+	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
+		mysql.SystemDB, mysql.GlobalVariablesTable, variable.TiDBEnable1PC, variable.Off, variable.Off,
 	)
 	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
 		mysql.SystemDB, mysql.GlobalVariablesTable,
