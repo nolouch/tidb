@@ -355,8 +355,6 @@ type Config struct {
 	SkipRedoDeleteRangeGC bool `toml:"skip-gc-delete-range" json:"skip-gc-delete-range"`
 	// ResolveLocksByKeyspace is used to control whether to do resolve locks by keyspace.
 	ResolveLocksByKeyspace bool `toml:"resolve-locks-by-keyspace" json:"resolve-locks-by-keyspace"`
-	// Ratelimit is used to control the rate limit of the tenant requests.
-	Ratelimit RatelimitConfig `toml:"ratelimit" json:"ratelimit"`
 	// BootstrapControl is used to control serverless bootstrap procedure.
 	BootstrapControl BootstrapControl `toml:"bootstrap-control" json:"bootstrap-control"`
 	// Rewrite collations for certain keyspaces
@@ -1128,7 +1126,6 @@ var defaultConf = Config{
 	TiDBMaxReuseChunk:                    64,
 	TiDBMaxReuseColumn:                   256,
 	TiDBEnableExitCheck:                  false,
-	Ratelimit:                            defaultRatelimitConfig(),
 	BootstrapControl:                     defaultBootstrapControl(),
 	RewriteCollations:                    make(map[string]map[string]string),
 	ExtendedErrorMsgs:                    make(map[string]string),
