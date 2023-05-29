@@ -260,6 +260,9 @@ const (
 	// TiDBUseAlloc indicates whether the last statement used chunk alloc
 	TiDBUseAlloc = "last_sql_use_alloc"
 
+	// TiDBEnableRemoteCoprocessor indicates whether to enable remote coprocessor.
+	TiDBEnableRemoteCoprocessor = "tidb_enable_remote_coprocessor"
+
 	// TiFlashComputeDispatchPolicy indicates how to dispatch task to tiflash_compute nodes.
 	TiFlashComputeDispatchPolicy = "tiflash_compute_dispatch_policy"
 )
@@ -1193,6 +1196,7 @@ const (
 	DefTiDBEnableResourceControl                           = false
 	DefTiDBPessimisticTransactionAggressiveLocking         = false
 	DefTiDBEnablePlanCacheForParamLimit                    = true
+	DefTiDBEnableRemoteCoprocessor                         = false
 	DefTiFlashComputeDispatchPolicy                        = tiflashcompute.DispatchPolicyConsistentHashStr
 )
 

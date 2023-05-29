@@ -133,6 +133,8 @@ func getEndPointType(t kv.StoreType) tikvrpc.EndpointType {
 		return tikvrpc.TiFlash
 	case kv.TiDB:
 		return tikvrpc.TiDB
+	case kv.TiKVRemoteCoprocessor:
+		return tikvrpc.TiKVRemoteCoprocessor
 	default:
 		return tikvrpc.TiKV
 	}

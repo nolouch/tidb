@@ -95,6 +95,9 @@ func Select(ctx context.Context, sctx sessionctx.Context, kvReq *kv.Request, fie
 	if kvReq.StoreType == kv.TiFlash {
 		ctx = SetTiFlashMaxThreadsInContext(ctx, sctx)
 	}
+	if kvReq.StoreType == kv.TiKV && sctx.GetSessionVars().EnableRemoteCoprocessor {
+		kvReq.StoreType = kv.TiKVRemoteCoprocessor
+	}
 
 	resp := sctx.GetClient().Send(ctx, kvReq, sctx.GetSessionVars().KVVars, option)
 	if resp == nil {

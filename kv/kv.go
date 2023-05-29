@@ -337,6 +337,8 @@ const (
 	TiFlash
 	// TiDB means the type of a store is TiDB.
 	TiDB
+	// TiKVRemoteCoprocessor means the type of a store is TiKVRemoteCoprocessor.
+	TiKVRemoteCoprocessor
 	// UnSpecified means the store type is unknown
 	UnSpecified = 255
 )
@@ -349,6 +351,8 @@ func (t StoreType) Name() string {
 		return "tidb"
 	} else if t == TiKV {
 		return "tikv"
+	} else if t == TiKVRemoteCoprocessor {
+		return "tikv-remote-coprocessor"
 	}
 	return "unspecified"
 }

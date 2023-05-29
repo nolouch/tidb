@@ -1363,6 +1363,10 @@ type SessionVars struct {
 	// For now it is not public to user
 	EnableIndexJoinInnerSideMultiPattern bool
 
+	// EnableRemoteCoprocessor controls whether to enable remote coprocessor.
+	// The RemoteCoprocessorAddr must be configured in the config file first.
+	EnableRemoteCoprocessor bool
+
 	// TiFlashComputeDispatchPolicy indicates how to dipatch task to tiflash_compute nodes.
 	// Only for disaggregated-tiflash mode.
 	TiFlashComputeDispatchPolicy tiflashcompute.DispatchPolicy
@@ -1759,6 +1763,7 @@ func NewSessionVars(hctx HookContext) *SessionVars {
 		ChunkPool:                     ReuseChunkPool{Alloc: nil},
 		mppExchangeCompressionMode:    DefaultExchangeCompressionMode,
 		mppVersion:                    kv.MppVersionUnspecified,
+		EnableRemoteCoprocessor:       false,
 		TiFlashComputeDispatchPolicy:  tiflashcompute.DispatchPolicyConsistentHash,
 	}
 	vars.KVVars = tikvstore.NewVariables(&vars.Killed)
