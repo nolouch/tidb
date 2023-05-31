@@ -285,3 +285,7 @@ replace (
 	go.opencensus.io => go.opencensus.io v0.23.1-0.20220331163232-052120675fac
 	google.golang.org/grpc => google.golang.org/grpc v1.54.0
 )
+
+replace github.com/tikv/pd/client => github.com/nolouch/pd/client v0.0.0-20230531075250-4f3b05f26778
+
+replace github.com/tikv/client-go/v2 => github.com/nolouch/client-go/v2 v2.0.0-alpha.0.20230531080428-c6248d21bbc8
