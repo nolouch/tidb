@@ -106,9 +106,6 @@ func TrySetupGlobalResourceController(ctx context.Context, serverID uint64, s kv
 	}
 
 	ruConfig := rmclient.DefaultRequestUnitConfig()
-	// serverless uses 1.7x RU cost
-	ruConfig.ReadBaseCost *= 1.7
-	ruConfig.WriteBaseCost *= 1.7
 
 	opts := []rmclient.ResourceControlCreateOption{
 		rmclient.EnableSingleGroupByKeyspace(),
