@@ -50,6 +50,8 @@ const (
 	serverlessVersion9 = 9
 	// serverlessVersion10 disable 1pc.
 	serverlessVersion10 = 10
+	// serverlessVersion11 grants `cloud_admin` with the privilege that `grant 'role_admin' to <user>`
+	serverlessVersion11 = 11
 )
 
 const (
@@ -59,7 +61,7 @@ const (
 
 // currentServerlessVersion is defined as a variable, so we can modify its value for testing.
 // please make sure this is the largest version
-var currentServerlessVersion int64 = serverlessVersion10
+var currentServerlessVersion int64 = serverlessVersion11
 
 var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer2,
@@ -71,6 +73,7 @@ var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer8,
 	upgradeToServerlessVer9,
 	upgradeToServerlessVer10,
+	upgradeToServerlessVer11,
 }
 
 // updateServerlessVersion updates serverless version variable in mysql.TiDB table.
@@ -287,6 +290,13 @@ func upgradeToServerlessVer10(s Session, ver int64) {
 		return
 	}
 	mustExecute(s, "set @@global.tidb_enable_1pc=OFF")
+}
+
+func upgradeToServerlessVer11(s Session, ver int64) {
+	if ver >= serverlessVersion11 {
+		return
+	}
+	insertGlobalGrants(s, "cloud_admin", "ROLE_ADMIN", "Y")
 }
 
 // Serverless bootstrap procedures.
