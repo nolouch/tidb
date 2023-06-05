@@ -12,6 +12,7 @@ import (
 	"github.com/pingcap/kvproto/pkg/metapb"
 	"github.com/pingcap/log"
 	berrors "github.com/pingcap/tidb/br/pkg/errors"
+	tidbconfig "github.com/pingcap/tidb/config"
 	"github.com/tikv/client-go/v2/oracle"
 	pd "github.com/tikv/pd/client"
 	"go.uber.org/zap"
@@ -81,8 +82,7 @@ func CheckGCSafePoint(ctx context.Context, pdClient pd.Client, ts uint64) error 
 // UpdateServiceSafePoint register BackupTS to PD, to lock down BackupTS as safePoint with TTL seconds.
 func UpdateServiceSafePoint(ctx context.Context, pdClient pd.Client, sp BRServiceSafePoint) error {
 	log.Debug("update PD safePoint limit with TTL", zap.Object("safePoint", sp))
-
-	lastSafePoint, err := pdClient.UpdateServiceGCSafePoint(ctx, sp.ID, sp.TTL, sp.BackupTS-1)
+	lastSafePoint, err := UpdatePdCliServiceSafePoint(ctx, pdClient, sp.ID, sp.TTL, sp.BackupTS-1)
 	if lastSafePoint > sp.BackupTS-1 {
 		log.Warn("service GC safe point lost, we may fail to back up if GC lifetime isn't long enough",
 			zap.Uint64("lastSafePoint", lastSafePoint),
@@ -90,6 +90,26 @@ func UpdateServiceSafePoint(ctx context.Context, pdClient pd.Client, sp BRServic
 		)
 	}
 	return errors.Trace(err)
+}
+
+func UpdatePdCliServiceSafePoint(ctx context.Context, pdClient pd.Client, serviceID string, ttl int64, safePoint uint64) (uint64, error) {
+	useSafePointV2 := tidbconfig.GetGlobalConfig().UseSafePointV2
+	var err error
+
+	if !useSafePointV2 {
+		return pdClient.UpdateServiceGCSafePoint(ctx, serviceID, ttl, safePoint)
+	}
+	keyspaceName := tidbconfig.GetGlobalKeyspaceName()
+	keyspaceID, err := getKeyspaceID(ctx, pdClient, keyspaceName)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return pdClient.UpdateServiceSafePointV2(ctx, keyspaceID, serviceID, ttl, safePoint)
+}
+
+func getKeyspaceID(ctx context.Context, pdClient pd.Client, keyspaceName string) (uint32, error) {
+	keyspaceMeta, err := pdClient.LoadKeyspace(ctx, keyspaceName)
+	return keyspaceMeta.Id, err
 }
 
 // StartServiceSafePointKeeper will run UpdateServiceSafePoint periodicity

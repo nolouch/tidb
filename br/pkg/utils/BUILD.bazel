@@ -28,6 +28,7 @@ go_library(
         "//br/pkg/errors",
         "//br/pkg/logutil",
         "//br/pkg/metautil",
+        "//config",
         "//errno",
         "//kv",
         "//parser/model",

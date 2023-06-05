@@ -317,7 +317,9 @@ func (cfg *RestoreConfig) ParseFromFlags(flags *pflag.FlagSet) error {
 	if err != nil {
 		return errors.Annotatef(err, "failed to get flag %s", FlagKeyspaceName)
 	}
-
+	config.UpdateGlobal(func(conf *config.Config) {
+		conf.KeyspaceName = cfg.KeyspaceName
+	})
 	cfg.SkipSplit, err = flags.GetBool(FlagSkipSplit)
 	if err != nil {
 		return errors.Annotatef(err, "failed to get flag %s", FlagSkipSplit)

@@ -219,6 +219,9 @@ func (cfg *BackupConfig) ParseFromFlags(flags *pflag.FlagSet) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	config.UpdateGlobal(func(conf *config.Config) {
+		conf.KeyspaceName = cfg.KeyspaceName
+	})
 
 	if flags.Lookup(flagFullBackupType) != nil {
 		// for backup full
@@ -257,6 +260,9 @@ func (cfg *BackupConfig) ParseFromFlags(flags *pflag.FlagSet) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	config.UpdateGlobal(func(conf *config.Config) {
+		conf.KeyspaceName = cfg.KeyspaceName
+	})
 	InitMetrics(cfg.PD, cfg.KeyspaceName)
 
 	return nil

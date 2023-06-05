@@ -53,6 +53,7 @@ import (
 	"github.com/pingcap/tidb/br/pkg/storage"
 	"github.com/pingcap/tidb/br/pkg/utils"
 	"github.com/pingcap/tidb/br/pkg/version/build"
+	tidbconfig "github.com/pingcap/tidb/config"
 	_ "github.com/pingcap/tidb/expression" // get rid of `import cycle`: just init expression.RewriteAstExpr,and called at package `backend.kv`.
 	_ "github.com/pingcap/tidb/planner/core"
 	"github.com/pingcap/tidb/util"
@@ -421,27 +422,7 @@ func getKeyspaceName(g glue.Glue) (string, error) {
 		return "", nil
 	}
 
-	rows, err := db.Query("show config where Type = 'tidb' and name = 'keyspace-name'")
-	if err != nil {
-		return "", err
-	}
-	//nolint: errcheck
-	defer rows.Close()
-
-	var (
-		_type     string
-		_instance string
-		_name     string
-		value     string
-	)
-	if rows.Next() {
-		err = rows.Scan(&_type, &_instance, &_name, &value)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return value, rows.Err()
+	return utils.GetKeyspaceNameFromTiDB(db)
 }
 
 func (l *Lightning) run(taskCtx context.Context, taskCfg *config.Config, o *options) (err error) {
@@ -581,6 +562,9 @@ func (l *Lightning) run(taskCtx context.Context, taskCfg *config.Config, o *opti
 			if err != nil {
 				o.logger.Warn("unable to get keyspace name, lightning will use empty keyspace name", zap.Error(err))
 			}
+			tidbconfig.UpdateGlobal(func(conf *tidbconfig.Config) {
+				conf.KeyspaceName = keyspaceName
+			})
 		}
 		o.logger.Info("acquired keyspace name", zap.String("keyspaceName", keyspaceName))
 	}

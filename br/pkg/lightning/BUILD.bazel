@@ -26,6 +26,7 @@ go_library(
         "//br/pkg/storage",
         "//br/pkg/utils",
         "//br/pkg/version/build",
+        "//config",
         "//expression",
         "//planner/core",
         "//util",

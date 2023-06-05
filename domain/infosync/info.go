@@ -745,22 +745,31 @@ func (is *InfoSyncer) GetMinStartTS() uint64 {
 	return is.minStartTS
 }
 
+func (is *InfoSyncer) getMinStartTsEtcdCli() *clientv3.Client {
+	if config.GetGlobalConfig().UseSafePointV2 {
+		return is.etcdCli
+	}
+	return is.unprefixedEtcdCli
+}
+
 // storeMinStartTS stores self server min start timestamp to etcd.
 func (is *InfoSyncer) storeMinStartTS(ctx context.Context) error {
-	if is.unprefixedEtcdCli == nil {
+	minStartTsEtcdCli := is.getMinStartTsEtcdCli()
+	if minStartTsEtcdCli == nil {
 		return nil
 	}
-	return util.PutKVToEtcd(ctx, is.unprefixedEtcdCli, keyOpDefaultRetryCnt, is.minStartTSPath,
+	return util.PutKVToEtcd(ctx, minStartTsEtcdCli, keyOpDefaultRetryCnt, is.minStartTSPath,
 		strconv.FormatUint(is.minStartTS, 10),
 		clientv3.WithLease(is.session.Lease()))
 }
 
 // RemoveMinStartTS removes self server min start timestamp from etcd.
 func (is *InfoSyncer) RemoveMinStartTS() {
-	if is.unprefixedEtcdCli == nil {
+	minStartTsEtcdCli := is.getMinStartTsEtcdCli()
+	if minStartTsEtcdCli == nil {
 		return
 	}
-	err := util.DeleteKeyFromEtcd(is.minStartTSPath, is.unprefixedEtcdCli, keyOpDefaultRetryCnt, keyOpDefaultTimeout)
+	err := util.DeleteKeyFromEtcd(is.minStartTSPath, minStartTsEtcdCli, keyOpDefaultRetryCnt, keyOpDefaultTimeout)
 	if err != nil {
 		logutil.BgLogger().Error("remove minStartTS failed", zap.Error(err))
 	}

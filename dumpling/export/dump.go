@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/pingcap/tidb/br/pkg/utils"
+
 	// import mysql driver
 	"github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -1512,6 +1514,11 @@ func tidbStartGCSavepointUpdateService(d *Dumper) error {
 	return nil
 }
 
+func getKeyspaceName(d *Dumper) (string, error) {
+	db := d.dbHandle
+	return utils.GetKeyspaceNameFromTiDB(db)
+}
+
 func updateServiceSafePoint(tctx *tcontext.Context, pdClient pd.Client, ttl int64, snapshotTS uint64) {
 	updateInterval := time.Duration(ttl/2) * time.Second
 	tick := time.NewTicker(updateInterval)
@@ -1523,7 +1530,7 @@ func updateServiceSafePoint(tctx *tcontext.Context, pdClient pd.Client, ttl int6
 			zap.Uint64("safePoint", snapshotTS),
 			zap.Int64("ttl", ttl))
 		for retryCnt := 0; retryCnt <= 10; retryCnt++ {
-			_, err := pdClient.UpdateServiceGCSafePoint(tctx, dumplingServiceSafePointID, ttl, snapshotTS)
+			_, err := utils.UpdatePdCliServiceSafePoint(tctx, pdClient, dumplingServiceSafePointID, ttl, snapshotTS)
 			if err == nil {
 				break
 			}

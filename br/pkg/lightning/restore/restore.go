@@ -1370,12 +1370,13 @@ func (rc *Controller) keepPauseGCForDupeRes(ctx context.Context) (<-chan struct{
 		if i > 0 {
 			time.Sleep(time.Second * 3)
 		}
-		minSafePoint, err := pdCli.UpdateServiceGCSafePoint(ctx, serviceID, ttl, 1)
+		minSafePoint, err := utils.UpdatePdCliServiceSafePoint(ctx, pdCli, serviceID, ttl, 1)
+
 		if err != nil {
 			pdCli.Close()
 			return nil, errors.Trace(err)
 		}
-		newMinSafePoint, err := pdCli.UpdateServiceGCSafePoint(ctx, serviceID, ttl, minSafePoint)
+		newMinSafePoint, err := utils.UpdatePdCliServiceSafePoint(ctx, pdCli, serviceID, ttl, minSafePoint)
 		if err != nil {
 			pdCli.Close()
 			return nil, errors.Trace(err)
@@ -1406,7 +1407,7 @@ func (rc *Controller) keepPauseGCForDupeRes(ctx context.Context) (<-chan struct{
 		for {
 			select {
 			case <-ticker.C:
-				minSafePoint, err := pdCli.UpdateServiceGCSafePoint(ctx, serviceID, ttl, safePoint)
+				minSafePoint, err := utils.UpdatePdCliServiceSafePoint(ctx, pdCli, serviceID, ttl, safePoint)
 				if err != nil {
 					log.FromContext(ctx).Warn("Failed to register GC safe point", zap.Error(err))
 					continue
@@ -1421,7 +1422,7 @@ func (rc *Controller) keepPauseGCForDupeRes(ctx context.Context) (<-chan struct{
 				}
 			case <-ctx.Done():
 				stopCtx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
-				if _, err := pdCli.UpdateServiceGCSafePoint(stopCtx, serviceID, 0, safePoint); err != nil {
+				if _, err := utils.UpdatePdCliServiceSafePoint(stopCtx, pdCli, serviceID, 0, safePoint); err != nil {
 					log.FromContext(ctx).Warn("Failed to reset safe point ttl to zero", zap.Error(err))
 				}
 				// just make compiler happy

@@ -32,6 +32,7 @@ import (
 	"github.com/pingcap/tidb/br/pkg/lightning/log"
 	"github.com/pingcap/tidb/br/pkg/lightning/metric"
 	"github.com/pingcap/tidb/br/pkg/pdutil"
+	"github.com/pingcap/tidb/br/pkg/utils"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/util/mathutil"
 	"github.com/pingcap/tipb/go-tipb"
@@ -431,7 +432,7 @@ func (m *gcTTLManager) doUpdateGCTTL(ctx context.Context, ts uint64) error {
 		zap.Uint64("currnet_ts", ts))
 	var err error
 	if ts > 0 {
-		_, err = m.pdClient.UpdateServiceGCSafePoint(ctx,
+		_, err = utils.UpdatePdCliServiceSafePoint(ctx, m.pdClient,
 			m.serviceID, serviceSafePointTTL, ts)
 	}
 	return err
