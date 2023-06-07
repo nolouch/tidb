@@ -184,6 +184,8 @@ const (
 	tidbGCLeaderLease = "tidb_gc_leader_lease"
 	tidbGCLeaderUUID  = "tidb_gc_leader_uuid"
 	tidbGCSafePoint   = "tidb_gc_safe_point"
+
+	safePointV2 = "v2"
 )
 
 var gcSafePointCacheInterval = tikv.GcSafePointCacheInterval
@@ -427,6 +429,14 @@ func (w *GCWorker) leaderTick(ctx context.Context) error {
 			return errors.Trace(err)
 		}
 		return nil
+	}
+
+	if useSafePointV2 {
+		keyspaceName := config.GetGlobalKeyspaceName()
+		err = infosync.UpdateKeyspaceSavePointVersion(ctx, keyspaceName, safePointV2)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	ok, safePoint, err := w.prepare(ctx)
@@ -765,8 +775,7 @@ func (w *GCWorker) setGCWorkerServiceSafePoint(ctx context.Context, safePoint ui
 	useSafePointV2 := config.GetGlobalConfig().UseSafePointV2
 	if useSafePointV2 {
 		// It is the situation when the keyspace is set.
-		serviceID := fmt.Sprintf(gcWorkerServiceSafePointID+"-%d", keyspaceID)
-		minSafePoint, err = w.pdClient.UpdateServiceSafePointV2(ctx, uint32(keyspaceID), serviceID, ttl, safePoint)
+		minSafePoint, err = w.pdClient.UpdateServiceSafePointV2(ctx, uint32(keyspaceID), gcWorkerServiceSafePointID, ttl, safePoint)
 		logutil.Logger(ctx).Error("[gc worker] update keyspace service safe point",
 			zap.String("uuid", w.uuid),
 			zap.Uint64("req-service-safe-point", safePoint),

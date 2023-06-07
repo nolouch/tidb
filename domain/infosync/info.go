@@ -15,6 +15,7 @@
 package infosync
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -1339,4 +1340,31 @@ func SetPDScheduleConfig(ctx context.Context, config map[string]interface{}) err
 		return errors.Trace(err)
 	}
 	return is.scheduleManager.SetPDScheduleConfig(ctx, config)
+}
+
+// KeyspaceSavePointVersion represents parameters needed to modify target keyspace's configs.
+type KeyspaceSavePointVersion struct {
+	Config struct {
+		SafePointVersion string `json:"safe_point_version,omitempty"`
+	} `json:"config"`
+}
+
+// UpdateKeyspaceSavePointVersion is used to update the setting of keyspace safe point version.
+func UpdateKeyspaceSavePointVersion(ctx context.Context, keyspaceName string, safePointVersion string) error {
+	is, err := getGlobalInfoSyncer()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	url := fmt.Sprintf(pdapi.KeyspaceConfig, keyspaceName)
+
+	input := KeyspaceSavePointVersion{}
+	input.Config.SafePointVersion = safePointVersion
+	j, err := json.Marshal(input)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	_, err = doRequest(ctx, "UpdateKeyspaceSavePointVersion", is.etcdCli.Endpoints(), url, "PATCH", bytes.NewReader(j))
+	return err
 }
