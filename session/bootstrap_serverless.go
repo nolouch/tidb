@@ -52,6 +52,8 @@ const (
 	serverlessVersion10 = 10
 	// serverlessVersion11 grants `cloud_admin` with the privilege that `grant 'role_admin' to <user>`
 	serverlessVersion11 = 11
+	// serverlessVersion12 create missing 'role_admin' user.
+	serverlessVersion12 = 12
 )
 
 const (
@@ -61,7 +63,7 @@ const (
 
 // currentServerlessVersion is defined as a variable, so we can modify its value for testing.
 // please make sure this is the largest version
-var currentServerlessVersion int64 = serverlessVersion11
+var currentServerlessVersion int64 = serverlessVersion12
 
 var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer2,
@@ -74,6 +76,7 @@ var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer9,
 	upgradeToServerlessVer10,
 	upgradeToServerlessVer11,
+	upgradeToServerlessVer12,
 }
 
 // updateServerlessVersion updates serverless version variable in mysql.TiDB table.
@@ -299,6 +302,63 @@ func upgradeToServerlessVer11(s Session, ver int64) {
 	insertGlobalGrants(s, "cloud_admin", "ROLE_ADMIN", "Y")
 }
 
+func upgradeToServerlessVer12(s Session, ver int64) {
+	if ver >= serverlessVersion12 {
+		return
+	}
+
+	mustExecute(s, `REPLACE HIGH_PRIORITY INTO mysql.user SET `+
+		`Host = "%", `+
+		`User = "role_admin", `+
+		`authentication_string = "", `+
+		`plugin = "mysql_native_password", `+
+		`Select_priv = "Y", `+
+		`Insert_priv = "Y", `+
+		`Update_priv = "Y", `+
+		`Delete_priv = "Y", `+
+		`Create_priv = "Y", `+
+		`Drop_priv = "Y", `+
+		`Process_priv = "Y", `+
+		`Grant_priv = "Y", `+
+		`References_priv = "Y", `+
+		`Alter_priv = "Y", `+
+		`Show_db_priv = "Y", `+
+		`Super_priv = "Y", `+
+		`Create_tmp_table_priv = "Y", `+
+		`Lock_tables_priv = "Y", `+
+		`Execute_priv = "Y", `+
+		`Create_view_priv = "Y", `+
+		`Show_view_priv = "Y", `+
+		`Create_routine_priv = "Y", `+
+		`Alter_routine_priv = "Y", `+
+		`Index_priv = "Y", `+
+		`Create_user_priv = "Y", `+
+		`Event_priv = "Y", `+
+		`Repl_slave_priv = "Y", `+
+		`Repl_client_priv = "Y", `+
+		`Trigger_priv = "Y", `+
+		`Create_role_priv = "Y", `+
+		`Drop_role_priv = "Y", `+
+		`Account_locked = "Y", `+
+		`Shutdown_priv = "N", `+
+		`Reload_priv = "Y", `+
+		`FILE_priv = "Y", `+
+		`Config_priv = "N", `+
+		`Create_Tablespace_Priv = "Y", `+
+		`User_attributes = NULL, `+
+		`Token_issuer = "";`,
+	)
+
+	// GRANT ROLE_ADMIN ON *.* to 'role_admin';
+	insertGlobalGrants(s, "role_admin", "ROLE_ADMIN", "N")
+
+	mustExecute(s, `REPLACE HIGH_PRIORITY INTO mysql.global_priv SET `+
+		`Host = "%", `+
+		`User = "role_admin", `+
+		`Priv = "{}";`,
+	)
+}
+
 // Serverless bootstrap procedures.
 // NOTE: The following methods will only be executed once at doDMLWorks during TiDB Bootstrap,
 // therefore any modification of it requires addition to the serverless version upgrade function above
@@ -511,7 +571,7 @@ func bootstrapRoleAdmin(s Session) {
 
 // insertGlobalGrants inserts user's privilege into mysql.global_grants.
 func insertGlobalGrants(s Session, userName, priv, grant string) {
-	mustExecute(s, `INSERT HIGH_PRIORITY INTO mysql.global_grants SET `+
+	mustExecute(s, `REPLACE HIGH_PRIORITY INTO mysql.global_grants SET `+
 		`USER = %?, `+
 		`HOST = "%", `+
 		`PRIV = %?, `+
