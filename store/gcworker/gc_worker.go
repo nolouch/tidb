@@ -433,7 +433,7 @@ func (w *GCWorker) leaderTick(ctx context.Context) error {
 
 	if useSafePointV2 {
 		keyspaceName := config.GetGlobalKeyspaceName()
-		err = infosync.UpdateKeyspaceSavePointVersion(ctx, keyspaceName, safePointV2)
+		err = infosync.UpdateKeyspaceSavePointVersion(ctx, keyspaceName, config.SafePointV2)
 		if err != nil {
 			return errors.Trace(err)
 		}

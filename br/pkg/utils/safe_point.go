@@ -29,6 +29,8 @@ const (
 	DefaultStreamStartSafePointTTL = 1800
 	// DefaultStreamPauseSafePointTTL specifies Keeping the server safePoint at list 24h when pause task.
 	DefaultStreamPauseSafePointTTL = 24 * 3600
+	// KeyspaceConfig is safePoint version in keyspace meta config.
+	KeyspaceConfig = "safe_point_version"
 )
 
 // BRServiceSafePoint is metadata of service safe point from a BR 'instance'.
@@ -93,23 +95,30 @@ func UpdateServiceSafePoint(ctx context.Context, pdClient pd.Client, sp BRServic
 }
 
 func UpdatePdCliServiceSafePoint(ctx context.Context, pdClient pd.Client, serviceID string, ttl int64, safePoint uint64) (uint64, error) {
-	useSafePointV2 := tidbconfig.GetGlobalConfig().UseSafePointV2
-	var err error
-
-	if !useSafePointV2 {
+	keyspaceName := tidbconfig.GetGlobalKeyspaceName()
+	if keyspaceName == "" {
+		log.Debug("use safe point v1.")
 		return pdClient.UpdateServiceGCSafePoint(ctx, serviceID, ttl, safePoint)
 	}
-	keyspaceName := tidbconfig.GetGlobalKeyspaceName()
-	keyspaceID, err := getKeyspaceID(ctx, pdClient, keyspaceName)
+
+	keyspaceID, keyspaceSafePointVersion, err := getKeyspaceMeta(ctx, pdClient, keyspaceName)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
-	return pdClient.UpdateServiceSafePointV2(ctx, keyspaceID, serviceID, ttl, safePoint)
+
+	if keyspaceSafePointVersion == tidbconfig.SafePointV2 {
+		log.Info("use safe point v2.", zap.String("keyspace-name", keyspaceName), zap.Uint32("keyspace-id", keyspaceID))
+		return pdClient.UpdateServiceSafePointV2(ctx, keyspaceID, serviceID, ttl, safePoint)
+	} else {
+		log.Info("use safe point v1.", zap.String("keyspace-name", keyspaceName), zap.Uint32("keyspace-id", keyspaceID))
+		return pdClient.UpdateServiceGCSafePoint(ctx, serviceID, ttl, safePoint)
+	}
+
 }
 
-func getKeyspaceID(ctx context.Context, pdClient pd.Client, keyspaceName string) (uint32, error) {
+func getKeyspaceMeta(ctx context.Context, pdClient pd.Client, keyspaceName string) (uint32, string, error) {
 	keyspaceMeta, err := pdClient.LoadKeyspace(ctx, keyspaceName)
-	return keyspaceMeta.Id, err
+	return keyspaceMeta.Id, keyspaceMeta.Config[KeyspaceConfig], err
 }
 
 // StartServiceSafePointKeeper will run UpdateServiceSafePoint periodicity
