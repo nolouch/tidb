@@ -196,7 +196,7 @@ func (b *remoteBackend) RetryImportDelay() time.Duration {
 // ShouldPostProcess returns whether KV-specific post-processing should be
 // performed for this backend. Post-processing includes checksum and analyze.
 func (b *remoteBackend) ShouldPostProcess() bool {
-	return false
+	return true
 }
 
 // NewEncoder creates an encoder of a TiDB table.

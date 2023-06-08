@@ -1060,9 +1060,6 @@ func (cfg *Config) AdjustCommon() (bool, error) {
 		cfg.DefaultVarsForImporterAndLocalBackend()
 	case BackendRemote:
 		cfg.DefaultVarsForImporterAndLocalBackend()
-		cfg.PostRestore.Checksum = OpLevelOff
-		cfg.PostRestore.Analyze = OpLevelOff
-		cfg.PostRestore.Compact = false
 	default:
 		return mustHaveInternalConnections, common.ErrInvalidConfig.GenWithStack("unsupported `tikv-importer.backend` (%s)", cfg.TikvImporter.Backend)
 	}

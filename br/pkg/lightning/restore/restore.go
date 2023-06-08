@@ -818,7 +818,7 @@ func (rc *Controller) restoreSchema(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 	// For local backend, we need DBInfo.ID to operate the global autoid allocator.
-	if isLocalBackend(rc.cfg) {
+	if isPhysicalBackend(rc.cfg) {
 		dbs, err := tikv.FetchRemoteDBModelsFromTLS(ctx, rc.keyspaceName, rc.tls)
 		if err != nil {
 			return errors.Trace(err)
@@ -1486,7 +1486,7 @@ func (rc *Controller) restoreTables(ctx context.Context) (finalErr error) {
 	postProgress := func() error { return nil }
 	var kvStore tidbkv.Storage
 
-	if isLocalBackend(rc.cfg) {
+	if isPhysicalBackend(rc.cfg) {
 		var (
 			restoreFn pdutil.UndoFunc
 			err       error
@@ -1793,7 +1793,7 @@ func (tr *TableRestore) restoreTable(
 		versionInfo := version.ParseServerInfo(versionStr)
 
 		// "show table next_row_id" is only available after tidb v4.0.0
-		if versionInfo.ServerVersion.Major >= 4 && isLocalBackend(rc.cfg) {
+		if versionInfo.ServerVersion.Major >= 4 && isPhysicalBackend(rc.cfg) {
 			// first, insert a new-line into meta table
 			if err = metaMgr.InitTableMeta(ctx); err != nil {
 				return false, err
@@ -2075,6 +2075,14 @@ func isLocalBackend(cfg *config.Config) bool {
 	return cfg.TikvImporter.Backend == config.BackendLocal
 }
 
+func isRemoteBackend(cfg *config.Config) bool {
+	return cfg.TikvImporter.Backend == config.BackendRemote
+}
+
+func isPhysicalBackend(cfg *config.Config) bool {
+	return cfg.TikvImporter.Backend == config.BackendLocal || cfg.TikvImporter.Backend == config.BackendRemote
+}
+
 func isTiDBBackend(cfg *config.Config) bool {
 	return cfg.TikvImporter.Backend == config.BackendTiDB
 }
@@ -2124,7 +2132,7 @@ func (rc *Controller) preCheckRequirements(ctx context.Context) error {
 	if rc.status != nil {
 		rc.status.TotalFileSize.Store(estimatedSizeResult.SizeWithoutIndex)
 	}
-	if isLocalBackend(rc.cfg) {
+	if isPhysicalBackend(rc.cfg) {
 		pdController, err := pdutil.NewPdController(ctx, rc.keyspaceName, rc.cfg.TiDB.PdAddr,
 			rc.tls.TLSConfig(), rc.tls.ToPDSecurityOption())
 		if err != nil {
@@ -2154,9 +2162,11 @@ func (rc *Controller) preCheckRequirements(ctx context.Context) error {
 				needCheck = taskCheckpoints == nil
 			}
 			if needCheck {
-				err = rc.localResource(ctx)
-				if err != nil {
-					return common.ErrCheckLocalResource.Wrap(err).GenWithStackByArgs()
+				if isLocalBackend(rc.cfg) {
+					err = rc.localResource(ctx)
+					if err != nil {
+						return common.ErrCheckLocalResource.Wrap(err).GenWithStackByArgs()
+					}
 				}
 				if err := rc.clusterResource(ctx); err != nil {
 					if err1 := rc.taskMgr.CleanupTask(ctx); err1 != nil {
