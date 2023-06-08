@@ -61,6 +61,7 @@ type Metrics struct {
 	ProcessedEngineCounter               *prometheus.CounterVec
 	ChunkCounter                         *prometheus.CounterVec
 	BytesCounter                         *prometheus.CounterVec
+	WRUCostCounter                       *prometheus.HistogramVec
 	ImportSecondsHistogram               prometheus.Histogram
 	ChunkParserReadBlockSecondsHistogram prometheus.Histogram
 	ApplyWorkerSecondsHistogram          *prometheus.HistogramVec
@@ -127,7 +128,14 @@ func NewMetrics(factory promutil.Factory) *Metrics {
 				Name:      "bytes",
 				Help:      "count of total bytes",
 			}, []string{"state"}),
-		// state can be one of:
+
+		WRUCostCounter: factory.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Namespace: "resource_manager_resource_unit",
+				Name:      "write_request_unit",
+				Help:      "Bucketed histogram of the write request unit cost for all resource groups.",
+				Buckets:   prometheus.ExponentialBuckets(3, 10, 5), // 3 ~ 300000
+			}, []string{"name"}),
 		//  - estimated (an estimation derived from the file size)
 		//  - pending
 		//  - running
@@ -244,6 +252,7 @@ func (m *Metrics) RegisterTo(r promutil.Registry) {
 		m.ProcessedEngineCounter,
 		m.ChunkCounter,
 		m.BytesCounter,
+		m.WRUCostCounter,
 		m.ImportSecondsHistogram,
 		m.ChunkParserReadBlockSecondsHistogram,
 		m.ApplyWorkerSecondsHistogram,
@@ -269,6 +278,7 @@ func (m *Metrics) UnregisterFrom(r promutil.Registry) {
 	r.Unregister(m.ProcessedEngineCounter)
 	r.Unregister(m.ChunkCounter)
 	r.Unregister(m.BytesCounter)
+	r.Unregister(m.WRUCostCounter)
 	r.Unregister(m.ImportSecondsHistogram)
 	r.Unregister(m.ChunkParserReadBlockSecondsHistogram)
 	r.Unregister(m.ApplyWorkerSecondsHistogram)

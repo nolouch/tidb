@@ -41,6 +41,7 @@ import (
 	"github.com/pingcap/tidb/util"
 	filter "github.com/pingcap/tidb/util/table-filter"
 	router "github.com/pingcap/tidb/util/table-router"
+	rm "github.com/tikv/pd/client/resource_group/controller"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -96,6 +97,8 @@ const (
 
 	defaultCSVDataCharacterSet       = "binary"
 	defaultCSVDataInvalidCharReplace = utf8.RuneError
+
+	defaultMaxSourceDataSize = 25 * 1024 * 1024 * 1024 // 25GB
 )
 
 var (
@@ -156,6 +159,7 @@ type Config struct {
 	Cron         Cron                `toml:"cron" json:"cron"`
 	Routes       []*router.TableRule `toml:"routes" json:"routes"`
 	Security     Security            `toml:"security" json:"security"`
+	RUConfig     RUConfig            `toml:"ru-config" json:"ru-config"`
 
 	BWList filter.MySQLReplicationRules `toml:"black-white-list" json:"black-white-list"`
 }
@@ -575,6 +579,8 @@ type MydumperRuntime struct {
 	// DataInvalidCharReplace is the replacement characters for non-compatible characters, which shouldn't duplicate with the separators or line breaks.
 	// Changing the default value will result in increased parsing time. Non-compatible characters do not cause an increase in error.
 	DataInvalidCharReplace string `toml:"data-invalid-char-replace" json:"data-invalid-char-replace"`
+	// MaxSourceDataSize is the maximum size of the source data to be processed, in bytes.
+	MaxSourceDataSize int64 `toml:"max-source-data-size" json:"max-source-data-size"`
 }
 
 type AllIgnoreColumns []*IgnoreColumns
@@ -650,6 +656,13 @@ type TikvImporter struct {
 	EngineMemCacheSize      ByteSize `toml:"engine-mem-cache-size" json:"engine-mem-cache-size"`
 	LocalWriterMemCacheSize ByteSize `toml:"local-writer-mem-cache-size" json:"local-writer-mem-cache-size"`
 	StoreWriteBWLimit       ByteSize `toml:"store-write-bwlimit" json:"store-write-bwlimit"`
+}
+
+type RUConfig struct {
+	ReportWRU             bool    `toml:"report-wru" json:"report-wru"`
+	WriteBaseCost         float64 `toml:"write-base-cost" json:"write-base-cost"`
+	WritePerBatchBaseCost float64 `toml:"write-per-batch-base-cost" json:"write-per-batch-base-cost"`
+	WriteCostPerByte      float64 `toml:"write-cost-per-byte" json:"write-cost-per-byte"`
 }
 
 type Checkpoint struct {
@@ -765,6 +778,7 @@ func ParseCharset(dataCharacterSet string) (Charset, error) {
 }
 
 func NewConfig() *Config {
+	defaultRUConfig := rm.DefaultRequestUnitConfig()
 	return &Config{
 		App: Lightning{
 			RegionConcurrency: runtime.NumCPU(),
@@ -814,6 +828,7 @@ func NewConfig() *Config {
 			Filter:                 GetDefaultFilter(),
 			DataCharacterSet:       defaultCSVDataCharacterSet,
 			DataInvalidCharReplace: string(defaultCSVDataInvalidCharReplace),
+			MaxSourceDataSize:      defaultMaxSourceDataSize,
 		},
 		TikvImporter: TikvImporter{
 			Backend:             "",
@@ -823,6 +838,12 @@ func NewConfig() *Config {
 			RegionSplitSize:     0,
 			DiskQuota:           ByteSize(math.MaxInt64),
 			DuplicateResolution: DupeResAlgNone,
+		},
+		RUConfig: RUConfig{
+			ReportWRU:             true,
+			WriteBaseCost:         float64(defaultRUConfig.WriteBaseCost),
+			WritePerBatchBaseCost: float64(defaultRUConfig.WritePerBatchBaseCost),
+			WriteCostPerByte:      float64(defaultRUConfig.WriteCostPerByte),
 		},
 		PostRestore: PostRestore{
 			Checksum:          OpLevelRequired,

@@ -14,7 +14,10 @@
 
 package size
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 const (
 	// KB is the kilobytes.
@@ -76,3 +79,32 @@ const (
 	// SizeOfMap is the memory each map itself occupied
 	SizeOfMap = int64(unsafe.Sizeof(*new(map[int]int)))
 )
+
+type size interface {
+	int64 | int
+}
+
+func toGiB[T size](size T) int {
+	return int(size / (1024 * 1024 * 1024))
+}
+
+func toMiB[T size](size T) int {
+	return int(size / (1024 * 1024))
+}
+
+func toKiB[T size](size T) int {
+	return int(size / 1024)
+}
+
+// HumanReadable converts the size to human readable string.
+func HumanReadable[T size](size T) string {
+	if size < 1024 {
+		return fmt.Sprintf("%d B", size)
+	} else if size < 1024*1024 {
+		return fmt.Sprintf("%d KiB", toKiB(size))
+	} else if size < 1024*1024*1024 {
+		return fmt.Sprintf("%d MiB", toMiB(size))
+	} else {
+		return fmt.Sprintf("%d GiB", toGiB(size))
+	}
+}

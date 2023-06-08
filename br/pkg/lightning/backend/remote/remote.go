@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pingcap/errors"
+	rmpb "github.com/pingcap/kvproto/pkg/resource_manager"
 	"github.com/pingcap/tidb/br/pkg/lightning/backend"
 	"github.com/pingcap/tidb/br/pkg/lightning/backend/kv"
 	"github.com/pingcap/tidb/br/pkg/lightning/backend/local"
@@ -41,6 +42,7 @@ import (
 	"github.com/pingcap/tidb/table"
 	"github.com/tikv/client-go/v2/oracle"
 	tikvclient "github.com/tikv/client-go/v2/tikv"
+	rm "github.com/tikv/pd/client/resource_group/controller"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -102,7 +104,10 @@ func NewRemoteBackend(
 	}
 
 	keyspace := pdCliForTiKV.GetCodec().GetKeyspace()
+	cctx, cancel := context.WithCancel(ctx)
 	worker := &remoteBackend{
+		ctx:              cctx,
+		cancel:           cancel,
 		encBuilder:       local.NewEncodingBuilder(ctx),
 		targetInfoGetter: local.NewTargetInfoGetter(tls, g, cfg.TiDB.PdAddr, keyspaceName),
 		workerAddr:       cfg.TikvImporter.Addr,
@@ -112,14 +117,52 @@ func NewRemoteBackend(
 		g:                g,
 		keyspace:         keyspace,
 		logger:           log.FromContext(ctx),
+		reportWriteBytes: func(int64) {},
 	}
+
 	if m, ok := metric.FromContext(ctx); ok {
 		worker.metrics = m
 	}
+
+	if cfg.RUConfig.ReportWRU && worker.metrics != nil {
+		worker.logger.Info("start to report WRU cost", zap.String("keyspace", keyspaceName))
+		writeBytesChan := make(chan int64, 1024)
+		worker.reportWriteBytes = func(bytes int64) {
+			writeBytesChan <- bytes
+		}
+
+		kvCalculator := rm.KVCalculator{
+			Config: &rm.Config{
+				WriteBaseCost:         rm.RequestUnit(cfg.RUConfig.WriteBaseCost),
+				WritePerBatchBaseCost: rm.RequestUnit(cfg.RUConfig.WritePerBatchBaseCost),
+				WriteBytesCost:        rm.RequestUnit(cfg.RUConfig.WriteCostPerByte),
+			},
+		}
+
+		go func() {
+			keyspaceID := pdCliForTiKV.GetCodec().GetKeyspaceID()
+			wruMetrics := worker.metrics.WRUCostCounter.WithLabelValues(fmt.Sprintf("%d", keyspaceID))
+			for {
+				select {
+				case <-cctx.Done():
+					worker.logger.Info("stop to report WRU cost", zap.String("keyspace", keyspaceName))
+					return
+				case writeBytes := <-writeBytesChan:
+					reqInfo := remoteRequestInfo(writeBytes)
+					consumption := &rmpb.Consumption{}
+					kvCalculator.BeforeKVRequest(consumption, reqInfo)
+					wruMetrics.Observe(consumption.WRU)
+				}
+			}
+		}()
+	}
+
 	return backend.MakeBackend(worker), nil
 }
 
 type remoteBackend struct {
+	ctx              context.Context
+	cancel           context.CancelFunc
 	encBuilder       backend.EncodingBuilder
 	targetInfoGetter backend.TargetInfoGetter
 	workerAddr       string
@@ -132,10 +175,13 @@ type remoteBackend struct {
 	dupRows          kv.Rows
 	engines          sync.Map
 	logger           log.Logger
+	reportWriteBytes func(int64)
 }
 
 // Close the connection to the backend.
-func (b *remoteBackend) Close() {}
+func (b *remoteBackend) Close() {
+	b.cancel()
+}
 
 // MakeEmptyRows creates an empty collection of encoded rows.
 func (b *remoteBackend) MakeEmptyRows() kv.Rows {
@@ -165,10 +211,11 @@ func (b *remoteBackend) OpenEngine(ctx context.Context, cfg *backend.EngineConfi
 	}
 	ts := oracle.ComposeTS(physical, logical)
 	e, _ := b.engines.LoadOrStore(engineUUID, &engine{
-		tbl:       cfg.TableInfo,
-		addr:      b.workerAddr,
-		clusterID: b.pdCtl.GetPDClient().GetClusterID(ctx),
-		ts:        ts,
+		tbl:              cfg.TableInfo,
+		addr:             b.workerAddr,
+		clusterID:        b.pdCtl.GetPDClient().GetClusterID(ctx),
+		ts:               ts,
+		reportWriteBytes: b.reportWriteBytes,
 	})
 	engine := e.(*engine)
 	if engine.ts == ts {
@@ -398,11 +445,12 @@ func (b *remoteBackend) getEngine(engineUUID uuid.UUID) (*engine, error) {
 }
 
 type engine struct {
-	ts        uint64
-	tbl       *checkpoints.TidbTableInfo
-	addr      string
-	clusterID uint64
-	chunkID   atomic.Uint64
+	ts               uint64
+	tbl              *checkpoints.TidbTableInfo
+	addr             string
+	clusterID        uint64
+	chunkID          atomic.Uint64
+	reportWriteBytes func(int64)
 }
 
 func (e *engine) allocChunkID() uint64 {
@@ -453,6 +501,7 @@ func (w *client) addChunk(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	w.e.reportWriteBytes(int64(len(w.buf)))
 	w.buf = w.buf[:0]
 	return nil
 }
@@ -475,4 +524,22 @@ type status bool
 
 func (s status) Flushed() bool {
 	return bool(s)
+}
+
+type remoteRequestInfo uint64
+
+func (r remoteRequestInfo) IsWrite() bool {
+	return true
+}
+
+func (r remoteRequestInfo) WriteBytes() uint64 {
+	return uint64(r)
+}
+
+func (r remoteRequestInfo) ReplicaNumber() int64 {
+	return 1
+}
+
+func (r remoteRequestInfo) StoreID() uint64 {
+	return 0
 }

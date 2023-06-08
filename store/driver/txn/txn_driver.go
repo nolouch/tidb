@@ -17,7 +17,6 @@ package txn
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"sync/atomic"
 
 	"github.com/pingcap/errors"
@@ -95,34 +94,6 @@ func (txn *tikvTxn) LockKeysFunc(ctx context.Context, lockCtx *kv.LockCtx, fn fu
 		return txn.extractKeyErr(err)
 	}
 	return txn.generateWriteConflictForLockedWithConflict(lockCtx)
-}
-
-type size interface {
-	int64 | int
-}
-
-func toGiB[T size](size T) int {
-	return int(size / (1024 * 1024 * 1024))
-}
-
-func toMiB[T size](size T) int {
-	return int(size / (1024 * 1024))
-}
-
-func toKiB[T size](size T) int {
-	return int(size / 1024)
-}
-
-func humanReadable[T size](size T) string {
-	if size < 1024 {
-		return fmt.Sprintf("%d B", size)
-	} else if size < 1024*1024 {
-		return fmt.Sprintf("%d KiB", toKiB(size))
-	} else if size < 1024*1024*1024 {
-		return fmt.Sprintf("%d MiB", toMiB(size))
-	} else {
-		return fmt.Sprintf("%d GiB", toGiB(size))
-	}
 }
 
 func (txn *tikvTxn) Commit(ctx context.Context) error {
