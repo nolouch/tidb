@@ -120,6 +120,8 @@ func StartStandby(host string, port uint, timeout uint) ActivateRequest {
 	mux := Handler()
 	// handle liveness probe.
 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+	// handle health
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("standby")) })
 	server = &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", host, port),
 		Handler: mux,

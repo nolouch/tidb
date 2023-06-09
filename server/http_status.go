@@ -278,6 +278,9 @@ func (s *Server) startHTTPServer() {
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", http.FileServer(static.Data)))
 	}
 
+	healthHandler := NewHealthHandler(s.dom, s)
+	router.Handle("/health", healthHandler).Name("Health")
+
 	serverMux := http.NewServeMux()
 	if s.cfg.StandByMode {
 		serverMux.Handle("/tidb-pool/", standby.Handler())
