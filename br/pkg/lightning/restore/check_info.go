@@ -142,6 +142,13 @@ func (rc *Controller) checkTableEmpty(ctx context.Context) error {
 	return rc.doPreCheckOnItem(ctx, CheckTargetTableEmpty)
 }
 
+func (rc *Controller) checkSoureDataSize(ctx context.Context) error {
+	if rc.cfg.Mydumper.MaxSourceDataSize == 0 {
+		return nil
+	}
+	return rc.doPreCheckOnItem(ctx, CheckSourceDataSize)
+}
+
 func (rc *Controller) checkCheckpoints(ctx context.Context) error {
 	if !rc.cfg.Checkpoint.Enable {
 		return nil

@@ -66,7 +66,6 @@ import (
 	"github.com/pingcap/tidb/util/mathutil"
 	regexprrouter "github.com/pingcap/tidb/util/regexpr-router"
 	"github.com/pingcap/tidb/util/set"
-	"github.com/pingcap/tidb/util/size"
 	pd "github.com/tikv/pd/client"
 	"go.uber.org/atomic"
 	"go.uber.org/multierr"
@@ -414,15 +413,6 @@ func NewRestoreControllerWithPauser(
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	srcDataSize, err := preInfoGetter.EstimateSourceDataSize(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if srcDataSize.SizeWithoutIndex > cfg.Mydumper.MaxSourceDataSize {
-		return nil, errors.Errorf("source data size %s is too large, limit is %s",
-			size.HumanReadable(srcDataSize.SizeWithoutIndex),
-			size.HumanReadable(cfg.Mydumper.MaxSourceDataSize))
 	}
 
 	preCheckBuilder := NewPrecheckItemBuilder(
@@ -2206,6 +2196,10 @@ func (rc *Controller) DataCheck(ctx context.Context) error {
 		if err := rc.HasLargeCSV(ctx); err != nil {
 			return errors.Trace(err)
 		}
+	}
+
+	if err := rc.checkSoureDataSize(ctx); err != nil {
+		return errors.Trace(err)
 	}
 
 	if err := rc.checkCheckpoints(ctx); err != nil {
