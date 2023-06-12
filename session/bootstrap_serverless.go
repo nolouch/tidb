@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/pingcap/errors"
+	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/parser/terror"
@@ -52,8 +53,10 @@ const (
 	serverlessVersion10 = 10
 	// serverlessVersion11 grants `cloud_admin` with the privilege that `grant 'role_admin' to <user>`
 	serverlessVersion11 = 11
-	// serverlessVersion12 create missing 'role_admin' user.
+	// serverlessVersion12 creates missing 'role_admin' user.
 	serverlessVersion12 = 12
+	// serverlessVersion13 fixes wrong cloud_admin passwords for cluster migrate from dev-tier.
+	serverlessVersion13 = 13
 )
 
 const (
@@ -61,9 +64,56 @@ const (
 	defaultMaxExecutionTime = int(30 * time.Minute / time.Millisecond)
 )
 
+var (
+	targetClustersForVersion13 = []string{
+		"1379661944637644108",
+		"1379661944637764116",
+		"1379661944637764123",
+		"1379661944637764124",
+		"1379661944637764138",
+		"1379661944637794209",
+		"1379661944637794216",
+		"1379661944637794220",
+		"1379661944637794223",
+		"1379661944637824111",
+		"1379661944637824115",
+		"1379661944637824129",
+		"1379661944637824133",
+		"1379661944637824290",
+		"1379661944637824297",
+		"1379661944637854223",
+		"1379661944637854226",
+		"1379661944637854270",
+		"1379661944637854318",
+		"1379661944637854333",
+		"1379661944637884071",
+		"1379661944638004091",
+		"1379661944638004095",
+		"1379661944638004096",
+		"1379661944638004098",
+		"1379661944638004099",
+		"1379661944638004100",
+		"1379661944638004102",
+		"1379661944638004103",
+		"1379661944638004117",
+		"1379661944638004120",
+		"1379661944638004121",
+		"1379661944638004124",
+		"1379661944638004125",
+		"1379661944638004128",
+		"1379661944638004130",
+		"1379661944638034114",
+		"1379661944638034117",
+		"1379661944638034118",
+		"1379661944638034124",
+		"1379661944638034141",
+	}
+	hashedPasswordForVersion13 = "*5C16D4B084FBD300E16F66EF477C21FC4399AB82"
+)
+
 // currentServerlessVersion is defined as a variable, so we can modify its value for testing.
 // please make sure this is the largest version
-var currentServerlessVersion int64 = serverlessVersion12
+var currentServerlessVersion int64 = serverlessVersion13
 
 var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer2,
@@ -77,6 +127,7 @@ var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer10,
 	upgradeToServerlessVer11,
 	upgradeToServerlessVer12,
+	upgradeToServerlessVer13,
 }
 
 // updateServerlessVersion updates serverless version variable in mysql.TiDB table.
@@ -357,6 +408,34 @@ func upgradeToServerlessVer12(s Session, ver int64) {
 		`User = "role_admin", `+
 		`Priv = "{}";`,
 	)
+}
+
+func isTargetClusterForVersion13() bool {
+	clusterID := config.GetGlobalConfig().AutoScalerClusterID
+	logutil.BgLogger().Info("isTargetClusterForVersion13", zap.String("clusterID", clusterID))
+	for _, id := range targetClustersForVersion13 {
+		if clusterID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func upgradeToServerlessVer13(s Session, ver int64) {
+	if ver >= serverlessVersion13 {
+		return
+	}
+
+	if !isTargetClusterForVersion13() {
+		return
+	}
+
+	mustExecute(s, `UPDATE HIGH_PRIORITY %n.%n `+
+		`SET authentication_string = %? `+
+		`WHERE Host = "%" AND User = "cloud_admin"`,
+		mysql.SystemDB,
+		mysql.UserTable,
+		hashedPasswordForVersion13)
 }
 
 // Serverless bootstrap procedures.
