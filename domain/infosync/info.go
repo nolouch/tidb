@@ -747,7 +747,7 @@ func (is *InfoSyncer) GetMinStartTS() uint64 {
 }
 
 func (is *InfoSyncer) getMinStartTsEtcdCli() *clientv3.Client {
-	if config.GetGlobalConfig().UseSafePointV2 {
+	if config.GetGlobalConfig().EnableSafePointV2 {
 		return is.etcdCli
 	}
 	return is.unprefixedEtcdCli
