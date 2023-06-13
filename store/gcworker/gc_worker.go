@@ -776,11 +776,10 @@ func (w *GCWorker) setGCWorkerServiceSafePoint(ctx context.Context, safePoint ui
 	if enableSafePointV2 {
 		// It is the situation when the keyspace is set.
 		minSafePoint, err = w.pdClient.UpdateServiceSafePointV2(ctx, uint32(keyspaceID), gcWorkerServiceSafePointID, ttl, safePoint)
-		logutil.Logger(ctx).Error("[gc worker] update keyspace service safe point",
+		logutil.Logger(ctx).Info("[gc worker] update keyspace service safe point",
 			zap.String("uuid", w.uuid),
 			zap.Uint64("req-service-safe-point", safePoint),
-			zap.Uint64("resp-min-safe-point", minSafePoint),
-			zap.Error(err))
+			zap.Uint64("resp-min-safe-point", minSafePoint))
 	} else {
 		// It is the situation when the keyspace is not set.
 		minSafePoint, err = w.pdClient.UpdateServiceGCSafePoint(ctx, gcWorkerServiceSafePointID, ttl, safePoint)
