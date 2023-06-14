@@ -1274,30 +1274,41 @@ func (w *GCWorker) legacyResolveLocks(
 	var completedRegions int
 	globalCfg := config.GetGlobalConfig()
 	isResolveLocksByKeyspace := globalCfg.ResolveLocksByKeyspace
-	if isResolveLocksByKeyspace {
-		runner := rangetask.NewRangeTaskRunner("resolve-locks-runner", w.tikvStore, concurrency, handler)
-		err := w.resolveKeyspacesLocks(ctx, runner, safePoint)
-		if err != nil {
-			logutil.Logger(ctx).Error("[gc worker] resolve locks by keyspace failed",
-				zap.String("uuid", w.uuid),
-				zap.Uint64("safePoint", safePoint),
-				zap.Error(err))
-			return errors.Trace(err)
-		}
-		completedRegions = completedRegions + runner.CompletedRegions()
+	runner := rangetask.NewRangeTaskRunner("resolve-locks-runner", w.tikvStore, concurrency, handler)
+	var err error
+	var errMsg string
+	var txnLeftBound []byte
+	var txnRightBound []byte
+
+	if globalCfg.EnableSafePointV2 {
+		// When enable safe point v2, legacyResolveLocks only resolve specified keyspace locks.
+		keyspaceID := w.store.GetCodec().GetKeyspaceID()
+		logutil.Logger(ctx).Info("[gc worker] start keyspace resolve locks", zap.Uint32("KeyspaceID", uint32(keyspaceID)))
+		txnLeftBound, txnRightBound = keyspace.GetKeyspaceTxnRange(uint32(keyspaceID))
+		err = w.legacyResolveKeyspaceLocks(ctx, txnLeftBound, txnRightBound, runner, safePoint)
+		errMsg = "[gc worker] legacyResolveKeyspaceLocks err."
+
+	} else if isResolveLocksByKeyspace {
+		// Use safe point v1, resolve locks by all keyspace.
+		err = w.resolveKeyspacesLocks(ctx, runner, safePoint)
+		errMsg = "[gc worker] resolve locks by keyspace failed"
 	} else {
-		runner := rangetask.NewRangeTaskRunner("resolve-locks-runner", w.tikvStore, concurrency, handler)
 		// Run resolve lock on the whole TiKV cluster. Empty keys means the range is unbounded.
-		err := runner.RunOnRange(ctx, []byte(""), []byte(""))
-		if err != nil {
-			logutil.Logger(ctx).Error("[gc worker] resolve locks failed",
-				zap.String("uuid", w.uuid),
-				zap.Uint64("safePoint", safePoint),
-				zap.Error(err))
-			return errors.Trace(err)
-		}
-		completedRegions = completedRegions + runner.CompletedRegions()
+		err = runner.RunOnRange(ctx, []byte(""), []byte(""))
+		errMsg = "[gc worker] resolve locks failed"
 	}
+
+	if err != nil {
+		logutil.Logger(ctx).Error(errMsg,
+			zap.String("uuid", w.uuid),
+			zap.Uint64("safePoint", safePoint),
+			zap.String("txnLeftBound", hex.EncodeToString(txnLeftBound)),
+			zap.String("txnRightBound", hex.EncodeToString(txnRightBound)),
+			zap.Error(err))
+		return errors.Trace(err)
+	}
+
+	completedRegions = completedRegions + runner.CompletedRegions()
 
 	logutil.Logger(ctx).Info("[gc worker] finish resolve locks",
 		zap.String("uuid", w.uuid),
