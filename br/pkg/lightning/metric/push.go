@@ -33,25 +33,31 @@ const (
 type pushFn func()
 
 // PushMetrics pushes metrics in background.
-func PushMetrics(ctx context.Context, addr string, interval time.Duration, labels map[string]string) pushFn {
-	if interval == zeroDuration || len(addr) == 0 {
+func PushMetrics(ctx context.Context, addrs []string, interval time.Duration, labels map[string]string) pushFn {
+	if interval == zeroDuration || len(addrs) == 0 {
 		log.L().Info("disable Prometheus pushgateway client")
 		return func() {}
 	}
 	// Now we use `FmtText` to push metrics, because `FmtProtoDelim` is not supported by vmagent.
 	// TODO: use `FmtProtoDelim` to push metrics after vmagent supports it.
 	// See https://github.com/VictoriaMetrics/VictoriaMetrics/issues/3745 for more details.
-	pusher := push.New(addr, job).Format(expfmt.FmtText).Gatherer(prometheus.DefaultGatherer)
-	for k, v := range labels {
-		pusher = pusher.Grouping(k, v)
+	pushers := make([]*push.Pusher, 0, len(addrs))
+	for _, addr := range addrs {
+		pusher := push.New(addr, job).Format(expfmt.FmtText).Gatherer(prometheus.DefaultGatherer)
+		for k, v := range labels {
+			pusher = pusher.Grouping(k, v)
+		}
+		pushers = append(pushers, pusher)
 	}
 	push := func() {
-		err := pusher.Push()
-		if err != nil {
-			log.L().Error("could not push metrics to prometheus pushgateway", zap.String("err", err.Error()))
+		for i, pusher := range pushers {
+			err := pusher.Push()
+			if err != nil {
+				log.L().Error("could not push metrics to prometheus pushgateway", zap.String("err", err.Error()), zap.String("server addr", addrs[i]))
+			}
 		}
 	}
-	log.L().Info("start to push metrics to prometheus pushgateway", zap.String("server addr", addr), zap.String("interval", interval.String()))
+	log.L().Info("start to push metrics to prometheus pushgateway", zap.Strings("server addrs", addrs), zap.String("interval", interval.String()))
 	go pushMetricsPeriodically(ctx, interval, push)
 
 	return push

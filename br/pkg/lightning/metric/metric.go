@@ -136,7 +136,7 @@ func NewMetrics(factory promutil.Factory) *Metrics {
 				Namespace: "lightning",
 				Name:      "resource_unit_write_request_unit_sum",
 				Help:      "Counter of the write request unit cost for all resource groups.",
-			}, []string{"name"}),
+			}, []string{"keyspace_id"}),
 		//  - estimated (an estimation derived from the file size)
 		//  - pending
 		//  - running

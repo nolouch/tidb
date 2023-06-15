@@ -667,7 +667,7 @@ type RUConfig struct {
 }
 
 type Metrics struct {
-	Addr     string            `toml:"addr" json:"addr"`
+	Addrs    []string          `toml:"addrs" json:"addrs"`
 	Interval Duration          `toml:"interval" json:"interval"`
 	Labels   map[string]string `toml:"labels" json:"labels"`
 }
@@ -853,7 +853,7 @@ func NewConfig() *Config {
 			WriteCostPerByte:      float64(defaultRUConfig.WriteCostPerByte),
 		},
 		Metrics: Metrics{
-			Addr:     "",
+			Addrs:    nil,
 			Interval: Duration{Duration: 15 * time.Second},
 		},
 		PostRestore: PostRestore{
