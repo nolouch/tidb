@@ -61,7 +61,7 @@ type Metrics struct {
 	ProcessedEngineCounter               *prometheus.CounterVec
 	ChunkCounter                         *prometheus.CounterVec
 	BytesCounter                         *prometheus.CounterVec
-	WRUCostCounter                       *prometheus.HistogramVec
+	WRUCostCounter                       *prometheus.CounterVec
 	ImportSecondsHistogram               prometheus.Histogram
 	ChunkParserReadBlockSecondsHistogram prometheus.Histogram
 	ApplyWorkerSecondsHistogram          *prometheus.HistogramVec
@@ -129,12 +129,13 @@ func NewMetrics(factory promutil.Factory) *Metrics {
 				Help:      "count of total bytes",
 			}, []string{"state"}),
 
-		WRUCostCounter: factory.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: "resource_manager_resource_unit",
-				Name:      "write_request_unit",
-				Help:      "Bucketed histogram of the write request unit cost for all resource groups.",
-				Buckets:   prometheus.ExponentialBuckets(3, 10, 5), // 3 ~ 300000
+		// Use CounterVec instance of Histogram to consistency with pd.
+		// https://github.com/tikv/pd/pull/6332
+		WRUCostCounter: factory.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: "lightning",
+				Name:      "resource_unit_write_request_unit_sum",
+				Help:      "Counter of the write request unit cost for all resource groups.",
 			}, []string{"name"}),
 		//  - estimated (an estimation derived from the file size)
 		//  - pending

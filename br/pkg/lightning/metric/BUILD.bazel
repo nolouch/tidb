@@ -2,13 +2,21 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "metric",
-    srcs = ["metric.go"],
+    srcs = [
+        "metric.go",
+        "push.go",
+    ],
     importpath = "github.com/pingcap/tidb/br/pkg/lightning/metric",
     visibility = ["//visibility:public"],
     deps = [
+        "//br/pkg/lightning/log",
         "//util/promutil",
         "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/push",
         "@com_github_prometheus_client_model//go",
+        "@com_github_prometheus_common//expfmt",
+        "@org_golang_x_net//context",
+        "@org_uber_go_zap//:zap",
     ],
 )
 

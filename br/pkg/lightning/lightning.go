@@ -447,7 +447,13 @@ func (l *Lightning) run(taskCtx context.Context, taskCfg *config.Config, o *opti
 	l.cancelLock.Unlock()
 	web.BroadcastStartTask()
 
+	if gatherer, ok := o.promRegistry.(prometheus.Gatherer); ok {
+		prometheus.DefaultGatherer = gatherer
+	}
+	pushFn := metric.PushMetrics(ctx, taskCfg.Metrics.Addr, taskCfg.Metrics.Interval.Duration, taskCfg.Metrics.Labels)
+
 	defer func() {
+		pushFn()
 		cancel()
 		l.cancelLock.Lock()
 		l.cancel = nil

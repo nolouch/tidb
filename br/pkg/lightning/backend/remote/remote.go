@@ -39,6 +39,7 @@ import (
 	"github.com/pingcap/tidb/br/pkg/lightning/metric"
 	"github.com/pingcap/tidb/br/pkg/pdutil"
 	"github.com/pingcap/tidb/parser/model"
+	"github.com/pingcap/tidb/store/pdtypes"
 	"github.com/pingcap/tidb/table"
 	"github.com/tikv/client-go/v2/oracle"
 	tikvclient "github.com/tikv/client-go/v2/tikv"
@@ -104,10 +105,7 @@ func NewRemoteBackend(
 	}
 
 	keyspace := pdCliForTiKV.GetCodec().GetKeyspace()
-	cctx, cancel := context.WithCancel(ctx)
 	worker := &remoteBackend{
-		ctx:              cctx,
-		cancel:           cancel,
 		encBuilder:       local.NewEncodingBuilder(ctx),
 		targetInfoGetter: local.NewTargetInfoGetter(tls, g, cfg.TiDB.PdAddr, keyspaceName),
 		workerAddr:       cfg.TikvImporter.Addr,
@@ -125,44 +123,18 @@ func NewRemoteBackend(
 	}
 
 	if cfg.RUConfig.ReportWRU && worker.metrics != nil {
-		worker.logger.Info("start to report WRU cost", zap.String("keyspace", keyspaceName))
-		writeBytesChan := make(chan int64, 1024)
-		worker.reportWriteBytes = func(bytes int64) {
-			writeBytesChan <- bytes
+		keyspaceID := uint32(pdCliForTiKV.GetCodec().GetKeyspaceID())
+		err = worker.setupReportWRU(ctx, keyspaceID, keyspaceName, cfg)
+		if err != nil {
+			worker.logger.Warn("failed to setup report wru", zap.Error(err))
+			return backend.MakeBackend(nil), err
 		}
-
-		kvCalculator := rm.KVCalculator{
-			Config: &rm.Config{
-				WriteBaseCost:         rm.RequestUnit(cfg.RUConfig.WriteBaseCost),
-				WritePerBatchBaseCost: rm.RequestUnit(cfg.RUConfig.WritePerBatchBaseCost),
-				WriteBytesCost:        rm.RequestUnit(cfg.RUConfig.WriteCostPerByte),
-			},
-		}
-
-		go func() {
-			keyspaceID := pdCliForTiKV.GetCodec().GetKeyspaceID()
-			wruMetrics := worker.metrics.WRUCostCounter.WithLabelValues(fmt.Sprintf("%d", keyspaceID))
-			for {
-				select {
-				case <-cctx.Done():
-					worker.logger.Info("stop to report WRU cost", zap.String("keyspace", keyspaceName))
-					return
-				case writeBytes := <-writeBytesChan:
-					reqInfo := remoteRequestInfo(writeBytes)
-					consumption := &rmpb.Consumption{}
-					kvCalculator.BeforeKVRequest(consumption, reqInfo)
-					wruMetrics.Observe(consumption.WRU)
-				}
-			}
-		}()
 	}
 
 	return backend.MakeBackend(worker), nil
 }
 
 type remoteBackend struct {
-	ctx              context.Context
-	cancel           context.CancelFunc
 	encBuilder       backend.EncodingBuilder
 	targetInfoGetter backend.TargetInfoGetter
 	workerAddr       string
@@ -180,7 +152,6 @@ type remoteBackend struct {
 
 // Close the connection to the backend.
 func (b *remoteBackend) Close() {
-	b.cancel()
 }
 
 // MakeEmptyRows creates an empty collection of encoded rows.
@@ -526,20 +497,76 @@ func (s status) Flushed() bool {
 	return bool(s)
 }
 
-type remoteRequestInfo uint64
+func newRemoteRequestInfo(writeBytes, replicaNumber int64) remoteRequestInfo {
+	return remoteRequestInfo{
+		writeBytes:    writeBytes,
+		replicaNumber: replicaNumber,
+	}
+}
+
+type remoteRequestInfo struct {
+	writeBytes    int64
+	replicaNumber int64
+}
 
 func (r remoteRequestInfo) IsWrite() bool {
 	return true
 }
 
 func (r remoteRequestInfo) WriteBytes() uint64 {
-	return uint64(r)
+	return uint64(r.writeBytes)
 }
 
 func (r remoteRequestInfo) ReplicaNumber() int64 {
-	return 1
+	return r.replicaNumber
 }
 
 func (r remoteRequestInfo) StoreID() uint64 {
 	return 0
+}
+
+func (b *remoteBackend) setupReportWRU(ctx context.Context, keyspaceID uint32, keyspaceName string, cfg *config.Config) error {
+	// remote backend used to import new table data,
+	// so we can use default placement rule as repliace count.
+	placementRules, err := pdutil.GetPlacementRules(ctx, b.pdAddr, b.tls.TLSConfig())
+	if err != nil {
+		b.logger.Warn("failed to get placement rules", zap.Error(err))
+		return err
+	}
+	var defaultRule *pdtypes.Rule
+	for _, rule := range placementRules {
+		if rule.ID == "default" {
+			defaultRule = &rule
+			break
+		}
+	}
+	if defaultRule == nil {
+		b.logger.Warn("failed to get default placement rule")
+		return errors.New("failed to get default placement rule")
+	}
+
+	kvCalculator := rm.KVCalculator{
+		Config: &rm.Config{
+			WriteBaseCost:         rm.RequestUnit(cfg.RUConfig.WriteBaseCost),
+			WritePerBatchBaseCost: rm.RequestUnit(cfg.RUConfig.WritePerBatchBaseCost),
+			WriteBytesCost:        rm.RequestUnit(cfg.RUConfig.WriteCostPerByte),
+		},
+	}
+
+	wruMetrics := b.metrics.WRUCostCounter.WithLabelValues(fmt.Sprintf("%d", keyspaceID))
+	b.reportWriteBytes = func(bytes int64) {
+		reqInfo := newRemoteRequestInfo(bytes, int64(defaultRule.Count))
+		consumption := &rmpb.Consumption{}
+		kvCalculator.BeforeKVRequest(consumption, reqInfo)
+		wruMetrics.Add(consumption.WRU)
+	}
+
+	b.logger.Info("setup report WRU", zap.Uint32("keyspaceId", keyspaceID),
+		zap.String("keyspaceName", keyspaceName),
+		zap.Int("replicaNumber", defaultRule.Count),
+		zap.Float64("writeBaseCost", cfg.RUConfig.WriteBaseCost),
+		zap.Float64("writePerBatchBaseCost", cfg.RUConfig.WritePerBatchBaseCost),
+		zap.Float64("WriteCostPerByte", cfg.RUConfig.WriteCostPerByte),
+	)
+	return nil
 }

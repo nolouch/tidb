@@ -17,6 +17,7 @@ go_library(
         "//br/pkg/lightning/metric",
         "//br/pkg/pdutil",
         "//parser/model",
+        "//store/pdtypes",
         "//table",
         "@com_github_google_uuid//:uuid",
         "@com_github_pingcap_errors//:errors",

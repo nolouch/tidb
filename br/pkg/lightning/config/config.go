@@ -160,6 +160,7 @@ type Config struct {
 	Routes       []*router.TableRule `toml:"routes" json:"routes"`
 	Security     Security            `toml:"security" json:"security"`
 	RUConfig     RUConfig            `toml:"ru-config" json:"ru-config"`
+	Metrics      Metrics             `toml:"metrics" json:"metrics"`
 
 	BWList filter.MySQLReplicationRules `toml:"black-white-list" json:"black-white-list"`
 }
@@ -665,6 +666,12 @@ type RUConfig struct {
 	WriteCostPerByte      float64 `toml:"write-cost-per-byte" json:"write-cost-per-byte"`
 }
 
+type Metrics struct {
+	Addr     string            `toml:"addr" json:"addr"`
+	Interval Duration          `toml:"interval" json:"interval"`
+	Labels   map[string]string `toml:"labels" json:"labels"`
+}
+
 type Checkpoint struct {
 	Schema           string                    `toml:"schema" json:"schema"`
 	DSN              string                    `toml:"dsn" json:"-"` // DSN may contain password, don't expose this to JSON.
@@ -844,6 +851,10 @@ func NewConfig() *Config {
 			WriteBaseCost:         float64(defaultRUConfig.WriteBaseCost),
 			WritePerBatchBaseCost: float64(defaultRUConfig.WritePerBatchBaseCost),
 			WriteCostPerByte:      float64(defaultRUConfig.WriteCostPerByte),
+		},
+		Metrics: Metrics{
+			Addr:     "",
+			Interval: Duration{Duration: 15 * time.Second},
 		},
 		PostRestore: PostRestore{
 			Checksum:          OpLevelRequired,
