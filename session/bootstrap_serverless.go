@@ -498,7 +498,7 @@ func bootstrapServerlessRoot(s Session, userName string) {
 func bootstrapCloudAdmin(s Session, userName string) {
 	mustExecute(s, `REPLACE HIGH_PRIORITY INTO mysql.user SET `+
 		`Host = "%", `+
-		`User = "%?", `+
+		`User = %?, `+
 		`authentication_string = "", `+
 		`plugin = "mysql_native_password", `+
 		`Select_priv = "Y", `+
@@ -554,7 +554,7 @@ func bootstrapCloudAdmin(s Session, userName string) {
 
 	mustExecute(s, `INSERT HIGH_PRIORITY INTO mysql.global_priv SET `+
 		`Host = "%", `+
-		`User = "%?", `+
+		`User = %?, `+
 		`Priv = "{}"`,
 		userName,
 	)
