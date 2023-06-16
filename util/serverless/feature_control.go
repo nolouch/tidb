@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/pingcap/log"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/util/dbterror"
@@ -156,7 +157,6 @@ func verifySimple(stmt ast.Node) error {
 		*ast.CreateUserStmt,
 		*ast.AlterUserStmt,
 		*ast.DropUserStmt,
-		*ast.RenameUserStmt,
 		*ast.SetPwdStmt,
 		*ast.SetSessionStatesStmt,
 		*ast.KillStmt,
@@ -169,6 +169,17 @@ func verifySimple(stmt ast.Node) error {
 		*ast.GrantStmt,
 		*ast.RevokeStmt,
 		*ast.NonTransactionalDMLStmt:
+		return nil
+	case *ast.RenameUserStmt:
+		cloudAdminName := "cloud_admin"
+		if userPrefix := keyspace.GetKeyspaceNameBySettings(); userPrefix != "" {
+			cloudAdminName = userPrefix + "." + cloudAdminName
+		}
+		for _, userToUser := range s.UserToUsers {
+			if userToUser.OldUser.Username == cloudAdminName && userToUser.OldUser.Hostname == "%" {
+				return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause(fmt.Sprintf("RENAME USER %s", userToUser.OldUser))
+			}
+		}
 		return nil
 	case *ast.UseStmt:
 		dbname := model.NewCIStr(s.DBName)

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/pingcap/errors"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/parser/terror"
@@ -58,6 +59,8 @@ const (
 	serverlessVersion13 = 13
 	// serverlessVersion14 reverts the change of serverlessVersion11.
 	serverlessVersion14 = 14
+	// serverlessVersion10 rename user cloud_admin to prefix.cloud_admin`.
+	serverlessVersion15 = 15
 )
 
 const (
@@ -67,7 +70,7 @@ const (
 
 // currentServerlessVersion is defined as a variable, so we can modify its value for testing.
 // please make sure this is the largest version
-var currentServerlessVersion int64 = serverlessVersion14
+var currentServerlessVersion int64 = serverlessVersion15
 
 var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer2,
@@ -83,6 +86,7 @@ var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer12,
 	upgradeToServerlessVer13,
 	upgradeToServerlessVer14,
+	upgradeToServerlessVer15,
 }
 
 // updateServerlessVersion updates serverless version variable in mysql.TiDB table.
@@ -298,6 +302,7 @@ func upgradeToServerlessVer10(s Session, ver int64) {
 	if ver >= serverlessVersion10 {
 		return
 	}
+
 	mustExecute(s, "set @@global.tidb_enable_1pc=OFF")
 }
 
@@ -383,6 +388,18 @@ func upgradeToServerlessVer14(s Session, ver int64) {
 		"cloud_admin",
 		"ROLE_ADMIN",
 	)
+}
+
+func upgradeToServerlessVer15(s Session, ver int64) {
+	if ver >= serverlessVersion15 {
+		return
+	}
+	if prefix := keyspace.GetKeyspaceNameBySettings(); prefix != "" {
+		cloudAdminName := prefix + ".cloud_admin"
+		mustExecute(s, "UPDATE HIGH_PRIORITY mysql.user SET User=%? WHERE User='cloud_admin' AND Host='%'", cloudAdminName)
+		mustExecute(s, "UPDATE HIGH_PRIORITY mysql.global_priv SET User=%? WHERE User='cloud_admin' AND Host='%'", cloudAdminName)
+		mustExecute(s, "UPDATE HIGH_PRIORITY mysql.global_grants SET User=%? WHERE User='cloud_admin' AND Host='%'", cloudAdminName)
+	}
 }
 
 // Serverless bootstrap procedures.
@@ -478,10 +495,10 @@ func bootstrapServerlessRoot(s Session, userName string) {
 }
 
 // bootstrapCloudAdmin creates user cloud_admin and configure its privilege into mysql.user.
-func bootstrapCloudAdmin(s Session) {
+func bootstrapCloudAdmin(s Session, userName string) {
 	mustExecute(s, `REPLACE HIGH_PRIORITY INTO mysql.user SET `+
 		`Host = "%", `+
-		`User = "cloud_admin", `+
+		`User = "%?", `+
 		`authentication_string = "", `+
 		`plugin = "mysql_native_password", `+
 		`Select_priv = "Y", `+
@@ -519,25 +536,27 @@ func bootstrapCloudAdmin(s Session) {
 		`Create_Tablespace_Priv = "N", `+
 		`User_attributes = NULL, `+
 		`Token_issuer = "" `,
+		userName,
 	)
 
-	insertGlobalGrants(s, "cloud_admin", "DASHBOARD_CLIENT", "N")
-	insertGlobalGrants(s, "cloud_admin", "SYSTEM_VARIABLES_ADMIN", "N")
-	insertGlobalGrants(s, "cloud_admin", "CONNECTION_ADMIN", "N")
-	insertGlobalGrants(s, "cloud_admin", "RESTRICTED_VARIABLES_ADMIN", "N")
-	insertGlobalGrants(s, "cloud_admin", "RESTRICTED_STATUS_ADMIN", "N")
-	insertGlobalGrants(s, "cloud_admin", "RESTRICTED_CONNECTION_ADMIN", "N")
-	insertGlobalGrants(s, "cloud_admin", "RESTRICTED_USER_ADMIN", "N")
-	insertGlobalGrants(s, "cloud_admin", "RESTRICTED_TABLES_ADMIN", "N")
-	insertGlobalGrants(s, "cloud_admin", "RESTRICTED_REPLICA_WRITER_ADMIN", "N")
-	insertGlobalGrants(s, "cloud_admin", "BACKUP_ADMIN", "N")
-	insertGlobalGrants(s, "cloud_admin", "RESTORE_ADMIN", "N")
-	insertGlobalGrants(s, "cloud_admin", "SYSTEM_USER", "Y")
+	insertGlobalGrants(s, userName, "DASHBOARD_CLIENT", "N")
+	insertGlobalGrants(s, userName, "SYSTEM_VARIABLES_ADMIN", "N")
+	insertGlobalGrants(s, userName, "CONNECTION_ADMIN", "N")
+	insertGlobalGrants(s, userName, "RESTRICTED_VARIABLES_ADMIN", "N")
+	insertGlobalGrants(s, userName, "RESTRICTED_STATUS_ADMIN", "N")
+	insertGlobalGrants(s, userName, "RESTRICTED_CONNECTION_ADMIN", "N")
+	insertGlobalGrants(s, userName, "RESTRICTED_USER_ADMIN", "N")
+	insertGlobalGrants(s, userName, "RESTRICTED_TABLES_ADMIN", "N")
+	insertGlobalGrants(s, userName, "RESTRICTED_REPLICA_WRITER_ADMIN", "N")
+	insertGlobalGrants(s, userName, "BACKUP_ADMIN", "N")
+	insertGlobalGrants(s, userName, "RESTORE_ADMIN", "N")
+	insertGlobalGrants(s, userName, "SYSTEM_USER", "Y")
 
 	mustExecute(s, `INSERT HIGH_PRIORITY INTO mysql.global_priv SET `+
 		`Host = "%", `+
-		`User = "cloud_admin", `+
+		`User = "%?", `+
 		`Priv = "{}"`,
+		userName,
 	)
 }
 

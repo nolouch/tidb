@@ -30,6 +30,7 @@ go_library(
         "//extension",
         "//extension/extensionimpl",
         "//infoschema",
+        "//keyspace",
         "//kv",
         "//meta",
         "//metrics",

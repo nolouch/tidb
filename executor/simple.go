@@ -34,6 +34,7 @@ import (
 	"github.com/pingcap/tidb/errno"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/infoschema"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/auth"
@@ -694,7 +695,7 @@ func (e *SimpleExec) setCurrentUser(users []*auth.UserIdentity) {
 func (e *SimpleExec) executeRevokeRole(ctx context.Context, s *ast.RevokeRoleStmt) error {
 	internalCtx := kv.WithInternalSourceType(context.Background(), kv.InternalTxnPrivilege)
 
-	//Fix revoke role from current_user results error.
+	// Fix revoke role from current_user results error.
 	e.setCurrentUser(s.Users)
 
 	for _, role := range s.Roles {
@@ -1056,7 +1057,7 @@ func (e *SimpleExec) executeCreateUser(ctx context.Context, s *ast.CreateUserStm
 		return err
 	}
 
-	userPrefix := domain.GetUserPrefix()
+	userPrefix := keyspace.GetKeyspaceNameBySettings()
 
 	plOptions := &passwordOrLockOptionsInfo{
 		lockAccount:                 "N",
@@ -1134,7 +1135,7 @@ func (e *SimpleExec) executeCreateUser(ctx context.Context, s *ast.CreateUserStm
 
 	users := make([]*auth.UserIdentity, 0, len(s.Specs))
 	for _, spec := range s.Specs {
-		if userPrefix != "" && !s.IsCreateRole && !strings.HasPrefix(spec.User.Username, userPrefix+".") && spec.User.Username != "cloud_admin" {
+		if userPrefix != "" && !s.IsCreateRole && !strings.HasPrefix(spec.User.Username, userPrefix+".") {
 			return errmsg.WithUserPrefixErrTag(ErrUserNameNeedPrefix.GenWithStackByArgs(userPrefix, userPrefix, spec.User.Username))
 		}
 		if len(spec.User.Username) > auth.UserNameMaxLength {
@@ -1351,7 +1352,7 @@ func getValidTime(sctx sessionctx.Context, passwordReuse *passwordReuseInfo) str
 // 1. Exceeded the maximum number of saves.
 // 2. The password has exceeded the prohibition time.
 func deleteHistoricalData(ctx context.Context, sqlExecutor sqlexec.SQLExecutor, userDetail *userInfo, maxDelRows int64, passwordReuse *passwordReuseInfo, sctx sessionctx.Context) error {
-	//never times out or no row need delete.
+	// never times out or no row need delete.
 	if (passwordReuse.passwordReuseInterval > math.MaxInt32) || maxDelRows == 0 {
 		return nil
 	}
@@ -2101,11 +2102,16 @@ func (e *SimpleExec) executeRenameUser(s *ast.RenameUserStmt) error {
 	}
 	sqlExecutor := sysSession.(sqlexec.SQLExecutor)
 
+	userPrefix := keyspace.GetKeyspaceNameBySettings()
+
 	if _, err := sqlExecutor.ExecuteInternal(ctx, "BEGIN PESSIMISTIC"); err != nil {
 		return err
 	}
 	for _, userToUser := range s.UserToUsers {
 		oldUser, newUser := userToUser.OldUser, userToUser.NewUser
+		if userPrefix != "" && !strings.HasPrefix(newUser.Username, userPrefix+".") {
+			return errmsg.WithUserPrefixErrTag(ErrUserNameNeedPrefix.GenWithStackByArgs(userPrefix, userPrefix, newUser.Username))
+		}
 		if len(newUser.Username) > auth.UserNameMaxLength {
 			return ErrWrongStringLength.GenWithStackByArgs(newUser.Username, "user name", auth.UserNameMaxLength)
 		}
@@ -2420,7 +2426,7 @@ func userExistsWithRetryUserPrefix(ctx context.Context, sctx sessionctx.Context,
 		return true, nil
 	}
 	// Check if user exists with user prefix.
-	prefix := domain.GetUserPrefix()
+	prefix := keyspace.GetKeyspaceNameBySettings()
 	if prefix == "" {
 		return false, nil
 	}
@@ -2443,7 +2449,7 @@ func userExistsInternalWithRetryUserPrefix(ctx context.Context, sqlExecutor sqle
 		return true, nil
 	}
 	// Check if user exists with user prefix.
-	prefix := domain.GetUserPrefix()
+	prefix := keyspace.GetKeyspaceNameBySettings()
 	if prefix == "" {
 		return false, nil
 	}

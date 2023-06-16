@@ -36,6 +36,7 @@ import (
 	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/infoschema"
+	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta"
 	"github.com/pingcap/tidb/owner"
@@ -2463,9 +2464,10 @@ func doBootstrapSQLFile(s Session) {
 // doDMLWorks executes DML statements in bootstrap stage.
 // All the statements run in a single transaction.
 func doDMLWorks(s Session) {
-	rootUserName := "root"
-	if prefix := domain.GetUserPrefix(); prefix != "" {
+	rootUserName, cloudAdminName := "root", "cloud_admin"
+	if prefix := keyspace.GetKeyspaceNameBySettings(); prefix != "" {
 		rootUserName = prefix + "." + rootUserName
+		cloudAdminName = prefix + "." + cloudAdminName
 	}
 	mustExecute(s, "BEGIN")
 	if config.GetGlobalConfig().Security.SecureBootstrap {
@@ -2567,7 +2569,7 @@ func doDMLWorks(s Session) {
 		bootstrapRoleAdmin(s) // Create and configure role_admin.
 	}
 	if !bootstrapControl.SkipCloudAdminPriv {
-		bootstrapCloudAdmin(s) // Create and configure cloud_admin.
+		bootstrapCloudAdmin(s, cloudAdminName) // Create and configure cloud_admin.
 	}
 	if !bootstrapControl.SkipPushdownBlacklist {
 		bootstrapServerlessPushdownBlacklist(s) // Add incompatible executors to pushdown_blacklist.

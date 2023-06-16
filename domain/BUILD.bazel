@@ -15,7 +15,6 @@ go_library(
         "sysvar_cache.go",
         "test_helper.go",
         "topn_slow_query.go",
-        "user_prefix.go",
     ],
     importpath = "github.com/pingcap/tidb/domain",
     visibility = ["//visibility:public"],
