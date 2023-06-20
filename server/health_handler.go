@@ -6,9 +6,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/domain"
+	"github.com/pingcap/tidb/parser/terror"
 	"github.com/pingcap/tidb/session"
+	storeerr "github.com/pingcap/tidb/store/driver/error"
 	"github.com/pingcap/tidb/util"
 	"github.com/pingcap/tidb/util/sqlexec"
 )
@@ -35,54 +38,37 @@ func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx, cancel := context.WithTimeout(req.Context(), 5*time.Second)
 	defer cancel()
 
-	token := config.GetGlobalKeyspaceName()
+	var err error
+	response := &healthResponse{
+		Status: "up",
+		Token:  config.GetGlobalKeyspaceName(),
+	}
+	defer func() {
+		if err != nil && !terror.ErrorEqual(err, storeerr.ErrClientResourceGroupThrottled) { // ignore throttled error
+			response.Status = "down"
+			response.Error = err.Error()
+		}
+		json.NewEncoder(w).Encode(response)
+	}()
 
 	se, err := session.CreateSessionWithDomain(h.dom.Store(), h.dom)
 	if se != nil {
 		defer se.Close()
 	}
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(healthResponse{
-			Status: "down",
-			Token:  token,
-			Error:  err.Error(),
-		})
 		return
 	}
 	se.SetSessionManager(h.sm)
 	rs, err := se.ExecuteInternal(ctx, "SELECT variable_name FROM mysql.tidb LIMIT 1")
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(healthResponse{
-			Status: "down",
-			Token:  token,
-			Error:  err.Error(),
-		})
 		return
 	}
 	defer rs.Close()
 	rows, err := sqlexec.DrainRecordSet(ctx, rs, 1)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(healthResponse{
-			Status: "down",
-			Token:  token,
-			Error:  err.Error(),
-		})
 		return
 	}
 	if len(rows) != 1 {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(healthResponse{
-			Status: "down",
-			Token:  token,
-			Error:  "timeout to read mysql.tidb",
-		})
-		return
+		err = errors.New("timeout to read mysql.tidb")
 	}
-	json.NewEncoder(w).Encode(healthResponse{
-		Status: "up",
-		Token:  token,
-	})
 }
