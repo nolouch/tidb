@@ -123,6 +123,10 @@ func (c *pdClient) GetMinTS(ctx context.Context) (int64, int64, error) {
 	return 0, 0, nil
 }
 
+func (c *pdClient) LoadResourceGroups(ctx context.Context) ([]*rmpb.ResourceGroup, int64, error) {
+	return nil, 0, nil
+}
+
 type mockTSFuture struct {
 	pdc  *pdClient
 	ctx  context.Context

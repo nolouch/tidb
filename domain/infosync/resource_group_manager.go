@@ -18,13 +18,15 @@ import (
 	"context"
 	"sync"
 
+	"github.com/pingcap/kvproto/pkg/meta_storagepb"
 	rmpb "github.com/pingcap/kvproto/pkg/resource_manager"
 	pd "github.com/tikv/pd/client"
 )
 
 type mockResourceGroupManager struct {
 	sync.RWMutex
-	groups map[string]*rmpb.ResourceGroup
+	groups  map[string]*rmpb.ResourceGroup
+	eventCh chan []*meta_storagepb.Event
 }
 
 var _ pd.ResourceManagerClient = (*mockResourceGroupManager)(nil)
@@ -76,4 +78,12 @@ func (m *mockResourceGroupManager) AcquireTokenBuckets(ctx context.Context, requ
 
 func (m *mockResourceGroupManager) WatchResourceGroup(ctx context.Context, revision int64) (chan []*rmpb.ResourceGroup, error) {
 	return nil, nil
+}
+
+func (m *mockResourceGroupManager) LoadResourceGroups(ctx context.Context) ([]*rmpb.ResourceGroup, int64, error) {
+	return nil, 0, nil
+}
+
+func (m *mockResourceGroupManager) Watch(ctx context.Context, key []byte, opts ...pd.OpOption) (chan []*meta_storagepb.Event, error) {
+	return m.eventCh, nil
 }
