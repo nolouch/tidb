@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/pingcap/errors"
+	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/keyspace"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/mysql"
@@ -66,6 +67,10 @@ const (
 const (
 	// defaultMaxExecutionTime is the max execution time for serverless.
 	defaultMaxExecutionTime = int(30 * time.Minute / time.Millisecond)
+)
+
+const (
+	branchBootstrapStateVar = "branch_bootstrap_state"
 )
 
 // currentServerlessVersion is defined as a variable, so we can modify its value for testing.
@@ -625,4 +630,88 @@ func insertGlobalGrants(s Session, userName, priv, grant string) {
 		priv,
 		grant,
 	)
+}
+
+func setBranchBootstrapState(s Session) {
+	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES (%?, %?, "Branch bootstrap state. Do not delete.") ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
+		mysql.SystemDB, mysql.TiDBTable, branchBootstrapStateVar, "True", "True",
+	)
+}
+
+func isBranchBootstraped(s Session) (bool, error) {
+	sVal, isNull, err := getTiDBVar(s, branchBootstrapStateVar)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if isNull {
+		return false, nil
+	}
+	return sVal == "True", nil
+}
+
+func runBranchDBUsersAmendment(store kv.Storage) {
+	if !config.GetGlobalConfig().IsBranch {
+		return
+	}
+
+	logutil.BgLogger().Info("runBranchDBUsersAmendment")
+
+	s, err := createSession(store)
+	if err != nil {
+		logutil.BgLogger().Fatal("createSession error", zap.Error(err))
+	}
+
+	s.sessionVars.EnableClusteredIndex = variable.ClusteredIndexDefModeIntOnly
+	defer s.ClearValue(sessionctx.Initing)
+
+	bootstraped, err := isBranchBootstraped(s)
+	if err != nil {
+		logutil.BgLogger().Fatal("isBranchBootstraped error", zap.Error(err))
+	}
+	if bootstraped {
+		logutil.BgLogger().Info("already executed runBranchDBUsersAmendment")
+		return
+	}
+
+	amendBranchDBUsers(s)
+}
+
+func amendBranchDBUsers(s Session) {
+	// clear all user and priv tables
+	mustExecute(s, "DELETE FROM mysql.db")
+	mustExecute(s, "DELETE FROM mysql.default_roles")
+	mustExecute(s, "DELETE FROM mysql.global_grants")
+	mustExecute(s, "DELETE FROM mysql.global_priv")
+	mustExecute(s, "DELETE FROM mysql.role_edges")
+	mustExecute(s, "DELETE FROM mysql.user")
+
+	// reinit root/role_admin/cloud_admin
+	rootUserName, cloudAdminName := "root", "cloud_admin"
+	if prefix := keyspace.GetKeyspaceNameBySettings(); prefix != "" {
+		rootUserName = prefix + "." + rootUserName
+		cloudAdminName = prefix + "." + cloudAdminName
+	}
+
+	bootstrapServerlessRoot(s, rootUserName)
+	bootstrapRoleAdmin(s)
+	bootstrapCloudAdmin(s, cloudAdminName)
+	setBranchBootstrapState(s)
+
+	ctx := kv.WithInternalSourceType(context.Background(), kv.InternalTxnBootstrap)
+	_, err := s.ExecuteInternal(ctx, "COMMIT")
+	if err != nil {
+		sleepTime := 1 * time.Second
+		logutil.BgLogger().Info("amend branch db users failed",
+			zap.Error(err), zap.Duration("sleeping time", sleepTime))
+		time.Sleep(sleepTime)
+		// Check if branch state is already set.
+		bootstraped, err1 := isBranchBootstraped(s)
+		if err1 != nil {
+			logutil.BgLogger().Fatal("amend branch db users failed", zap.Error(err1))
+		}
+		if bootstraped {
+			return
+		}
+		logutil.BgLogger().Fatal("amend branch db users failed", zap.Error(err))
+	}
 }

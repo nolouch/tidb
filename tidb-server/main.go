@@ -262,6 +262,11 @@ func main() {
 					c.AutoScalerClusterID = clusterID
 				})
 			}
+			if isBranch, ok := keyspaceMeta.Config["serverless_is_branch"]; ok {
+				config.UpdateGlobal(func(c *config.Config) {
+					c.IsBranch, _ = strconv.ParseBool(isBranch)
+				})
+			}
 		}
 	}
 
