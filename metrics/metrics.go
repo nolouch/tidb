@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"sync"
 
+	csemetrics "github.com/iosmanthus/cse-region-client"
 	"github.com/pingcap/tidb/util/logutil"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -295,6 +296,9 @@ func RegisterMetrics() {
 	tikvmetrics.InitMetricsWithConstLabels(TiDB, TiKVClient, ServerlessLabels)
 	tikvmetrics.RegisterMetrics()
 	tikvmetrics.TiKVPanicCounter = PanicCounter // reset tidb metrics for tikv metrics
+
+	csemetrics.InitMetrics(TiDB, TiKVClient, ServerlessLabels)
+	csemetrics.RegisterMetrics()
 }
 
 var mode struct {

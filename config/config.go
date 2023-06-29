@@ -317,6 +317,8 @@ type Config struct {
 
 	TiDBWorker TiDBWorker `toml:"tidb-worker" json:"tidb-worker"`
 
+	CSE CSE `toml:"cse" json:"cse"`
+
 	// The following items are deprecated. We need to keep them here temporarily
 	// to support the upgrade process. They can be removed in future.
 
@@ -940,6 +942,11 @@ type TiDBWorker struct {
 	IsWorker bool `toml:"is-worker" json:"is-worker"`
 	// TimeWindowSeconds indicates the time window size in seconds for etcd key register.
 	TimeWindowSeconds int64 `toml:"time-window-seconds" json:"time-window-seconds"`
+}
+
+// CSE is the config collection for the cloud storage engine.
+type CSE struct {
+	EnableRegionClient bool `toml:"enable-region-client" json:"enable-region-client"`
 }
 
 var defTiKVCfg = tikvcfg.DefaultConfig()

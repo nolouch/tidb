@@ -29,6 +29,7 @@ go_library(
         "//parser/terror",
         "//util/logutil",
         "//util/mathutil",
+        "@com_github_iosmanthus_cse_region_client//:cse-region-client",
         "@com_github_pingcap_errors//:errors",
         "@com_github_prometheus_client_golang//prometheus",
         "@com_github_prometheus_client_golang//prometheus/collectors",
