@@ -64,7 +64,6 @@ import (
 	utilparser "github.com/pingcap/tidb/util/parser"
 	"github.com/pingcap/tidb/util/ranger"
 	"github.com/pingcap/tidb/util/sem"
-	"github.com/pingcap/tidb/util/serverless"
 	"github.com/pingcap/tidb/util/set"
 	"github.com/pingcap/tidb/util/sqlexec"
 	"github.com/pingcap/tidb/util/stmtsummary"
@@ -780,8 +779,10 @@ func (b *PlanBuilder) ResetForReuse() *PlanBuilder {
 func (b *PlanBuilder) Build(ctx context.Context, node ast.Node) (Plan, error) {
 	b.optFlag |= flagPrunColumns
 
-	if err := serverless.VerifyStatement(node); err != nil {
-		return nil, errmsg.WithServerlessNotSupportErrTag(err)
+	if sem.IsEnabled() {
+		if err := sem.IsRestrictedStatement(node); err != nil {
+			return nil, errmsg.WithServerlessNotSupportErrTag(err)
+		}
 	}
 	switch x := node.(type) {
 	case *ast.AdminStmt:
@@ -961,7 +962,7 @@ func (b *PlanBuilder) buildSet(ctx context.Context, v *ast.SetStmt) (Plan, error
 			err := ErrSpecificAccessDenied.GenWithStackByArgs("SUPER or SYSTEM_VARIABLES_ADMIN")
 			b.visitInfo = appendDynamicVisitInfo(b.visitInfo, "SYSTEM_VARIABLES_ADMIN", false, err)
 		}
-		if sem.IsEnabled() && sem.IsInvisibleSysVar(strings.ToLower(vars.Name)) {
+		if sem.IsEnabled() && (sem.IsInvisibleSysVar(strings.ToLower(vars.Name)) || sem.IsReadOnlySysVar(strings.ToLower(vars.Name))) {
 			err := errmsg.WithInvisibleSysVarErrTag(ErrSpecificAccessDenied.GenWithStackByArgs("RESTRICTED_VARIABLES_ADMIN"))
 			b.visitInfo = appendDynamicVisitInfo(b.visitInfo, "RESTRICTED_VARIABLES_ADMIN", false, err)
 		}

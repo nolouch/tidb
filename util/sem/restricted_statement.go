@@ -12,28 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package serverless
+package sem
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/pingcap/log"
-	"github.com/pingcap/tidb/keyspace"
+	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/parser/ast"
-	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/util/dbterror"
 )
 
-// EnvSkipFeatureControl is a flag to skip feature control, it can be changed during compile.
-var EnvSkipFeatureControl = "false"
+// cloudAdminName is the username of cloud_admin.
+const cloudAdminName = "cloud_admin"
 
-// VerifyStatement checks if the statement node is supported on serverless tier,
-// returns error if it's not.
-func VerifyStatement(stmt ast.Node) error {
-	if EnvSkipFeatureControl == "true" {
-		log.Warn("skip feature control, all statements are allowed")
+// IsRestrictedStatement checks if the statement is allowed to execute.
+func IsRestrictedStatement(stmt ast.Node) error {
+	// Only check a statement when enhanced sem is enabled.
+	if !IsStrictMode() {
 		return nil
 	}
+	return strictModeRestrictedStatement(stmt)
+}
+
+// strictModeRestrictedStatement checks if the statement is a restricted under enhanced sem,
+// and returns an error if it is.
+func strictModeRestrictedStatement(stmt ast.Node) error {
 	switch x := stmt.(type) {
 	case *ast.DeallocateStmt,
 		*ast.DeleteStmt,
@@ -42,7 +46,6 @@ func VerifyStatement(stmt ast.Node) error {
 		*ast.ExplainForStmt,
 		*ast.TraceStmt,
 		*ast.InsertStmt,
-		*ast.LoadDataStmt,
 		*ast.LockStatsStmt,
 		*ast.UnlockStatsStmt,
 		*ast.IndexAdviseStmt,
@@ -59,6 +62,8 @@ func VerifyStatement(stmt ast.Node) error {
 		*ast.SetBindingStmt,
 		*ast.CompactTableStmt:
 		return nil
+	case *ast.LoadDataStmt:
+		return verifyLoadData(x)
 	case *ast.AdminStmt:
 		return verifyAdmin(x)
 	case *ast.LoadStatsStmt:
@@ -101,7 +106,10 @@ func verifyDDL(stmt ast.DDLNode) error {
 		*ast.CleanupTableLockStmt,
 		*ast.RepairTableStmt,
 		*ast.TruncateTableStmt,
-		*ast.AlterSequenceStmt:
+		*ast.AlterSequenceStmt,
+		*ast.RecoverTableStmt,
+		*ast.FlashBackDatabaseStmt,
+		*ast.FlashBackTableStmt:
 		return nil
 	case *ast.CreateTableStmt:
 		for _, option := range s.Options {
@@ -119,24 +127,18 @@ func verifyDDL(stmt ast.DDLNode) error {
 			}
 		}
 		return nil
-	case *ast.RecoverTableStmt:
-		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("RECOVER TABLE")
-	case *ast.FlashBackDatabaseStmt:
-		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("FLASHBACK DATABASE")
+	case *ast.AlterPlacementPolicyStmt:
+		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("ALTER PLACEMENT POLICY")
+	case *ast.CreatePlacementPolicyStmt:
+		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("CREATE PLACEMENT POLICY")
 	case *ast.DropPlacementPolicyStmt:
 		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("DROP PLACEMENT POLICY")
 	case *ast.DropResourceGroupStmt:
 		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("DROP RESOURCE GROUP")
-	case *ast.CreatePlacementPolicyStmt:
-		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("CREATE PLACEMENT POLICY")
 	case *ast.CreateResourceGroupStmt:
 		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("CREATE RESOURCE GROUP")
 	case *ast.FlashBackToTimestampStmt:
 		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("FLASHBACK CLUSTER")
-	case *ast.FlashBackTableStmt:
-		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("FLASHBACK TABLE")
-	case *ast.AlterPlacementPolicyStmt:
-		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("ALTER PLACEMENT POLICY")
 	case *ast.AlterResourceGroupStmt:
 		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("ALTER RESOURCE GROUP")
 
@@ -168,23 +170,15 @@ func verifySimple(stmt ast.Node) error {
 		*ast.AdminStmt,
 		*ast.GrantStmt,
 		*ast.RevokeStmt,
-		*ast.NonTransactionalDMLStmt:
+		*ast.NonTransactionalDMLStmt,
+		*ast.UseStmt:
 		return nil
+	// Renaming "cloud_admin@%" is not allowed.
 	case *ast.RenameUserStmt:
-		cloudAdminName := "cloud_admin"
-		if userPrefix := keyspace.GetKeyspaceNameBySettings(); userPrefix != "" {
-			cloudAdminName = userPrefix + "." + cloudAdminName
-		}
 		for _, userToUser := range s.UserToUsers {
 			if userToUser.OldUser.Username == cloudAdminName && userToUser.OldUser.Hostname == "%" {
 				return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause(fmt.Sprintf("RENAME USER %s", userToUser.OldUser))
 			}
-		}
-		return nil
-	case *ast.UseStmt:
-		dbname := model.NewCIStr(s.DBName)
-		if dbname.L == "metrics_schema" {
-			return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("METRICS_SCHEMA")
 		}
 		return nil
 	case *ast.AlterInstanceStmt:
@@ -250,7 +244,6 @@ func verifyShow(stmt *ast.ShowStmt) error {
 		ast.ShowBindingCacheStatus,
 		ast.ShowOpenTables,
 		ast.ShowAnalyzeStatus,
-		ast.ShowRegions,
 		ast.ShowBuiltins,
 		ast.ShowTableNextRowId,
 		ast.ShowImports,
@@ -284,13 +277,20 @@ func verifyShow(stmt *ast.ShowStmt) error {
 		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("SHOW PLACEMENT FOR PARTITION")
 	case ast.ShowPlacementLabels:
 		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("SHOW PLACEMENT LABELS")
-
+	case ast.ShowRegions:
+		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("SHOW TABLE REGIONS")
 	}
 	return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("Unsupported SHOW type")
 }
 
 func verifyChange(stmt *ast.ChangeStmt) error {
-	return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("CHANGE " + stmt.NodeType)
+	switch strings.ToUpper(stmt.NodeType) {
+	case ast.PumpType:
+		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("CHANGE PUMP")
+	case ast.DrainerType:
+		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("CHANGE DRAINER")
+	}
+	return nil
 }
 
 func verifyLoadStats(stmt *ast.LoadStatsStmt) error {
@@ -299,6 +299,20 @@ func verifyLoadStats(stmt *ast.LoadStatsStmt) error {
 
 func verifySplitRegion(stmt *ast.SplitRegionStmt) error {
 	return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("SPLIT REGION")
+}
+
+func verifyLoadData(stmt *ast.LoadDataStmt) error {
+	if stmt.FileLocRef == ast.FileLocClient {
+		return nil
+	}
+	// Only support load remote data from trusted sources.
+	whiteList := config.GetGlobalConfig().Security.RemoteDataWhiteList
+	for _, whiteListedPrefix := range whiteList {
+		if strings.HasPrefix(stmt.Path, whiteListedPrefix) {
+			return nil
+		}
+	}
+	return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("LOAD DATA INFILE")
 }
 
 func verifyAdmin(stmt *ast.AdminStmt) error {
@@ -325,8 +339,7 @@ func verifyAdmin(stmt *ast.AdminStmt) error {
 		ast.AdminReloadStatistics,
 		ast.AdminFlushPlanCache:
 		return nil
-	case
-		ast.AdminPluginDisable:
+	case ast.AdminPluginDisable:
 		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("ADMIN PLUGIN DISABLE")
 	case ast.AdminPluginEnable:
 		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("ADMIN PLUGIN ENABLE")
@@ -342,10 +355,4 @@ func verifyAdmin(stmt *ast.AdminStmt) error {
 
 func verifySetConfig(stmt *ast.SetConfigStmt) error {
 	return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("SET CONFIG")
-}
-
-// VerifyTTLInfo checks if ttl info is valid on serverless tier,
-// Unlike other checks, this check is inserted when CREATE TABLE statement execute.
-func VerifyTTLInfo(schema model.CIStr, tblInfo *model.TableInfo) error {
-	return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("TTL")
 }

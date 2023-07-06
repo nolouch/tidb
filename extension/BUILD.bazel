@@ -38,6 +38,7 @@ go_test(
     ],
     embed = [":extension"],
     deps = [
+        "//config",
         "//expression",
         "//parser/ast",
         "//parser/auth",

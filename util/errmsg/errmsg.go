@@ -22,6 +22,7 @@ const (
 	errInvisibleSysVar
 	errRatelimit
 	errMinTiFlashReplica
+	errReadOnlySysVar
 )
 
 // The tag name is used to find the extended error message from config file.
@@ -52,6 +53,8 @@ func (e errTag) errTagName() string {
 		return "ratelimit-error"
 	case errMinTiFlashReplica:
 		return "min-tiflash-replica-error"
+	case errReadOnlySysVar:
+		return "read-only-sysvar-error"
 	default:
 		return "unknown"
 	}
@@ -104,6 +107,11 @@ func WithRatelimitErrTag(err error) error {
 // WithMinTiFlashReplicaErrTag is used to add a tag to the min tiflash replica error.
 func WithMinTiFlashReplicaErrTag(err error) error {
 	return withErrTag(err, errMinTiFlashReplica)
+}
+
+// WithReadOnlySysVarErrTag is used to add a tag to the read only sysvar error.
+func WithReadOnlySysVarErrTag(err error) error {
+	return withErrTag(err, errReadOnlySysVar)
 }
 
 func getErrTag(err error) errTag {

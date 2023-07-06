@@ -1122,5 +1122,5 @@ var MySQLErrName = map[uint16]*mysql.ErrMessage{
 	ErrTiKVMaxTimestampNotSynced: mysql.Message("TiKV max timestamp is not synced", nil),
 
 	// Serverless Tier errors.
-	ErrNotSupportedOnServerless: mysql.Message("'%s' is not supported on the Serverless Tier.", nil),
+	ErrNotSupportedOnServerless: mysql.Message("'%s' is not supported on TiDB Serverless.", nil),
 }

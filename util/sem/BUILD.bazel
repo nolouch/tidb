@@ -2,13 +2,22 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "sem",
-    srcs = ["sem.go"],
+    srcs = [
+        "restricted_statement.go",
+        "sem.go",
+        "strict_sem.go",
+    ],
     importpath = "github.com/pingcap/tidb/util/sem",
     visibility = ["//visibility:public"],
     deps = [
+        "//config",
+        "//parser/ast",
         "//parser/mysql",
         "//sessionctx/variable",
+        "//util/dbterror",
         "//util/logutil",
+        "@com_github_pingcap_errors//:errors",
+        "@org_uber_go_zap//:zap",
     ],
 )
 

@@ -30,7 +30,7 @@ import (
 	"github.com/pingcap/tidb/sessiontxn"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/dbterror"
-	"github.com/pingcap/tidb/util/serverless"
+	"github.com/pingcap/tidb/util/sem"
 )
 
 func onTTLInfoRemove(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, err error) {
@@ -98,8 +98,9 @@ func onTTLInfoChange(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, err er
 }
 
 func checkTTLInfoValid(ctx sessionctx.Context, schema model.CIStr, tblInfo *model.TableInfo) error {
-	if err := serverless.VerifyTTLInfo(schema, tblInfo); err != nil {
-		return err
+	// TTL is not supported in strict sem mode.
+	if sem.IsStrictMode() {
+		return dbterror.ErrNotSupportedOnServerless.GenWithStackByCause("TTL")
 	}
 
 	if err := checkTTLIntervalExpr(ctx, tblInfo.TTLInfo); err != nil {

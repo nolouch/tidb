@@ -174,7 +174,7 @@ func TestSystemVars(t *testing.T) {
 	}
 
 	if !sem.IsEnabled() {
-		sem.Enable()
+		sem.Enable(config.SEMLevelBasic)
 		defer sem.Disable()
 	}
 	for _, tt := range tests {

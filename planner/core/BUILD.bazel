@@ -138,7 +138,6 @@ go_library(
         "//util/ranger",
         "//util/rowcodec",
         "//util/sem",
-        "//util/serverless",
         "//util/set",
         "//util/size",
         "//util/sqlexec",

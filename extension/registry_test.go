@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/pingcap/errors"
+	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/extension"
 	"github.com/pingcap/tidb/parser/auth"
 	"github.com/pingcap/tidb/parser/mysql"
@@ -247,7 +248,7 @@ func TestSetVariablePrivilege(t *testing.T) {
 	tk2.MustExec("set @@global.var1=18")
 	tk2.MustQuery("select @@global.var1").Check(testkit.Rows("18"))
 
-	sem.Enable()
+	sem.Enable(config.SEMLevelBasic)
 	defer sem.Disable()
 
 	require.EqualError(t, tk1.ExecToErr("set @@global.var1=27"), "[planner:1227]Access denied; you need (at least one of) the restricted_priv3 privilege(s) for this operation")
@@ -329,7 +330,7 @@ func TestCustomAccessCheck(t *testing.T) {
 	tk2.MustExec("update t1 set v=12 where id<2")
 	tk2.MustQuery("select * from t1 where id=1").Check(testkit.Rows("1 12"))
 
-	sem.Enable()
+	sem.Enable(config.SEMLevelBasic)
 	defer sem.Disable()
 
 	require.EqualError(t, tk1.ExecToErr("update t1 set v=21 where id=1"), "[planner:8121]privilege check for 'Update' fail")

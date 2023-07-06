@@ -2,21 +2,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "serverless",
-    srcs = [
-        "feature_control.go",
-        "memory.go",
-    ],
+    srcs = ["memory.go"],
     importpath = "github.com/pingcap/tidb/util/serverless",
     visibility = ["//visibility:public"],
     deps = [
-        "//keyspace",
-        "//parser/ast",
-        "//parser/model",
-        "//util/dbterror",
         "//util/gctuner",
         "//util/logutil",
         "//util/memory",
-        "@com_github_pingcap_log//:log",
         "@org_uber_go_zap//:zap",
     ],
 )

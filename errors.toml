@@ -1073,7 +1073,7 @@ error = '''
 
 ["ddl:20001"]
 error = '''
-'%s' is not supported on the Serverless Tier.
+'%s' is not supported on TiDB Serverless.
 '''
 
 ["ddl:3102"]

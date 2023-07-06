@@ -601,6 +601,22 @@ func SetSysVar(name string, value string) {
 	RegisterSysVar(&tmp)
 }
 
+// SetSysVarMin sets the minimum value for a sysvar.
+func SetSysVarMin(name string, minValue int64) {
+	old := GetSysVar(name)
+	tmp := *old
+	tmp.MinValue = minValue
+	RegisterSysVar(&tmp)
+}
+
+// SetSysVarPossibleValues sets the possible values for a sysvar.
+func SetSysVarPossibleValues(name string, possibleValues []string) {
+	old := GetSysVar(name)
+	tmp := *old
+	tmp.PossibleValues = possibleValues
+	RegisterSysVar(&tmp)
+}
+
 // GetSysVars deep copies the sysVars list under a RWLock
 func GetSysVars() map[string]*SysVar {
 	sysVarsLock.RLock()

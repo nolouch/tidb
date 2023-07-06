@@ -938,7 +938,9 @@ func setGlobalVars() error {
 	variable.GlobalLogMaxDays.Store(int32(config.GetGlobalConfig().Log.File.MaxDays))
 
 	if cfg.Security.EnableSEM {
-		sem.Enable()
+		if err = sem.Enable(cfg.Security.SEMLevel); err != nil {
+			return err
+		}
 	}
 
 	// For CI environment we default enable prepare-plan-cache.

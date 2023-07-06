@@ -567,7 +567,7 @@ func TestAlterUserStmt(t *testing.T) {
 	tk.MustExec("ALTER USER 'semuser2' IDENTIFIED BY ''")
 	tk.MustExec("ALTER USER 'semuser3' IDENTIFIED BY ''")
 
-	sem.Enable()
+	sem.Enable(config.SEMLevelBasic)
 	defer sem.Disable()
 
 	// When SEM is enabled, even though we have UPDATE privilege on mysql.user, it explicitly
@@ -1740,7 +1740,7 @@ func TestSecurityEnhancedModeRestrictedTables(t *testing.T) {
 	urootTk := testkit.NewTestKit(t, store)
 	require.NoError(t, urootTk.Session().Auth(&auth.UserIdentity{Username: "uroot", Hostname: "%"}, nil, nil))
 
-	sem.Enable()
+	sem.Enable(config.SEMLevelBasic)
 	defer sem.Disable()
 
 	err := urootTk.ExecToErr("use metrics_schema")
@@ -1769,7 +1769,7 @@ func TestSecurityEnhancedModeInfoschema(t *testing.T) {
 		Hostname: "localhost",
 	}, nil, nil)
 
-	sem.Enable()
+	sem.Enable(config.SEMLevelBasic)
 	defer sem.Disable()
 
 	// Even though we have super, we still can't read protected information from tidb_servers_info, cluster_* tables
@@ -1905,7 +1905,7 @@ func TestSecurityEnhancedLocalBackupRestore(t *testing.T) {
 	_, err = tk.Session().ExecuteInternal(ctx, "RESTORE DATABASE * FROM 'LOCAl:///tmp/test';")
 	require.EqualError(t, err, "RESTORE requires tikv store, not unistore")
 
-	sem.Enable()
+	sem.Enable(config.SEMLevelBasic)
 	defer sem.Disable()
 
 	// With SEM enabled nolocal does not have permission, but yeslocal does.
@@ -1997,7 +1997,7 @@ func TestSecurityEnhancedModeSysVars(t *testing.T) {
 	tk.MustExec("GRANT SUPER, RESTRICTED_VARIABLES_ADMIN ON *.* to svroot2")
 	tk.MustExec("GRANT SELECT ON performance_schema.* to svroot2")
 
-	sem.Enable()
+	sem.Enable(config.SEMLevelBasic)
 	defer sem.Disable()
 
 	// svroot1 has SUPER but in SEM will be restricted
@@ -2104,7 +2104,7 @@ func TestSecurityEnhancedModeRestrictedUsers(t *testing.T) {
 	tk.MustExec("GRANT RESTRICTED_USER_ADMIN ON *.* to ruroot3")
 	tk.MustExec("GRANT notimportant TO ruroot2, ruroot3")
 
-	sem.Enable()
+	sem.Enable(config.SEMLevelBasic)
 	defer sem.Disable()
 
 	stmts := []string{

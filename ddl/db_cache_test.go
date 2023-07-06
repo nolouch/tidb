@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/errno"
 	"github.com/pingcap/tidb/parser/auth"
@@ -260,7 +261,7 @@ func TestIssue32692(t *testing.T) {
 
 func TestIssue34069(t *testing.T) {
 	store := testkit.CreateMockStore(t)
-	sem.Enable()
+	sem.Enable(config.SEMLevelBasic)
 	defer sem.Disable()
 
 	tk := testkit.NewTestKit(t, store)

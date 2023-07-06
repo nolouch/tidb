@@ -121,7 +121,7 @@ go_library(
         "//util/ranger",
         "//util/resourcegrouptag",
         "//util/rowDecoder",
-        "//util/serverless",
+        "//util/sem",
         "//util/serverless/tidbworker",
         "//util/set",
         "//util/slice",
