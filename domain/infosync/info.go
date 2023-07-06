@@ -203,6 +203,9 @@ func GlobalInfoSyncerInit(
 	} else {
 		keyspaceServerIDPath = id
 	}
+	if hostName, err := os.Hostname(); len(hostName) != 0 && err == nil {
+		keyspaceServerIDPath = fmt.Sprintf("%s_%s", hostName, keyspaceServerIDPath)
+	}
 	logutil.BgLogger().Info("GlobalInfoSyncerInit.", zap.String("server_id", id))
 	is := &InfoSyncer{
 		etcdCli:           etcdCli,
