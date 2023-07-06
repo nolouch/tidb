@@ -70,9 +70,15 @@ type MPPGather struct {
 
 	memTracker *memory.Tracker
 
+	// For virtual column.
 	columns                    []*model.ColumnInfo
 	virtualColumnIndex         []int
 	virtualColumnRetFieldTypes []*types.FieldType
+
+	// For UnionScan.
+	table    table.Table
+	kvRanges []kv.KeyRange
+	dummy    bool
 }
 
 func (e *MPPGather) appendMPPDispatchReq(pf *plannercore.Fragment) error {
@@ -141,10 +147,16 @@ func (e *MPPGather) Open(ctx context.Context) (err error) {
 	// TODO: Move the construct tasks logic to planner, so we can see the explain results.
 	sender := e.originalPlan.(*plannercore.PhysicalExchangeSender)
 	planIDs := collectPlanIDS(e.originalPlan, nil)
-	frags, err := plannercore.GenerateRootMPPTasks(e.ctx, e.startTS, e.mppQueryID, sender, e.is)
+	frags, kvRanges, err := plannercore.GenerateRootMPPTasks(e.ctx, e.startTS, e.mppQueryID, sender, e.is)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	e.kvRanges = kvRanges
+
+	if e.dummy {
+		return nil
+	}
+
 	for _, frag := range frags {
 		err = e.appendMPPDispatchReq(frag)
 		if err != nil {
@@ -165,6 +177,10 @@ func (e *MPPGather) Open(ctx context.Context) (err error) {
 
 // Next fills data into the chunk passed by its caller.
 func (e *MPPGather) Next(ctx context.Context, chk *chunk.Chunk) error {
+	chk.Reset()
+	if e.dummy {
+		return nil
+	}
 	err := e.respIter.Next(ctx, chk)
 	if err != nil {
 		return err
@@ -178,9 +194,21 @@ func (e *MPPGather) Next(ctx context.Context, chk *chunk.Chunk) error {
 
 // Close and release the used resources.
 func (e *MPPGather) Close() error {
+	if e.dummy {
+		return nil
+	}
 	e.mppReqs = nil
 	if e.respIter != nil {
 		return e.respIter.Close()
 	}
 	return nil
+}
+
+// Table implements the dataSourceExecutor interface.
+func (e *MPPGather) Table() table.Table {
+	return e.table
+}
+
+func (e *MPPGather) setDummy() {
+	e.dummy = true
 }
