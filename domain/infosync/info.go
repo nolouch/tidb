@@ -205,6 +205,8 @@ func GlobalInfoSyncerInit(
 	}
 	if hostName, err := os.Hostname(); len(hostName) != 0 && err == nil {
 		keyspaceServerIDPath = fmt.Sprintf("%s_%s", hostName, keyspaceServerIDPath)
+	} else {
+		logutil.BgLogger().Warn("failed to get hostname", zap.String("hostname", hostName), zap.Error(err))
 	}
 	logutil.BgLogger().Info("GlobalInfoSyncerInit.", zap.String("server_id", id))
 	is := &InfoSyncer{
