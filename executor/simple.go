@@ -1170,7 +1170,7 @@ func (e *SimpleExec) executeCreateUser(ctx context.Context, s *ast.CreateUserStm
 		if spec.AuthOpt != nil && spec.AuthOpt.AuthPlugin != "" {
 			authPlugin = spec.AuthOpt.AuthPlugin
 		}
-		if e.isValidatePasswordEnabled() && !s.IsCreateRole {
+		if e.isValidatePasswordEnabled() && !s.IsCreateRole && authPlugin != mysql.AuthTiDBAuthToken {
 			if spec.AuthOpt == nil || !spec.AuthOpt.ByAuthString && spec.AuthOpt.HashString == "" {
 				return variable.ErrNotValidPassword.GenWithStackByArgs()
 			}
