@@ -23,7 +23,6 @@ import (
 
 // enableStrictMode changes some variable's default value and restrictions.
 func enableStrictMode() {
-	variable.SetSysVar(variable.ValidatePasswordEnable, variable.On)
 	variable.SetSysVarMin(variable.ValidatePasswordLength, 8)
 	variable.SetSysVarMin(variable.ValidatePasswordMixedCaseCount, 1)
 	variable.SetSysVarMin(variable.ValidatePasswordNumberCount, 1)
