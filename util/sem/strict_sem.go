@@ -27,7 +27,6 @@ func enableStrictMode() {
 	variable.SetSysVarMin(variable.ValidatePasswordMixedCaseCount, 1)
 	variable.SetSysVarMin(variable.ValidatePasswordNumberCount, 1)
 	variable.SetSysVarPossibleValues(variable.ValidatePasswordPolicy, []string{"MEDIUM", "STRONG"})
-	variable.SetSysVarMin(variable.ValidatePasswordSpecialCharCount, 1)
 }
 
 // disableStrictMode changes variable's default value and restrictions back to normal.
@@ -36,7 +35,6 @@ func disableStrictMode() {
 	variable.SetSysVarMin(variable.ValidatePasswordMixedCaseCount, 0)
 	variable.SetSysVarMin(variable.ValidatePasswordNumberCount, 0)
 	variable.SetSysVarPossibleValues(variable.ValidatePasswordPolicy, []string{"LOW", "MEDIUM", "STRONG"})
-	variable.SetSysVarMin(variable.ValidatePasswordSpecialCharCount, 0)
 }
 
 // IsStrictMode checks if sem is in strict mode.
