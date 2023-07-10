@@ -238,8 +238,7 @@ func strictModeReadOnlySysVar(varNameInLower string) bool {
 		variable.TiDBWaitSplitRegionFinish,
 		variable.TiDBWaitSplitRegionTimeout,
 		variable.TiDBTxnScope,
-		variable.ValidatePasswordEnable,
-		variable.WaitTimeout:
+		variable.ValidatePasswordEnable:
 		return true
 
 	}
