@@ -62,7 +62,7 @@ const (
 	serverlessVersion14 = 14
 	// serverlessVersion15 rename user cloud_admin to prefix.cloud_admin`.
 	serverlessVersion15 = 15
-	// serverlessVersion16 sets the global variable `validate_password.Enable` to `ON`.
+	// serverlessVersion16 is noop.
 	serverlessVersion16 = 16
 )
 
@@ -94,7 +94,6 @@ var bootstrapServerlessVersion = []func(Session, int64){
 	upgradeToServerlessVer13,
 	upgradeToServerlessVer14,
 	upgradeToServerlessVer15,
-	upgradeToServerlessVer16,
 }
 
 // updateServerlessVersion updates serverless version variable in mysql.TiDB table.
@@ -410,14 +409,6 @@ func upgradeToServerlessVer15(s Session, ver int64) {
 	}
 }
 
-func upgradeToServerlessVer16(s Session, ver int64) {
-	if ver >= serverlessVersion16 {
-		return
-	}
-	mustExecute(s, "set @@global.validate_password.special_char_count = 0")
-	mustExecute(s, "set @@global.validate_password.enable = ON")
-}
-
 // Serverless bootstrap procedures.
 // NOTE: The following methods will only be executed once at doDMLWorks during TiDB Bootstrap,
 // therefore any modification of it requires addition to the serverless version upgrade function above
@@ -459,12 +450,6 @@ func bootstrapServerlessVariables(s Session) {
 		variable.MaxExecutionTime,
 		defaultMaxExecutionTime,
 		defaultMaxExecutionTime,
-	)
-	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
-		mysql.SystemDB, mysql.GlobalVariablesTable, variable.ValidatePasswordSpecialCharCount, 0, 0,
-	)
-	mustExecute(s, `INSERT HIGH_PRIORITY INTO %n.%n VALUES(%?, %?) ON DUPLICATE KEY UPDATE VARIABLE_VALUE=%?`,
-		mysql.SystemDB, mysql.GlobalVariablesTable, variable.ValidatePasswordEnable, variable.On, variable.On,
 	)
 }
 
