@@ -204,7 +204,6 @@ func strictModeReadOnlySysVar(varNameInLower string) bool {
 		variable.TiDBGenerateBinaryPlan,
 		variable.TiDBGOGCTunerThreshold,
 		variable.TiDBGuaranteeLinearizability,
-		variable.TiDBIsolationReadEngines,
 		variable.TiDBLogFileMaxDays,
 		variable.TiDBPlacementMode,
 		variable.TiDBScatterRegion,
