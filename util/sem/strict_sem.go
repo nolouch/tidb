@@ -176,7 +176,6 @@ func strictModeReadOnlySysVar(varNameInLower string) bool {
 		variable.MaxAllowedPacket,
 		variable.SkipNameResolve,
 		variable.SQLLogBin,
-		variable.TiDBCDCWriteSource,
 		variable.TiDBDDLDiskQuota,
 		variable.TiDBDDLEnableFastReorg,
 		variable.TiDBDDLErrorCountLimit,
