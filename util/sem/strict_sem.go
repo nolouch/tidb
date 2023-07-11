@@ -233,7 +233,6 @@ func strictModeReadOnlySysVar(varNameInLower string) bool {
 		// TODO: add variable.TiDBTTLRunningTasks after 7.1
 		variable.TiDBTTLScanBatchSize,
 		variable.TiDBTTLScanWorkerCount,
-		variable.TiDBTxnMode,
 		variable.TiDBWaitSplitRegionFinish,
 		variable.TiDBWaitSplitRegionTimeout,
 		variable.TiDBTxnScope,
