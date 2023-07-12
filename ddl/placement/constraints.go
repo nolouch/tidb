@@ -163,3 +163,8 @@ func GetTiFlashConstraintsFromConfig() Constraints {
 	}
 	return res
 }
+
+// GetTiFlashRuleGroupIDByConfig returns the gropu id from config.
+func GetTiFlashRuleGroupIDByConfig() string {
+	return config.GetGlobalConfig().TiFlashReplicas.GroupID
+}

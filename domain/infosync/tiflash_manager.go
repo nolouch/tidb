@@ -96,7 +96,7 @@ func (m *TiFlashReplicaManagerCtx) GetPlacementRule(ctx context.Context, tableID
 	resp, err := doRequest(ctx,
 		"GetPlacementRule",
 		m.etcdCli.Endpoints(),
-		path.Join(pdapi.Config, "rule", placement.TiFlashRuleGroupID, ruleID),
+		path.Join(pdapi.Config, "rule", placement.GetTiFlashRuleGroupIDByConfig(), ruleID),
 		http.MethodGet, nil)
 	if err != nil {
 		return nil, err
@@ -228,7 +228,7 @@ func (m *TiFlashReplicaManagerCtx) SetTiFlashGroupConfig(ctx context.Context) er
 	res, err := doRequest(ctx,
 		"GetRuleGroupConfig",
 		m.etcdCli.Endpoints(),
-		path.Join(pdapi.Config, "rule_group", placement.TiFlashRuleGroupID),
+		path.Join(pdapi.Config, "rule_group", placement.GetTiFlashRuleGroupIDByConfig()),
 		"GET",
 		nil,
 	)
@@ -250,7 +250,7 @@ func (m *TiFlashReplicaManagerCtx) SetTiFlashGroupConfig(ctx context.Context) er
 	}
 
 	if shouldUpdate {
-		groupConfig.ID = placement.TiFlashRuleGroupID
+		groupConfig.ID = placement.GetTiFlashRuleGroupIDByConfig()
 		groupConfig.Index = placement.RuleIndexTiFlash
 		groupConfig.Override = false
 
@@ -419,7 +419,7 @@ func (m *mockTiFlashReplicaManagerCtx) GetPlacementRule(ctx context.Context, tab
 
 func makeBaseRule() placement.TiFlashRawRule {
 	return placement.TiFlashRawRule{
-		GroupID:     placement.TiFlashRuleGroupID,
+		GroupID:     placement.GetTiFlashRuleGroupIDByConfig(),
 		ID:          "",
 		Index:       placement.RuleIndexTiFlash,
 		Override:    false,

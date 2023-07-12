@@ -19,8 +19,6 @@ import (
 )
 
 const (
-	// TiFlashRuleGroupID is the rule group id of tiflash
-	TiFlashRuleGroupID = "tiflash"
 	// BundleIDPrefix is the bundle prefix of all rule bundles from TiDB_DDL statements.
 	BundleIDPrefix = "TiDB_DDL_"
 	// PDBundleID is the bundle name of pd, the default bundle for all regions.
