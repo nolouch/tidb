@@ -151,6 +151,8 @@ type Domain struct {
 		sync.Mutex
 		sctxs map[sessionctx.Context]bool
 	}
+
+	stopAutoAnalyze atomicutil.Bool
 }
 
 type mdlCheckTableInfo struct {
@@ -947,6 +949,7 @@ func NewDomain(store kv.Storage, ddlLease time.Duration, statsLease time.Duratio
 			jobsIdsMap: make(map[int64]string),
 		},
 	}
+	do.stopAutoAnalyze.Store(false)
 	do.wg = util.NewWaitGroupEnhancedWrapper("domain", do.exit, config.GetGlobalConfig().TiDBEnableExitCheck)
 	do.SchemaValidator = NewSchemaValidator(ddlLease, do)
 	do.expensiveQueryHandle = expensivequery.NewExpensiveQueryHandle(do.exit)
@@ -2192,7 +2195,7 @@ func (do *Domain) autoAnalyzeWorker(owner owner.Manager) {
 	for {
 		select {
 		case <-analyzeTicker.C:
-			if variable.RunAutoAnalyze.Load() && owner.IsOwner() {
+			if variable.RunAutoAnalyze.Load() && !do.stopAutoAnalyze.Load() && owner.IsOwner() {
 				statsHandle.HandleAutoAnalyze(do.InfoSchema())
 			}
 		case <-do.exit:
@@ -2576,6 +2579,11 @@ func (do *Domain) StartTTLJobManager() {
 // TTLJobManager returns the ttl job manager on this domain
 func (do *Domain) TTLJobManager() *ttlworker.JobManager {
 	return do.ttlJobManager.Load()
+}
+
+// StopAutoAnalyze stops (*Domain).autoAnalyzeWorker to launch new auto analyze jobs.
+func (do *Domain) StopAutoAnalyze() {
+	do.stopAutoAnalyze.Store(true)
 }
 
 func init() {
