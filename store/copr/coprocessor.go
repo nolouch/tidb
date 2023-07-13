@@ -1168,7 +1168,7 @@ func (worker *copIteratorWorker) handleTaskOnce(bo *Backoffer, task *copTask, ch
 	copResp := resp.Resp.(*coprocessor.Response)
 
 	if costTime > minLogCopTaskTime {
-		worker.logTimeCopTask(costTime, task, bo, copResp)
+		worker.logTimeCopTask(costTime, task, bo, req, copResp)
 	}
 	storeID := strconv.FormatUint(req.Context.GetPeer().GetStoreId(), 10)
 	isInternal := util.IsRequestSourceInternal(&task.requestSource)
@@ -1194,7 +1194,7 @@ const (
 	minLogKVProcessTime = 100
 )
 
-func (worker *copIteratorWorker) logTimeCopTask(costTime time.Duration, task *copTask, bo *Backoffer, resp *coprocessor.Response) {
+func (worker *copIteratorWorker) logTimeCopTask(costTime time.Duration, task *copTask, bo *Backoffer, req *tikvrpc.Request, resp *coprocessor.Response) {
 	logStr := fmt.Sprintf("[TIME_COP_PROCESS] resp_time:%s txnStartTS:%d region_id:%d store_addr:%s", costTime, worker.req.StartTs, task.region.GetID(), task.storeAddr)
 	if bo.GetTotalSleep() > minLogBackoffTime {
 		backoffTypes := strings.Replace(fmt.Sprintf("%v", bo.TiKVBackoffer().GetTypes()), " ", ",", -1)
@@ -1231,7 +1231,8 @@ func (worker *copIteratorWorker) logTimeCopTask(costTime time.Duration, task *co
 		logStr = appendScanDetail(logStr, "data", detail.ScanDetail.Data)
 		logStr = appendScanDetail(logStr, "lock", detail.ScanDetail.Lock)
 	}
-	logutil.Logger(bo.GetCtx()).Info(logStr)
+
+	logutil.Logger(bo.GetCtx()).Info(logStr, zap.String("source", req.Context.GetRequestSource()))
 }
 
 func appendScanDetail(logStr string, columnFamily string, scanInfo *kvrpcpb.ScanInfo) string {
