@@ -93,7 +93,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tdakkota/asciicheck v0.1.1
 	github.com/tiancaiamao/appdash v0.0.0-20181126055449-889f96f722a2
-	github.com/tikv/client-go/v2 v2.0.8-0.20230629092037-f04046a015d9
+	github.com/tikv/client-go/v2 v2.0.8-0.20230714100000-19ef4377cfb1
 	github.com/tikv/pd/client v0.0.0-20230705063813-dc180cad6414
 	github.com/timakin/bodyclose v0.0.0-20221125081123-e39cf3fc478e
 	github.com/twmb/murmur3 v1.1.3
@@ -285,5 +285,3 @@ replace (
 	go.opencensus.io => go.opencensus.io v0.23.1-0.20220331163232-052120675fac
 	google.golang.org/grpc => google.golang.org/grpc v1.54.0
 )
-
-replace github.com/tikv/client-go/v2 => github.com/nolouch/client-go/v2 v2.0.0-alpha.0.20230713193332-777cad141b67
