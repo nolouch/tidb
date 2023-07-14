@@ -1,13 +1,13 @@
 package standby
 
 import (
-	"os"
 	"sync/atomic"
 	"time"
 
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/util"
 	"github.com/pingcap/tidb/util/logutil"
+	"github.com/pingcap/tidb/util/signal"
 	"go.uber.org/zap"
 )
 
@@ -54,7 +54,7 @@ func StartWatchLastActive(sm sessionManager, maxIdleSecs int) {
 					zap.Int("process-count", processCount))
 
 				if connCount == 0 || processCount == 0 {
-					os.Exit(0)
+					signal.TiDBExit()
 				}
 			}
 		}
