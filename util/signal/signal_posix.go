@@ -55,3 +55,8 @@ func SetupSignalHandler(shutdownFunc func(bool)) {
 		shutdownFunc(sig != syscall.SIGHUP)
 	}()
 }
+
+// TiDBExit sends a SIGINT signal to the current process
+func TiDBExit() {
+	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+}

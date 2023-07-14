@@ -12,6 +12,7 @@ go_library(
         "//parser/mysql",
         "//util",
         "//util/logutil",
+        "//util/signal",
         "@org_uber_go_zap//:zap",
     ],
 )
