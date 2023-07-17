@@ -3503,8 +3503,8 @@ def go_deps():
         name = "com_github_pingcap_kvproto",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/pingcap/kvproto",
-        sum = "h1:GBlml2UIrI9IR3DdBnUWNeXizK4PwJhYPO7eWgCNErg=",
-        version = "v0.0.0-20230530111525-e4919c190b46",
+        sum = "h1:sC3XRNNBQNjFJGRtSzJRvqi2aDLFOsQoCHItr9rbbY8=",
+        version = "v0.0.0-20230713060620-89756bd21be1",
     )
     go_repository(
         name = "com_github_pingcap_log",
@@ -4285,8 +4285,8 @@ def go_deps():
         name = "com_github_tikv_pd_client",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/tikv/pd/client",
-        sum = "h1:OcyYbQOhbEAs3wwTcK4tCVZll80zHY9k1GFN6TBK4Z0=",
-        version = "v0.0.0-20230705063813-dc180cad6414",
+        sum = "h1:N1m2YFtQAZEkk5ilmsMqauELh29TJQrX2JbcNhdnm7k=",
+        version = "v0.0.0-20230717031845-58eb48b840e7",
     )
     go_repository(
         name = "com_github_timakin_bodyclose",
