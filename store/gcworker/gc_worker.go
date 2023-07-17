@@ -1394,12 +1394,11 @@ func (w *GCWorker) getAllKeyspace(ctx context.Context) []*keyspacepb.KeyspaceMet
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	watchChan, err := w.pdClient.WatchKeyspaces(ctx)
+	allkeyspaces, err := w.pdClient.GetAllKeyspaces(ctx, 0, 0)
 	if err != nil {
-		logutil.Logger(ctx).Error("WatchKeyspaces error")
+		logutil.Logger(ctx).Error("get all keyspaces error")
 	}
-	initialLoaded := <-watchChan
-	return initialLoaded
+	return allkeyspaces
 }
 
 func (w *GCWorker) legacyResolveKeyspaceLocks(ctx context.Context, txnLeftBound []byte, txnRightBound []byte, runner *rangetask.Runner, safePoint uint64) error {
