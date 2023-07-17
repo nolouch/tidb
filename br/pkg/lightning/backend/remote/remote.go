@@ -546,7 +546,7 @@ func (b *remoteBackend) setupReportWRU(ctx context.Context, keyspaceID uint32, k
 	}
 
 	kvCalculator := rm.KVCalculator{
-		Config: &rm.Config{
+		RUConfig: &rm.RUConfig{
 			WriteBaseCost:         rm.RequestUnit(cfg.RUConfig.WriteBaseCost),
 			WritePerBatchBaseCost: rm.RequestUnit(cfg.RUConfig.WritePerBatchBaseCost),
 			WriteBytesCost:        rm.RequestUnit(cfg.RUConfig.WriteCostPerByte),

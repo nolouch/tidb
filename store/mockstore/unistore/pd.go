@@ -45,6 +45,10 @@ type pdClient struct {
 	}
 }
 
+func (c *pdClient) GetAllKeyspaces(ctx context.Context, startID uint32, limit uint32) ([]*keyspacepb.KeyspaceMeta, error) {
+	panic("unimplemented")
+}
+
 func (c *pdClient) UpdateGCSafePointV2(ctx context.Context, keyspaceID uint32, safePoint uint64) (uint64, error) {
 	panic("unimplemented")
 }
