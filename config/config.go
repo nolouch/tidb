@@ -948,16 +948,6 @@ type Experimental struct {
 	EnableNewCharset bool `toml:"enable-new-charset" json:"-"`
 }
 
-// TiDBWorker is the config for TiDB worker.
-type TiDBWorker struct {
-	// Enable indicates whether to start the TiDB worker manager.
-	Enable bool `toml:"enable" json:"enable"`
-	// IsWorker indicates whether this TiDB instance is a worker instance.
-	IsWorker bool `toml:"is-worker" json:"is-worker"`
-	// TimeWindowSeconds indicates the time window size in seconds for etcd key register.
-	TimeWindowSeconds int64 `toml:"time-window-seconds" json:"time-window-seconds"`
-}
-
 // CSE is the config collection for the cloud storage engine.
 type CSE struct {
 	EnableRegionClient bool `toml:"enable-region-client" json:"enable-region-client"`
@@ -1159,11 +1149,7 @@ var defaultConf = Config{
 		MinCount:    1,
 		GroupID:     defTiFlashRuleGroupID,
 	},
-	TiDBWorker: TiDBWorker{
-		Enable:            false,
-		IsWorker:          false,
-		TimeWindowSeconds: 300,
-	},
+	TiDBWorker: defaultTiDBWorker(),
 }
 
 var (
@@ -1505,6 +1491,11 @@ func (c *Config) Valid() error {
 		if _, ok := allowOps[constraint.Op]; !ok {
 			return fmt.Errorf("invalid tiflash constraint op %s, only supports %v", constraint.Op, allowOps)
 		}
+	}
+
+	// check tidb worker
+	if err := c.TiDBWorker.Valid(c); err != nil {
+		return err
 	}
 
 	// test log level

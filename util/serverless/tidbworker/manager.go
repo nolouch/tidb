@@ -16,196 +16,90 @@ package tidbworker
 
 import (
 	"context"
-	"os"
-	"sync"
+	"math"
 	"time"
 
 	"github.com/pingcap/errors"
+	"github.com/pingcap/log"
 	"github.com/pingcap/tidb/config"
-	"github.com/pingcap/tidb/parser/terror"
-	"github.com/pingcap/tidb/util/logutil"
-	"github.com/pingcap/tidb/util/serverless/tidbworker/backend"
-	"github.com/tikv/client-go/v2/tikv"
+	ddlutil "github.com/pingcap/tidb/ddl/util"
+	"github.com/pingcap/tidb/sessionctx"
+	workercli "github.com/tidbcloud/aws-shared-provider/pkg/tidbworker/client"
 	"go.uber.org/zap"
 )
 
 var _ Manager = &manager{}
 
-const (
-	// workerCheckInterval is the interval between two checks of whether the worker is still needed.
-	workerCheckInterval = 1 * time.Minute
-)
-
 type manager struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
-	backend    backend.Backend
-	keyspaceID uint32
-	isWorker   bool
-
-	// timeWindow specify that if the last register time is within this time window, we don't need to register again.
-	// Note that it's calculated separately for gc and ddl.
-	timeWindow time.Duration
-	// lastRegister holds last register time for each key type.
-	// It's used to avoid unnecessary register operations within the time Window.
-	keyInfos map[KeyType]*keyInfo
-	// mu protects keyInfo.
-	mu sync.Mutex
-}
-
-// keyInfo holds information about each key type.
-type keyInfo struct {
-	lastRegister time.Time
+	client workercli.Client
+	role   string
 }
 
 // InitManager initialize the global TiDB worker manager with the given backend.
-func InitManager(keyspaceID tikv.KeyspaceID, cfg config.TiDBWorker, backend backend.Backend) error {
+func InitManager(ctx context.Context, keyspaceName string, cfg config.TiDBWorker) (err error) {
 	once.Do(func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		m := &manager{
-			ctx:        ctx,
-			cancel:     cancel,
-			backend:    backend,
-			keyspaceID: uint32(keyspaceID),
-			isWorker:   cfg.IsWorker,
-			timeWindow: time.Duration(cfg.TimeWindowSeconds) * time.Second,
-			keyInfos:   make(map[KeyType]*keyInfo),
+		var c workercli.Client
+		c, err = workercli.NewClientWithContext(ctx, keyspaceName, cfg.TidbPool, cfg.RegistryAddr)
+		if err != nil {
+			log.Error("[tidb worker] failed to connect to tidb worker service", zap.Error(err))
+			return
 		}
-		// Initialize all supported key types.
-		m.keyInfos[GCKey] = &keyInfo{}
-		logutil.BgLogger().Info("[tidb worker] initialize tidb worker manager",
-			zap.Bool("isWorker", m.isWorker),
-			zap.Duration("timeWindow", m.timeWindow),
-		)
-		GlobalTiDBWorkerManager = m
-		if m.isWorker {
-			go m.workerLoop()
+		GlobalTiDBWorkerManager = &manager{
+			client: c,
+			role:   cfg.Role,
 		}
 	})
-	return nil
+	return err
 }
 
-// IsWorker returns whether the current TiDB is a worker.
-func (m *manager) IsWorker() bool {
-	return m.isWorker
-}
-
-// Close closes the manager and the underlying storage backend.
-func (m *manager) Close() {
-	if GlobalTiDBWorkerManager == nil {
-		return
-	}
-	if m.backend != nil {
-		terror.Log(errors.Trace(m.backend.Close()))
-	}
-	if m.cancel != nil {
-		m.cancel()
-	}
-}
-
-// Register registers the given key type with the given timestamp.
-// It also records the last register time for each key type to avoid unnecessary register operations
-// within the time window.
-func (m *manager) Register(keyType KeyType, timestamp time.Time) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	keyInfo, ok := m.keyInfos[keyType]
-	if !ok {
-		logutil.BgLogger().Error("[tidb worker] unsupported key type", zap.String("keyType", string(keyType)))
-		return errors.Errorf("unsupported key type %v", keyType)
-	}
-	// Check whether the last register time is within the time window, if so, skip register.
-	if keyInfo.lastRegister.Add(m.timeWindow).After(timestamp) {
-		logutil.BgLogger().Info("[tidb worker] register key within time window, skip",
-			zap.String("keyType", string(keyType)),
-			zap.Time("lastRegisterTime", keyInfo.lastRegister),
-			zap.Int64("timestamp", timestamp.Unix()),
-			zap.Duration("timeWindow", m.timeWindow),
-		)
-		return nil
-	}
-
-	// Register key and update last register time.
-	if err := m.backend.Set(m.ctx, string(keyType), timestamp); err != nil {
-		logutil.BgLogger().Error("[tidb worker] register key failed",
-			zap.String("keyType", string(keyType)),
-			zap.Int64("timestamp", timestamp.Unix()),
-			zap.Error(err),
-		)
-		return err
-	}
-	keyInfo.lastRegister = timestamp
-	logutil.BgLogger().Info("[tidb worker] register key success",
-		zap.String("keyType", string(keyType)),
-		zap.Int64("timestamp", timestamp.Unix()),
-	)
-	return nil
-}
-
-// Clear all registered keys of the given key type with timestamp before the given.
-func (m *manager) Clear(keyType KeyType, timestamp time.Time) error {
-	// It's only safe the clear the keys a time window before.
-	timestamp = timestamp.Add(-m.timeWindow)
-	if err := m.backend.DelBefore(m.ctx, string(keyType), timestamp); err != nil {
-		logutil.BgLogger().Error("[tidb worker] clear key failed",
-			zap.String("keyType", string(keyType)),
-			zap.Int64("timestamp", timestamp.Unix()),
-			zap.Error(err),
-		)
-		return err
-	}
-	logutil.BgLogger().Info("[tidb worker] clear key success",
-		zap.String("keyType", string(keyType)),
-		zap.Int64("timestamp", timestamp.Unix()),
-	)
-	return nil
-}
-
-// Done checks whether the given key type has no registered key.
-func (m *manager) Done(keyType KeyType) (bool, error) {
-	empty, err := m.backend.Empty(m.ctx, string(keyType))
+func (m *manager) InitializeGC(ctx context.Context, sctx sessionctx.Context) error {
+	log.Info("[tidb-worker] initialize GC tasks")
+	tasks, err := ddlutil.LoadDeleteRanges(ctx, sctx, math.MaxUint64)
 	if err != nil {
-		logutil.BgLogger().Error("[tidb worker] check whether key is empty failed",
-			zap.String("keyType", string(keyType)),
-			zap.Error(err),
-		)
-		return false, err
+		return errors.Trace(err)
 	}
-	if !empty {
-		logutil.BgLogger().Info("[tidb worker] key is not empty",
-			zap.String("keyType", string(keyType)),
-		)
-		return false, nil
-	}
-	logutil.BgLogger().Info("[tidb worker] key is empty",
-		zap.String("keyType", string(keyType)),
-	)
-	return true, nil
-}
-
-// workerLoop is called when tidb is started as a worker,
-// it periodically calls GCDone and DDLDone, if there are both finished, then calls os.Exit(0).
-func (m *manager) workerLoop() {
-	ticker := time.NewTicker(workerCheckInterval)
-	defer ticker.Stop()
-	logutil.BgLogger().Info("[tidb worker] start tidb worker loop")
-	for {
-		select {
-		case <-m.ctx.Done():
-			logutil.BgLogger().Info("[tidb worker] context done, exiting worker loop")
-			return
-		case <-ticker.C:
-			gcDone, err := m.Done(GCKey)
-			if err != nil {
-				logutil.BgLogger().Error("[tidb worker] check GCDone failed", zap.Error(err))
-			}
-			if gcDone {
-				logutil.BgLogger().Info("[tidb worker] no job left, exit")
-				os.Exit(0)
-			}
-
-			logutil.BgLogger().Info("[tidb worker] gc job not finished yet, keep tidb worker alive")
+	for _, task := range tasks {
+		err := m.RegisterGC(ctx, task.Ts)
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
+	return nil
+}
 
+func (m *manager) InitializeGCV2(ctx context.Context) error {
+	log.Info("[tidb-worker] initialize GCV2 tasks")
+	// Use 0 as the timestamp to make sure this task can be cleaned by the completion of any other GCV2 task.
+	err := m.RegisterGCV2(ctx, time.Now().Unix(), 0)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (m *manager) RegisterGC(ctx context.Context, ts uint64) error {
+	log.Info("[tidb-worker] register a GC task to worker service", zap.Uint64("ts", ts))
+	return m.client.RegisterGC(ctx, ts)
+}
+
+func (m *manager) RecycleGC(ctx context.Context, safePoint uint64) error {
+	log.Info("[tidb-worker] notify worker service to recycle a GC task", zap.Uint64("safe-point", safePoint))
+	return m.client.RecycleGC(ctx, safePoint)
+}
+
+func (m *manager) RegisterGCV2(ctx context.Context, gcLastRunTime int64, ts uint64) error {
+	log.Info("[tidb-worker] register a GCV2 task to worker service",
+		zap.Int64("gc-last-run-time", gcLastRunTime),
+		zap.Uint64("ts", ts),
+	)
+	return m.client.RegisterGCV2(ctx, gcLastRunTime, ts)
+}
+
+func (m *manager) RecycleGCV2(ctx context.Context, safePoint uint64) error {
+	log.Info("[tidb-worker] register a GCV2 task to worker service", zap.Uint64("safe-point", safePoint))
+	return m.client.RecycleGCV2(ctx, safePoint)
+}
+
+func (m *manager) Role() string {
+	return m.role
 }

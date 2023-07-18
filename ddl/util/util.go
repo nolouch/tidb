@@ -38,7 +38,7 @@ import (
 const (
 	deleteRangesTable            = `gc_delete_range`
 	doneDeleteRangesTable        = `gc_delete_range_done`
-	loadDeleteRangeSQL           = `SELECT HIGH_PRIORITY job_id, element_id, start_key, end_key FROM mysql.%n WHERE ts < %?`
+	loadDeleteRangeSQL           = `SELECT HIGH_PRIORITY job_id, element_id, start_key, end_key, ts FROM mysql.%n WHERE ts < %?`
 	recordDoneDeletedRangeSQL    = `INSERT IGNORE INTO mysql.gc_delete_range_done SELECT * FROM mysql.gc_delete_range WHERE job_id = %? AND element_id = %?`
 	completeDeleteRangeSQL       = `DELETE FROM mysql.gc_delete_range WHERE job_id = %? AND element_id = %?`
 	completeDeleteMultiRangesSQL = `DELETE FROM mysql.gc_delete_range WHERE job_id = %?`
@@ -65,6 +65,7 @@ type DelRangeTask struct {
 	EndKey    kv.Key
 	JobID     int64
 	ElementID int64
+	Ts        uint64
 }
 
 // Range returns the range [start, end) to delete.
@@ -116,6 +117,7 @@ func loadDeleteRangesFromTable(ctx context.Context, sctx sessionctx.Context, tab
 				ElementID: row.GetInt64(1),
 				StartKey:  startKey,
 				EndKey:    endKey,
+				Ts:        row.GetUint64(4),
 			})
 		}
 	}

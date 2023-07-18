@@ -73,8 +73,6 @@ import (
 	"github.com/pingcap/tidb/util/memory"
 	"github.com/pingcap/tidb/util/memoryusagealarm"
 	"github.com/pingcap/tidb/util/replayer"
-	"github.com/pingcap/tidb/util/serverless/tidbworker"
-	"github.com/pingcap/tidb/util/serverless/tidbworker/backend"
 	"github.com/pingcap/tidb/util/servermemorylimit"
 	"github.com/pingcap/tidb/util/sqlexec"
 	"github.com/tikv/client-go/v2/tikv"
@@ -1012,26 +1010,6 @@ func (do *Domain) Init(
 				return errors.Trace(err)
 			}
 			do.unprefixedEtcdCli = unprefixedEtcdCli
-
-			// Register globalTiDBWorkerManager if needed.
-			workerConfig := config.GetGlobalConfig().TiDBWorker
-			if workerConfig.Enable && tidbworker.GlobalTiDBWorkerManager == nil {
-				// Need a new etcdClient for TiDB worker to avoid being closed when domain closed.
-				workerEtcdCli, err := newEtcdCli(addrs, ebd)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				keyspaceID := do.store.GetCodec().GetKeyspaceID()
-				backend := backend.NewEtcdBackend(workerEtcdCli, keyspaceID)
-				err = tidbworker.InitManager(
-					keyspaceID,
-					config.GetGlobalConfig().TiDBWorker,
-					backend,
-				)
-				if err != nil {
-					return errors.Trace(err)
-				}
-			}
 		}
 	}
 

@@ -878,6 +878,19 @@ func (w *GCWorker) runGCJob(ctx context.Context, safePoint uint64, concurrency i
 		}
 	}
 
+	// Recycle GCV2 jobs if necessary.
+	if config.GetGlobalConfig().EnableSafePointV2 && (tidbworker.IsMaster() || tidbworker.IsGCV2Worker()) {
+		gcRunTime := time.Now().Unix()
+		err = tidbworker.GlobalTiDBWorkerManager.RegisterGCV2(ctx, gcRunTime, safePoint)
+		if err != nil {
+			logutil.Logger(ctx).Error("[tidb worker] failed to register gc v2 job",
+				zap.Int64("gc-run-time", gcRunTime),
+				zap.Uint64("safe-point", safePoint),
+				zap.Error(err))
+			return errors.Trace(err)
+		}
+	}
+
 	return nil
 }
 
@@ -957,10 +970,9 @@ func (w *GCWorker) deleteRanges(ctx context.Context, safePoint uint64, concurren
 		zap.Duration("cost time", time.Since(startTime)))
 	metrics.GCHistogram.WithLabelValues("delete_ranges").Observe(time.Since(startTime).Seconds())
 
-	// If all ranges have been cleared, we can clear the gc key with timestamp less than gc safe point.
-	if tidbworker.GlobalTiDBWorkerManager != nil && rangeCleared == len(ranges) {
-		err := tidbworker.GlobalTiDBWorkerManager.Clear(tidbworker.GCKey, oracle.GetTimeFromTS(safePoint))
-		if err != nil {
+	// RecycleGC when all ranges prior to safePoint has been successfully cleaned.
+	if rangeCleared == len(ranges) && tidbworker.IsGCWorker() {
+		if err = tidbworker.GlobalTiDBWorkerManager.RecycleGC(ctx, safePoint); err != nil {
 			return errors.Trace(err)
 		}
 	}

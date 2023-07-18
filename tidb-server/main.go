@@ -53,6 +53,7 @@ import (
 	"github.com/pingcap/tidb/server"
 	"github.com/pingcap/tidb/session"
 	"github.com/pingcap/tidb/session/txninfo"
+	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/sessionctx/binloginfo"
 	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/standby"
@@ -324,6 +325,13 @@ func main() {
 	svr, err := createServer(storage, dom)
 	mainErrHandler(err)
 
+	// Setup global tidb worker service client
+	se, err := dom.SysSessionPool().Get()
+	mainErrHandler(err)
+	defer dom.SysSessionPool().Put(se)
+	err = initTiDBWorkerService(se.(sessionctx.Context))
+	mainErrHandler(err)
+
 	err = driver.TrySetupGlobalResourceController(context.Background(), dom.ServerID(), storage)
 	if err != nil {
 		logutil.BgLogger().Warn("failed to setup global resource controller", zap.Error(err))
@@ -525,6 +533,28 @@ func createStoreAndDomain(keyspaceName string) (kv.Storage, *domain.Domain, erro
 		return nil, nil, err
 	}
 	return storage, dom, nil
+}
+
+func initTiDBWorkerService(sctx sessionctx.Context) error {
+	cfg := config.GetGlobalConfig()
+	workerConfig := cfg.TiDBWorker
+	if !workerConfig.Enable || tidbworker.GlobalTiDBWorkerManager != nil {
+		return nil
+	}
+
+	log.Warn("[tidb-worker] init global TiDB worker manager")
+	ctx := context.Background()
+	if err := tidbworker.InitManager(ctx, config.GetGlobalKeyspaceName(), workerConfig); err != nil {
+		return errors.Trace(err)
+	}
+	if !tidbworker.IsMaster() {
+		return nil
+	}
+	// Initialize GC tasks if TiDB is master.
+	if cfg.EnableSafePointV2 {
+		return tidbworker.GlobalTiDBWorkerManager.InitializeGCV2(ctx)
+	}
+	return tidbworker.GlobalTiDBWorkerManager.InitializeGC(ctx, sctx)
 }
 
 func setupBinlogClient() error {
@@ -1070,9 +1100,6 @@ func closeDomainAndStorage(storage kv.Storage, dom *domain.Domain) {
 	tikv.StoreShuttingDown(1)
 	dom.Close()
 	copr.GlobalMPPFailedStoreProber.Stop()
-	if tidbworker.GlobalTiDBWorkerManager != nil {
-		tidbworker.GlobalTiDBWorkerManager.Close()
-	}
 	err := storage.Close()
 	terror.Log(errors.Trace(err))
 }

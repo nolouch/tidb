@@ -5,16 +5,17 @@ go_library(
     srcs = [
         "manager.go",
         "tidb_worker.go",
+        "util.go",
     ],
     importpath = "github.com/pingcap/tidb/util/serverless/tidbworker",
     visibility = ["//visibility:public"],
     deps = [
         "//config",
-        "//parser/terror",
-        "//util/logutil",
-        "//util/serverless/tidbworker/backend",
+        "//ddl/util",
+        "//sessionctx",
         "@com_github_pingcap_errors//:errors",
-        "@com_github_tikv_client_go_v2//tikv",
+        "@com_github_pingcap_log//:log",
+        "@com_github_tidbcloud_aws_shared_provider_pkg_tidbworker_client//:client",
         "@org_uber_go_zap//:zap",
     ],
 )

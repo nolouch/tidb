@@ -24,6 +24,7 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
+	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl/util"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/model"
@@ -34,7 +35,6 @@ import (
 	"github.com/pingcap/tidb/util/serverless/tidbworker"
 	"github.com/pingcap/tidb/util/sqlexec"
 	topsqlstate "github.com/pingcap/tidb/util/topsql/state"
-	"github.com/tikv/client-go/v2/oracle"
 	"go.uber.org/zap"
 )
 
@@ -268,9 +268,9 @@ func insertJobIntoDeleteRangeTable(ctx context.Context, sctx sessionctx.Context,
 		return errors.Trace(err)
 	}
 
-	if tidbworker.GlobalTiDBWorkerManager != nil {
-		nowTime := oracle.GetTimeFromTS(now)
-		if err := tidbworker.GlobalTiDBWorkerManager.Register(tidbworker.GCKey, nowTime); err != nil {
+	//  Register tasks to tidb worker service when tidb is operating as master and not using GCV2.
+	if tidbworker.IsMaster() && !config.GetGlobalConfig().EnableSafePointV2 {
+		if err = tidbworker.GlobalTiDBWorkerManager.RegisterGC(ctx, now); err != nil {
 			return errors.Trace(err)
 		}
 	}

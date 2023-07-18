@@ -15,37 +15,29 @@
 package tidbworker
 
 import (
+	"context"
 	"sync"
-	"time"
+
+	"github.com/pingcap/tidb/sessionctx"
+
+	workercli "github.com/tidbcloud/aws-shared-provider/pkg/tidbworker/client"
 )
 
 var (
-	// GlobalTiDBWorkerManager is the global TiDB worker manage
+	// GlobalTiDBWorkerManager is the global TiDB worker manager
 	GlobalTiDBWorkerManager Manager
 	// once is here to make sure the initialization of GlobalTiDBWorkerManager is done only once.
 	once sync.Once
 )
 
-// KeyType represents the type of the key that's being registered.
-// Different key types may have different logic to determine whether the TiDB worker is needed.
-type KeyType string
-
-const (
-	// GCKey is the key type for GC.
-	GCKey = "gc"
-)
-
 // Manager is used to manage TiDB worker.
 type Manager interface {
-	// IsWorker returns whether the current TiDB is a worker.
-	IsWorker() bool
-	// Close closes the manager.
-	Close()
-
-	// Register registers a key to the backend, which indicates that tidb worker is needed.
-	Register(keyType KeyType, timestamp time.Time) error
-	// Clear clears the appropriate key of the key type according to the given time.
-	Clear(keyType KeyType, timestamp time.Time) error
-	// Done returns whether no more tidb worker is needed for the given key type.
-	Done(keyType KeyType) (bool, error)
+	workercli.Client
+	// InitializeGC registers all existing GC tasks to TiDB worker service.
+	InitializeGC(ctx context.Context, sctx sessionctx.Context) error
+	// InitializeGCV2 registers the initial GCV2 task to TiDB worker service, this is used to make sure
+	// at least one GCV2 task exists in TiDB worker service.
+	InitializeGCV2(ctx context.Context) error
+	// Role returns the role of the TiDB worker.
+	Role() string
 }

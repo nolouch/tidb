@@ -63,8 +63,6 @@ go_library(
         "//util/memoryusagealarm",
         "//util/printer",
         "//util/replayer",
-        "//util/serverless/tidbworker",
-        "//util/serverless/tidbworker/backend",
         "//util/servermemorylimit",
         "//util/sqlexec",
         "//util/syncutil",

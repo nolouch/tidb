@@ -93,6 +93,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tdakkota/asciicheck v0.1.1
 	github.com/tiancaiamao/appdash v0.0.0-20181126055449-889f96f722a2
+	github.com/tidbcloud/aws-shared-provider/pkg/tidbworker/client v0.0.0-20230717100719-40fea740e4cc
 	github.com/tikv/client-go/v2 v2.0.8-0.20230717100444-c22bb29ac4aa
 	github.com/tikv/pd/client v0.0.0-20230717063645-40eaa35f26e8
 	github.com/timakin/bodyclose v0.0.0-20221125081123-e39cf3fc478e
@@ -117,13 +118,13 @@ require (
 	golang.org/x/net v0.11.0
 	golang.org/x/oauth2 v0.8.0
 	golang.org/x/sync v0.2.0
-	golang.org/x/sys v0.9.0
+	golang.org/x/sys v0.10.0
 	golang.org/x/term v0.9.0
-	golang.org/x/text v0.10.0
+	golang.org/x/text v0.11.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.9.1
 	google.golang.org/api v0.114.0
-	google.golang.org/grpc v1.55.0
+	google.golang.org/grpc v1.56.1
 	gopkg.in/yaml.v2 v2.4.0
 	honnef.co/go/tools v0.4.0
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0
@@ -195,6 +196,8 @@ require (
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/jcmturner/gokrb5/v8 v8.4.2 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -270,10 +273,14 @@ require (
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230524185152-1884fd1fac28 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
+	google.golang.org/genproto v0.0.0-20230525234025-438c736192d0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20230525234020-1aefcd67740a // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230629202037-9506855d4529 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gorm.io/driver/mysql v1.5.1 // indirect
+	gorm.io/gorm v1.25.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 	stathat.com/c/consistent v1.0.0 // indirect
 )
