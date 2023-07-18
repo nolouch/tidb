@@ -93,7 +93,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tdakkota/asciicheck v0.1.1
 	github.com/tiancaiamao/appdash v0.0.0-20181126055449-889f96f722a2
-	github.com/tidbcloud/aws-shared-provider/pkg/tidbworker/client v0.0.0-20230717100719-40fea740e4cc
+	github.com/tidbcloud/aws-shared-provider/pkg/tidbworker/client v0.0.0-20230718101141-fef21b9394c0
 	github.com/tikv/client-go/v2 v2.0.8-0.20230717100444-c22bb29ac4aa
 	github.com/tikv/pd/client v0.0.0-20230717063645-40eaa35f26e8
 	github.com/timakin/bodyclose v0.0.0-20221125081123-e39cf3fc478e

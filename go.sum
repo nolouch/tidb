@@ -1356,8 +1356,8 @@ github.com/tiancaiamao/appdash v0.0.0-20181126055449-889f96f722a2 h1:mbAskLJ0oJf
 github.com/tiancaiamao/appdash v0.0.0-20181126055449-889f96f722a2/go.mod h1:2PfKggNGDuadAa0LElHrByyrz4JPZ9fFx6Gs7nx7ZZU=
 github.com/tiancaiamao/gp v0.0.0-20221230034425-4025bc8a4d4a h1:J/YdBZ46WKpXsxsW93SG+q0F8KI+yFrcIDT4c/RNoc4=
 github.com/tiancaiamao/gp v0.0.0-20221230034425-4025bc8a4d4a/go.mod h1:h4xBhSNtOeEosLJ4P7JyKXX7Cabg7AVkWCK5gV2vOrM=
-github.com/tidbcloud/aws-shared-provider/pkg/tidbworker/client v0.0.0-20230717100719-40fea740e4cc h1:ViPyRlLJCGXf7Ev4o3GOs6Kz0FhSoTn+naT56pVBR9o=
-github.com/tidbcloud/aws-shared-provider/pkg/tidbworker/client v0.0.0-20230717100719-40fea740e4cc/go.mod h1:/rq+Mu7JwJkn7M18F543kwV2XlUqX6QcIz4nnxi+v8k=
+github.com/tidbcloud/aws-shared-provider/pkg/tidbworker/client v0.0.0-20230718101141-fef21b9394c0 h1:9ZKOVerxUlCzcYB5r7m8nNPrtuhiesTCPJcuz/6Ac+U=
+github.com/tidbcloud/aws-shared-provider/pkg/tidbworker/client v0.0.0-20230718101141-fef21b9394c0/go.mod h1:/rq+Mu7JwJkn7M18F543kwV2XlUqX6QcIz4nnxi+v8k=
 github.com/tikv/client-go/v2 v2.0.8-0.20230717100444-c22bb29ac4aa h1:nxL43SzD51d3vO3rZvIvdJG6rDU/yRxa+OvyXMhRnjQ=
 github.com/tikv/client-go/v2 v2.0.8-0.20230717100444-c22bb29ac4aa/go.mod h1:fhbJiX9E6Zxi/brvIVfu7vONG0T+WCjgG2NdPjH8onA=
 github.com/tikv/pd v0.0.0-20230420042919-0e0313adef1f h1:1BBlbLSCua+oK3xngEjPO2dj1oLcItJxhCzqYG6XANA=
