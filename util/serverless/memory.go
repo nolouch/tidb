@@ -137,6 +137,8 @@ func (ms *MemoryScaler) scaleMemory(to uint64) bool {
 	return true
 }
 
+const maxMemoryScale = 2 * 1024 * 1024 * 1024 // 2GB
+
 // Run runs the memory scale handle if it is configured.
 func (ms *MemoryScaler) Run() {
 	if minMemoryLimit == 0 || maxMemoryLimit == 0 {
@@ -156,7 +158,11 @@ func (ms *MemoryScaler) Run() {
 				lastReport = time.Now()
 			}
 			if limit != maxMemoryLimit && stats.HeapAlloc > limit*8/10 && time.Since(lastIncreseFailed) > time.Second {
-				limit *= 2
+				if limit >= maxMemoryScale {
+					limit += maxMemoryScale
+				} else {
+					limit *= 2
+				}
 				if limit > maxMemoryLimit {
 					limit = maxMemoryLimit
 				}
