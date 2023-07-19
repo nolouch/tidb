@@ -83,7 +83,8 @@ type GCWorker struct {
 		batchResolveLocks func(locks []*txnlock.Lock, regionID tikv.RegionVerID, safepoint uint64) (ok bool, err error)
 		resolveLocks      func(locks []*txnlock.Lock, lowResolutionTS uint64) (int64, error)
 	}
-	logBackupEnabled bool // check log-backup task existed.
+	logBackupEnabled   bool // check log-backup task existed.
+	blacklistKeyspaces map[uint32]uint32
 }
 
 // NewGCWorker creates a GCWorker instance.
@@ -215,6 +216,7 @@ func (w *GCWorker) start(ctx context.Context, wg *sync.WaitGroup) {
 	logutil.Logger(ctx).Info("[gc worker] start",
 		zap.String("uuid", w.uuid))
 
+	w.initBlackList()
 	w.tick(ctx) // Immediately tick once to initialize configs.
 	wg.Done()
 
@@ -243,6 +245,15 @@ func (w *GCWorker) start(ctx context.Context, wg *sync.WaitGroup) {
 			logutil.Logger(ctx).Info("[gc worker] quit", zap.String("uuid", w.uuid))
 			return
 		}
+	}
+}
+
+func (w *GCWorker) initBlackList() {
+	// Init black list keyspaces.
+	w.blacklistKeyspaces = make(map[uint32]uint32)
+	for _, blackKeyspace := range config.GetGlobalConfig().GCV1BlackList {
+		logutil.BgLogger().Info("blacklistKeyspaces put", zap.Uint32("blackKeyspace", blackKeyspace))
+		w.blacklistKeyspaces[blackKeyspace] = blackKeyspace
 	}
 }
 
@@ -1374,7 +1385,9 @@ func (w *GCWorker) resolveKeyspacesLocks(ctx context.Context, runner *rangetask.
 	// Start keyspaces resolve locks
 	for i := range keyspaces {
 		keyspaceMeta := keyspaces[i]
-		if keyspaceMeta.State != keyspacepb.KeyspaceState_ENABLED {
+		_, isBlackKespace := w.blacklistKeyspaces[keyspaceMeta.Id]
+		if keyspaceMeta.State != keyspacepb.KeyspaceState_ENABLED || isBlackKespace {
+			logutil.BgLogger().Debug("keyspace status check", zap.Bool("is-not-enabled", keyspaceMeta.State != keyspacepb.KeyspaceState_ENABLED), zap.Bool("isBlackKespace", isBlackKespace))
 			continue
 		}
 

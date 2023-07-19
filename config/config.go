@@ -361,6 +361,8 @@ type Config struct {
 	SkipRedoDeleteRangeGC bool `toml:"skip-gc-delete-range" json:"skip-gc-delete-range"`
 	// ResolveLocksByKeyspace is used to control whether to do resolve locks by keyspace.
 	ResolveLocksByKeyspace bool `toml:"resolve-locks-by-keyspace" json:"resolve-locks-by-keyspace"`
+	// GCV1BlackList keyspace in black list will not resolve by gc worker.
+	GCV1BlackList []uint32 `toml:"gc-v1-black-list" json:"gc-v1-black-list"`
 	// BootstrapControl is used to control serverless bootstrap procedure.
 	BootstrapControl BootstrapControl `toml:"bootstrap-control" json:"bootstrap-control"`
 	// Rewrite collations for certain keyspaces
@@ -1128,6 +1130,7 @@ var defaultConf = Config{
 	EnableSafePointV2:                    false,
 	SkipRedoDeleteRangeGC:                true,
 	ResolveLocksByKeyspace:               true,
+	GCV1BlackList:                        []uint32{},
 	EnableRULimit:                        false,
 	EnableAlterUserPessimistic:           false,
 	EnableGlobalKill:                     true,
