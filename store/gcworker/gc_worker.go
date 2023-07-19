@@ -1421,7 +1421,7 @@ func (w *GCWorker) getAllKeyspace(ctx context.Context) []*keyspacepb.KeyspaceMet
 
 	allkeyspaces, err := w.pdClient.GetAllKeyspaces(ctx, 0, 0)
 	if err != nil {
-		logutil.Logger(ctx).Error("get all keyspaces error")
+		logutil.Logger(ctx).Error("get all keyspaces error", zap.Error(err))
 	}
 	return allkeyspaces
 }
