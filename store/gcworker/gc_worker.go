@@ -1423,10 +1423,23 @@ func (w *GCWorker) getAllKeyspace(ctx context.Context) ([]*keyspacepb.KeyspaceMe
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	allkeyspaces, err := w.pdClient.GetAllKeyspaces(ctx, 0, 0)
-	if err != nil {
-		logutil.Logger(ctx).Error("get all keyspaces error", zap.Error(err))
-		return nil, err
+	var allkeyspaces []*keyspacepb.KeyspaceMeta
+	startID := uint32(0)
+	for {
+		keyspacesList, err := w.pdClient.GetAllKeyspaces(ctx, startID, 1000)
+		if err != nil {
+			logutil.Logger(ctx).Error("get all keyspaces error", zap.Error(err))
+			return nil, err
+		}
+
+		if len(keyspacesList) == 0 {
+			break
+		}
+
+		allkeyspaces = append(allkeyspaces, keyspacesList...)
+		latestKeyspace := keyspacesList[len(keyspacesList)-1]
+		startID = latestKeyspace.Id + 1
+		logutil.Logger(ctx).Info("get all keyspace startID", zap.Uint32("startID", startID))
 	}
 	return allkeyspaces, nil
 }
