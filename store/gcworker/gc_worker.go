@@ -1367,13 +1367,17 @@ func (w *GCWorker) legacyResolveLocks(
 
 // Do resolve locks by keyspace.
 func (w *GCWorker) resolveKeyspacesLocks(ctx context.Context, runner *rangetask.Runner, safePoint uint64) error {
-	keyspaces := w.getAllKeyspace(ctx)
+	keyspaces, err := w.getAllKeyspace(ctx)
+	if err != nil {
+		logutil.Logger(ctx).Warn("[gc worker] get all keyspace err.", zap.Error(errors.Trace(err)))
+		return err
+	}
 	logutil.Logger(ctx).Info("[gc worker] start keyspaces resolve locks.")
 
 	// Start api v1 resolve locks, the range is [ unbounded, keyspace 0 left bound )
 	txnLeftBound := []byte("")
 	txnRightBound := keyspace.GetKeyspaceTxnPrefix(0)
-	err := w.legacyResolveKeyspaceLocks(ctx, txnLeftBound, txnRightBound, runner, safePoint)
+	err = w.legacyResolveKeyspaceLocks(ctx, txnLeftBound, txnRightBound, runner, safePoint)
 	if err != nil {
 		logutil.Logger(ctx).Warn("[gc worker] api v1 legacyResolveKeyspaceLocks err.", zap.Error(errors.Trace(err)))
 		return err
@@ -1415,15 +1419,16 @@ func (w *GCWorker) resolveKeyspacesLocks(ctx context.Context, runner *rangetask.
 	return nil
 }
 
-func (w *GCWorker) getAllKeyspace(ctx context.Context) []*keyspacepb.KeyspaceMeta {
+func (w *GCWorker) getAllKeyspace(ctx context.Context) ([]*keyspacepb.KeyspaceMeta, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	allkeyspaces, err := w.pdClient.GetAllKeyspaces(ctx, 0, 0)
 	if err != nil {
 		logutil.Logger(ctx).Error("get all keyspaces error", zap.Error(err))
+		return nil, err
 	}
-	return allkeyspaces
+	return allkeyspaces, nil
 }
 
 func (w *GCWorker) legacyResolveKeyspaceLocks(ctx context.Context, txnLeftBound []byte, txnRightBound []byte, runner *rangetask.Runner, safePoint uint64) error {
