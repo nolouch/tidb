@@ -154,6 +154,24 @@ func MatchConstraints(s labels, constraints Constraints) bool {
 	})
 }
 
+// GetS3TiFlashRuleConstraints returns the constraints that enable S3 tiflash replica.
+func GetS3TiFlashRuleConstraints() Constraints {
+	return []Constraint{
+		{Key: EngineLabelKey, Op: In, Values: []string{EngineLabelTiFlash}},
+		{Key: EngineRoleLabelKey, Op: In, Values: []string{EngineRoleLabelTiFlashWriteNode}},
+	}
+}
+
+// NeedExtraS3Rule check whether need extra s3 tiflash replica or not.
+func NeedExtraS3Rule() bool {
+	return config.GetGlobalConfig().TiFlashReplicas.ExtraS3Rule
+}
+
+// GetTiFlashRuleGroupIDByConfig returns the gropu id from config.
+func GetTiFlashRuleGroupIDByConfig() string {
+	return config.GetGlobalConfig().TiFlashReplicas.GroupID
+}
+
 // GetTiFlashConstraintsFromConfig returns the constraints from config.
 func GetTiFlashConstraintsFromConfig() Constraints {
 	constraints := config.GetGlobalConfig().TiFlashReplicas.Constraints
@@ -162,9 +180,4 @@ func GetTiFlashConstraintsFromConfig() Constraints {
 		res[i] = Constraint{Key: c.Key, Op: ConstraintOp(c.Op), Values: c.Values}
 	}
 	return res
-}
-
-// GetTiFlashRuleGroupIDByConfig returns the gropu id from config.
-func GetTiFlashRuleGroupIDByConfig() string {
-	return config.GetGlobalConfig().TiFlashReplicas.GroupID
 }

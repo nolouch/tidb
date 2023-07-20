@@ -1252,10 +1252,18 @@ func ConfigureTiFlashPDForTable(id int64, count uint64, locationLabels *[]string
 		return errors.Trace(err)
 	}
 	ctx := context.Background()
-	logutil.BgLogger().Info("ConfigureTiFlashPDForTable", zap.Int64("tableID", id), zap.Uint64("count", count))
+	logutil.BgLogger().Info("ConfigureTiFlashPDForTable(with S3 WN Rule)", zap.Int64("tableID", id), zap.Uint64("count", count))
+
 	ruleNew := MakeNewRule(id, count, *locationLabels)
 	if e := is.tiflashReplicaManager.SetPlacementRule(ctx, ruleNew); e != nil {
 		return errors.Trace(e)
+	}
+
+	if placement.NeedExtraS3Rule() {
+		s3WNRule := MakeS3WNRule(id, count, *locationLabels)
+		if e := is.tiflashReplicaManager.SetPlacementRule(ctx, s3WNRule); e != nil {
+			return errors.Trace(e)
+		}
 	}
 	return nil
 }
@@ -1268,11 +1276,19 @@ func ConfigureTiFlashPDForPartitions(accel bool, definitions *[]model.PartitionD
 	}
 	ctx := context.Background()
 	for _, p := range *definitions {
-		logutil.BgLogger().Info("ConfigureTiFlashPDForPartitions", zap.Int64("tableID", tableID), zap.Int64("partID", p.ID), zap.Bool("accel", accel), zap.Uint64("count", count))
+		logutil.BgLogger().Info("ConfigureTiFlashPDForPartitions(with S3 WN Rule)", zap.Int64("tableID", tableID), zap.Int64("partID", p.ID), zap.Bool("accel", accel), zap.Uint64("count", count))
 		ruleNew := MakeNewRule(p.ID, count, *locationLabels)
 		if e := is.tiflashReplicaManager.SetPlacementRule(ctx, ruleNew); e != nil {
 			return errors.Trace(e)
 		}
+
+		if placement.NeedExtraS3Rule() {
+			s3WNRule := MakeS3WNRule(p.ID, count, *locationLabels)
+			if e := is.tiflashReplicaManager.SetPlacementRule(ctx, s3WNRule); e != nil {
+				return errors.Trace(e)
+			}
+		}
+
 		if accel {
 			e := is.tiflashReplicaManager.PostAccelerateSchedule(ctx, p.ID)
 			if e != nil {

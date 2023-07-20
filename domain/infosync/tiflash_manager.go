@@ -445,6 +445,25 @@ func MakeNewRule(id int64, count uint64, locationLabels []string) placement.TiFl
 	return ruleNew
 }
 
+// MakeS3WNRule creates S3 tiflash replica.
+func MakeS3WNRule(id int64, count uint64, locationLabels []string) placement.TiFlashRawRule {
+	ruleID := MakeRuleID(id)
+	startKey := tablecodec.GenTableRecordPrefix(id)
+	endKey := tablecodec.EncodeTablePrefix(id + 1)
+
+	ruleNew := makeBaseRule()
+	ruleNew.ID = ruleID
+	ruleNew.StartKey = startKey
+	ruleNew.EndKey = endKey
+	ruleNew.Count = int(count)
+	ruleNew.LocationLabels = locationLabels
+
+	ruleNew.GroupID = placement.S3TiFlashRuleGroupID
+	ruleNew.Constraints = placement.GetS3TiFlashRuleConstraints()
+
+	return ruleNew
+}
+
 // MakeRuleID creates a rule ID for TiFlash with given TableID.
 func MakeRuleID(id int64) string {
 	return fmt.Sprintf("table-%v-r", id)
