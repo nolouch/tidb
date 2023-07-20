@@ -186,7 +186,7 @@ const (
 	tidbGCLeaderUUID  = "tidb_gc_leader_uuid"
 	tidbGCSafePoint   = "tidb_gc_safe_point"
 
-	safePointV2 = "v2"
+	getAllKeyspaceLimit = 50
 )
 
 var gcSafePointCacheInterval = tikv.GcSafePointCacheInterval
@@ -1426,7 +1426,7 @@ func (w *GCWorker) getAllKeyspace(ctx context.Context) ([]*keyspacepb.KeyspaceMe
 	var allkeyspaces []*keyspacepb.KeyspaceMeta
 	startID := uint32(0)
 	for {
-		keyspacesList, err := w.pdClient.GetAllKeyspaces(ctx, startID, 1000)
+		keyspacesList, err := w.pdClient.GetAllKeyspaces(ctx, startID, getAllKeyspaceLimit)
 		if err != nil {
 			logutil.Logger(ctx).Error("get all keyspaces error", zap.Error(err))
 			return nil, err
