@@ -889,19 +889,34 @@ func (w *GCWorker) runGCJob(ctx context.Context, safePoint uint64, concurrency i
 		}
 	}
 
-	// Recycle GCV2 jobs if necessary.
-	if config.GetGlobalConfig().EnableSafePointV2 && (tidbworker.IsMaster() || tidbworker.IsGCV2Worker()) {
-		gcRunTime := time.Now().Unix()
-		err = tidbworker.GlobalTiDBWorkerManager.RegisterGCV2(ctx, gcRunTime, safePoint)
-		if err != nil {
-			logutil.Logger(ctx).Error("[tidb worker] failed to register gc v2 job",
-				zap.Int64("gc-run-time", gcRunTime),
-				zap.Uint64("safe-point", safePoint),
-				zap.Error(err))
-			return errors.Trace(err)
+	// Handle GCV2 tidb worker after a round of GC.
+	if config.GetGlobalConfig().EnableSafePointV2 {
+		// If current TiDB is the master, it should send a heartbeat to tidb worker service
+		// in order to prevent unnecessary activation of the GCV2 tidb worker.
+		if tidbworker.IsMaster() {
+			gcRunTime := time.Now().Unix()
+			err = tidbworker.GlobalTiDBWorkerManager.RegisterGCV2(ctx, gcRunTime, safePoint)
+			if err != nil {
+				logutil.Logger(ctx).Error("[tidb worker] failed to register gc v2 job",
+					zap.Uint64("safe-point", safePoint),
+					zap.Int64("gc-run-time", gcRunTime),
+					zap.Error(err))
+				return errors.Trace(err)
+			}
 		}
-	}
+		// If current TiDB is master or worker, it should notify tidb worker service that it
+		// has finished a round of GC.
+		if tidbworker.IsMaster() || tidbworker.IsGCV2Worker() {
+			err = tidbworker.GlobalTiDBWorkerManager.RecycleGCV2(ctx, safePoint)
+			if err != nil {
+				logutil.Logger(ctx).Error("[tidb worker] failed to recycle gc v2 job",
+					zap.Uint64("safe-point", safePoint),
+					zap.Error(err))
+				return errors.Trace(err)
+			}
+		}
 
+	}
 	return nil
 }
 
