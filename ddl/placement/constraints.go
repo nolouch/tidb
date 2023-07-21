@@ -162,8 +162,9 @@ func GetS3TiFlashRuleConstraints() Constraints {
 	}
 }
 
-// NeedExtraS3Rule check whether need extra s3 tiflash replica or not.
-func NeedExtraS3Rule() bool {
+// NeedExtraS3TiFlashRule check whether need extra s3 tiflash replica or not.
+// Check config.go to see meaning of this config.
+func NeedExtraS3TiFlashRule() bool {
 	return config.GetGlobalConfig().TiFlashReplicas.ExtraS3Rule
 }
 

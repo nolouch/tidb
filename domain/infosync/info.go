@@ -1259,8 +1259,8 @@ func ConfigureTiFlashPDForTable(id int64, count uint64, locationLabels *[]string
 		return errors.Trace(e)
 	}
 
-	if placement.NeedExtraS3Rule() {
-		s3WNRule := MakeS3WNRule(id, count, *locationLabels)
+	if placement.NeedExtraS3TiFlashRule() {
+		s3WNRule := MakeExtraS3TiFlashRule(id, count, *locationLabels)
 		if e := is.tiflashReplicaManager.SetPlacementRule(ctx, s3WNRule); e != nil {
 			return errors.Trace(e)
 		}
@@ -1282,8 +1282,8 @@ func ConfigureTiFlashPDForPartitions(accel bool, definitions *[]model.PartitionD
 			return errors.Trace(e)
 		}
 
-		if placement.NeedExtraS3Rule() {
-			s3WNRule := MakeS3WNRule(p.ID, count, *locationLabels)
+		if placement.NeedExtraS3TiFlashRule() {
+			s3WNRule := MakeExtraS3TiFlashRule(p.ID, count, *locationLabels)
 			if e := is.tiflashReplicaManager.SetPlacementRule(ctx, s3WNRule); e != nil {
 				return errors.Trace(e)
 			}
