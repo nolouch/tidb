@@ -546,6 +546,9 @@ func (r *RunawayChecker) AfterCopRequest() {
 			now := time.Now()
 			r.markRunaway(RunawayMatchTypeIdentify, r.setting.Action, &now)
 			r.markQuarantine(&now)
+			if r.resourceGroupName != DefaultResourceGroupName {
+				log.Info("mark success", zap.String("resourceGroupName", r.resourceGroupName), zap.String("originalSQL", r.originalSQL), zap.String("sqlDigest", r.sqlDigest), zap.String("planDigest", r.planDigest), zap.Time("deadline", r.deadline), zap.Bool("marked", r.marked.Load()))
+			}
 		}
 	}
 }
