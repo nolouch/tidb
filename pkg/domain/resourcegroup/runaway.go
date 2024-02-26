@@ -23,6 +23,7 @@ import (
 
 	"github.com/jellydator/ttlcache/v3"
 	rmpb "github.com/pingcap/kvproto/pkg/resource_manager"
+	"github.com/pingcap/log"
 	"github.com/pingcap/tidb/pkg/metrics"
 	"github.com/pingcap/tidb/pkg/util/dbterror/exeerrors"
 	"github.com/pingcap/tidb/pkg/util/generic"
@@ -534,6 +535,10 @@ func (r *RunawayChecker) AfterCopRequest() {
 	if r.setting == nil {
 		return
 	}
+	if r.resourceGroupName != DefaultResourceGroupName {
+		log.Warn("RunawayChecker.AfterCopRequest", zap.String("resourceGroupName", r.resourceGroupName), zap.String("originalSQL", r.originalSQL), zap.String("sqlDigest", r.sqlDigest), zap.String("planDigest", r.planDigest), zap.Time("deadline", r.deadline), zap.Bool("marked", r.marked.Load()))
+	}
+
 	// Do not perform action here as it may be the last cop request and just let it finish. If it's not the last cop request, action would be performed in `BeforeCopRequest` when handling the next cop request.
 	// Here only marks the query as runaway
 	if !r.marked.Load() && r.deadline.Before(time.Now()) {
