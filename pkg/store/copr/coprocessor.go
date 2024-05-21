@@ -246,11 +246,11 @@ func (c *CopClient) BuildCopIterator(ctx context.Context, req *kv.Request, vars 
 		if it.smallTaskConcurrency > 20 {
 			it.smallTaskConcurrency = 20
 		}
-		it.sendRate = util.NewRateLimit(2 * (it.concurrency + it.smallTaskConcurrency))
+		it.sendRate = util.NewRateLimiter(int64(2 * (it.concurrency + it.smallTaskConcurrency)))
 		it.respChan = nil
 	} else {
 		it.respChan = make(chan *copResponse)
-		it.sendRate = util.NewRateLimit(it.concurrency + it.smallTaskConcurrency)
+		it.sendRate = util.NewRateLimiter(int64(it.concurrency + it.smallTaskConcurrency))
 	}
 	it.actionOnExceed = newRateLimitAction(uint(it.sendRate.GetCapacity()))
 	return it, nil
@@ -680,7 +680,7 @@ type copIterator struct {
 	curr int
 
 	// sendRate controls the sending rate of copIteratorTaskSender
-	sendRate *util.RateLimit
+	sendRate *util.RateLimitV2
 
 	// Otherwise, results are stored in respChan.
 	respChan chan *copResponse
@@ -744,7 +744,7 @@ type copIteratorTaskSender struct {
 	tasks       []*copTask
 	finishCh    <-chan struct{}
 	respChan    chan<- *copResponse
-	sendRate    *util.RateLimit
+	sendRate    *util.RateLimitV2
 }
 
 type copResponse struct {
