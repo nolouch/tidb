@@ -987,7 +987,7 @@ func (it *copIterator) GetBuildTaskElapsed() time.Duration {
 }
 
 // GetSendRate returns the rate-limit object.
-func (it *copIterator) GetSendRate() *util.RateLimit {
+func (it *copIterator) GetSendRate() *util.RateLimitV2 {
 	return it.sendRate
 }
 
