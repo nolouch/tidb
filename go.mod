@@ -323,4 +323,4 @@ replace (
 
 replace github.com/tikv/client-go/v2 => ../client-go
 
-//replace github.com/tikv/pd/client => ../pd/client
+replace github.com/tikv/pd/client => ../pd/client
