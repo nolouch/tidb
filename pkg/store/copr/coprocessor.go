@@ -217,6 +217,20 @@ func (c *CopClient) BuildCopIterator(ctx context.Context, req *kv.Request, vars 
 		it.concurrency = 1
 	}
 
+	getLimitNum := func(keepOrd bool) int64 {
+		k := 1
+		if keepOrd {
+			k = 2
+		}
+		res := k * (it.concurrency + it.smallTaskConcurrency)
+		if len(req.ResourceGroupName) > 0 && req.ResourceGroupName != "default" {
+			if res > 4 {
+				return 1
+			}
+		}
+		return int64(res)
+	}
+
 	if it.req.KeepOrder {
 		// Don't set high concurrency for the keep order case. It wastes a lot of memory and gains nothing.
 		// TL;DR
@@ -246,11 +260,11 @@ func (c *CopClient) BuildCopIterator(ctx context.Context, req *kv.Request, vars 
 		if it.smallTaskConcurrency > 20 {
 			it.smallTaskConcurrency = 20
 		}
-		it.sendRate = util.NewRateLimiter(int64(2 * (it.concurrency + it.smallTaskConcurrency)))
+		it.sendRate = util.NewRateLimiter(getLimitNum(true))
 		it.respChan = nil
 	} else {
 		it.respChan = make(chan *copResponse)
-		it.sendRate = util.NewRateLimiter(int64(it.concurrency + it.smallTaskConcurrency))
+		it.sendRate = util.NewRateLimiter(getLimitNum(false))
 	}
 	it.actionOnExceed = newRateLimitAction(uint(it.sendRate.GetCapacity()))
 	return it, nil
