@@ -224,7 +224,8 @@ func (c *CopClient) BuildCopIterator(ctx context.Context, req *kv.Request, vars 
 		}
 		res := k * (it.concurrency + it.smallTaskConcurrency)
 		if len(req.ResourceGroupName) > 0 && req.ResourceGroupName != "default" {
-			if res > 4 {
+			if res > 10 {
+				logutil.BgLogger().Info("resource group coprocessor concurrency is too high", zap.Int("concurrency", res), zap.String("resource group", req.ResourceGroupName), zap.String("sql", req.ResourceGroupTagger.SQL))
 				return 1
 			}
 		}
