@@ -625,3 +625,8 @@ func (r *RunawayChecker) getSettingConvictIdentifier() string {
 func (r *RunawayChecker) getConvictIdentifiers() []string {
 	return []string{r.originalSQL, r.sqlDigest, r.planDigest}
 }
+
+// GetOriginSQL returns the original SQL.
+func (r *RunawayChecker) GetOriginSQL() string {
+	return r.originalSQL
+}
