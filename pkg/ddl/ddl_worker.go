@@ -1073,7 +1073,7 @@ func (w *JobContext) getResourceGroupTaggerForTopSQL() tikvrpc.ResourceGroupTagg
 	digest := w.cacheDigest
 	tagger := func(req *tikvrpc.Request) {
 		req.ResourceGroupTag = resourcegrouptag.EncodeResourceGroupTag(digest, nil,
-			resourcegrouptag.GetResourceGroupLabelByKey(resourcegrouptag.GetFirstKeyFromRequest(req)))
+			resourcegrouptag.GetResourceGroupLabelByKey(resourcegrouptag.GetFirstKeyFromRequest(req)), "", "")
 	}
 	return tagger
 }

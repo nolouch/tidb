@@ -109,6 +109,10 @@ type PointGetPlan struct {
 	PartitionNames []model.CIStr
 }
 
+func (p *PointGetPlan) GetDBName() string {
+	return p.dbName
+}
+
 // GetEstRowCountForDisplay implements PhysicalPlan interface.
 func (p *PointGetPlan) GetEstRowCountForDisplay() float64 {
 	if p == nil {
@@ -447,6 +451,10 @@ type BatchPointGetPlan struct {
 	probeParents []base.PhysicalPlan
 	// explicit partition selection
 	PartitionNames []model.CIStr
+}
+
+func (p *BatchPointGetPlan) GetDBName() string {
+	return p.dbName
 }
 
 // GetEstRowCountForDisplay implements PhysicalPlan interface.

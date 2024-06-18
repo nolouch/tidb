@@ -643,6 +643,10 @@ func (sc *StatementContext) SetBinaryPlan(binaryPlan string) {
 func (sc *StatementContext) GetResourceGroupTagger() tikvrpc.ResourceGroupTagger {
 	normalized, digest := sc.SQLDigest()
 	planDigest := sc.planDigest
+	var db, table string
+	if len(sc.Tables) > 0 {
+		db, table = sc.Tables[0].DB, sc.Tables[0].Table
+	}
 	return func(req *tikvrpc.Request) {
 		if req == nil {
 			return
@@ -651,7 +655,7 @@ func (sc *StatementContext) GetResourceGroupTagger() tikvrpc.ResourceGroupTagger
 			return
 		}
 		req.ResourceGroupTag = resourcegrouptag.EncodeResourceGroupTag(digest, planDigest,
-			resourcegrouptag.GetResourceGroupLabelByKey(resourcegrouptag.GetFirstKeyFromRequest(req)))
+			resourcegrouptag.GetResourceGroupLabelByKey(resourcegrouptag.GetFirstKeyFromRequest(req)), table, db)
 	}
 }
 

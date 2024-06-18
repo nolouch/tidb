@@ -1852,6 +1852,7 @@ func (cc *clientConn) prefetchPointPlanKeys(ctx context.Context, stmts []ast.Stm
 	pointPlans := make([]base.Plan, len(stmts))
 	var idxKeys []kv.Key //nolint: prealloc
 	var rowKeys []kv.Key //nolint: prealloc
+	var table, db string
 	isCommonHandle := make(map[string]bool, 0)
 
 	handlePlan := func(sctx sessionctx.Context, p base.PhysicalPlan, resetStmtCtxFn func()) error {
@@ -1865,6 +1866,10 @@ func (cc *clientConn) prefetchPointPlanKeys(ctx context.Context, stmts []ast.Stm
 				idxKey, err1 := plannercore.EncodeUniqueIndexKey(cc.getCtx(), v.TblInfo, v.IndexInfo, v.IndexValues, tableID)
 				if err1 != nil {
 					return err1
+				}
+				if len(table) == 0 {
+					table = v.TblInfo.Name.O
+					db = v.GetDBName()
 				}
 				idxKeys = append(idxKeys, idxKey)
 				isCommonHandle[string(hack.String(idxKey))] = v.TblInfo.IsCommonHandle
@@ -1897,6 +1902,10 @@ func (cc *clientConn) prefetchPointPlanKeys(ctx context.Context, stmts []ast.Stm
 				for i, handle := range v.Handles {
 					rowKeys = append(rowKeys, tablecodec.EncodeRowKeyWithHandle(getPhysID(i), handle))
 				}
+			}
+			if len(table) == 0 {
+				table = v.TblInfo.Name.O
+				db = v.GetDBName()
 			}
 		}
 		return nil
@@ -1956,7 +1965,7 @@ func (cc *clientConn) prefetchPointPlanKeys(ctx context.Context, stmts []ast.Stm
 		return pointPlans, nil
 	}
 	snapshot := txn.GetSnapshot()
-	setResourceGroupTaggerForMultiStmtPrefetch(snapshot, sqls)
+	setResourceGroupTaggerForMultiStmtPrefetch(snapshot, sqls, table, db)
 	idxVals, err1 := snapshot.BatchGet(ctx, idxKeys)
 	if err1 != nil {
 		return nil, err1
@@ -1986,7 +1995,7 @@ func (cc *clientConn) prefetchPointPlanKeys(ctx context.Context, stmts []ast.Stm
 	return pointPlans, nil
 }
 
-func setResourceGroupTaggerForMultiStmtPrefetch(snapshot kv.Snapshot, sqls string) {
+func setResourceGroupTaggerForMultiStmtPrefetch(snapshot kv.Snapshot, sqls string, tableName, dbName string) {
 	if !topsqlstate.TopSQLEnabled() {
 		return
 	}
@@ -2000,7 +2009,7 @@ func setResourceGroupTaggerForMultiStmtPrefetch(snapshot kv.Snapshot, sqls strin
 			return
 		}
 		req.ResourceGroupTag = resourcegrouptag.EncodeResourceGroupTag(digest, nil,
-			resourcegrouptag.GetResourceGroupLabelByKey(resourcegrouptag.GetFirstKeyFromRequest(req)))
+			resourcegrouptag.GetResourceGroupLabelByKey(resourcegrouptag.GetFirstKeyFromRequest(req)), tableName, dbName)
 	}))
 }
 

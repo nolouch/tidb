@@ -1226,7 +1226,13 @@ func newLockCtx(sctx sessionctx.Context, lockWaitTime int64, numKeys int) (*tikv
 				return nil
 			}
 			_, planDigest := seVars.StmtCtx.GetPlanDigest()
-			return resourcegrouptag.EncodeResourceGroupTag(digest, planDigest, label)
+			db := ""
+			table := ""
+			if len(seVars.StmtCtx.Tables) > 0 {
+				db = seVars.StmtCtx.Tables[0].DB
+				table = seVars.StmtCtx.Tables[0].Table
+			}
+			return resourcegrouptag.EncodeResourceGroupTag(digest, planDigest, label, table, db)
 		}
 		return nil
 	}
