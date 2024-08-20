@@ -275,7 +275,13 @@ func (txn *tikvTxn) SetOption(opt int, val any) {
 	case kv.ResourceGroupTag:
 		txn.KVTxn.SetResourceGroupTag(val.([]byte))
 	case kv.ResourceGroupTagger:
-		txn.KVTxn.SetResourceGroupTagger(val.(tikvrpc.ResourceGroupTagger))
+		switch b := val.(type) {
+		case tikvrpc.ResourceGroupTagger:
+			txn.KVTxn.SetResourceGroupTagger(b)
+		case kv.ResourceGroupTagBuilder:
+			tagger := kv.ConvertToProtoTagger(b)
+			txn.KVTxn.SetResourceGroupTagger(tagger)
+		}
 	case kv.KVFilter:
 		txn.KVTxn.SetKVFilter(val.(tikv.KVFilter))
 	case kv.SnapInterceptor:

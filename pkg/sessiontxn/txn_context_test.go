@@ -197,7 +197,7 @@ func TestTxnContextInExplicitTxn(t *testing.T) {
 
 	doWithCheckPath(t, se, normalPathRecords, func() {
 		tk.MustGetErrCode("commit", errno.ErrInfoSchemaChanged)
-	})
+	})s
 
 	// the info schema in new txn should use the newest one
 	se.SetValue(sessiontxn.AssertTxnInfoSchemaKey, is2)

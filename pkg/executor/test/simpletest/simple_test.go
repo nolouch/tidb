@@ -128,6 +128,23 @@ func TestTransaction(t *testing.T) {
 	tk.MustQuery("select * from txn").Check(testkit.Rows("1", "2"))
 }
 
+func TestTransaction2(t *testing.T) {
+	store := testkit.CreateMockStore(t)
+	tk := testkit.NewTestKit(t, store)
+	// Test that begin implicitly commits previous transaction.
+	tk.MustExec("use test")
+	tk.MustExec("create table txn1 (a int)")
+	tk.MustExec("create table txn2 (a int)")
+	tk.MustExec("begin")
+	ctx := tk.Session()
+	require.True(t, inTxn(ctx))
+	tk.MustExec("insert txn1 values (1)")
+	tk.MustExec("insert txn2 values (1)")
+	// fmt.Println("=====", tk.Session().GetSessionVars().TxnCtx.TableDeltaMap)
+	tk.MustExec("commit")
+	//fmt.Println("=====", tk.Session().GetSessionVars().TxnCtx.TableDeltaMap)
+}
+
 func inTxn(ctx sessionctx.Context) bool {
 	return ctx.GetSessionVars().InTxn()
 }

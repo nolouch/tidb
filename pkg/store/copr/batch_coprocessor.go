@@ -40,10 +40,12 @@ import (
 	"github.com/pingcap/tidb/pkg/sessionctx/variable"
 	"github.com/pingcap/tidb/pkg/store/driver/backoff"
 	derr "github.com/pingcap/tidb/pkg/store/driver/error"
+	"github.com/pingcap/tidb/pkg/tablecodec"
 	"github.com/pingcap/tidb/pkg/util/intest"
 	"github.com/pingcap/tidb/pkg/util/logutil"
 	"github.com/pingcap/tidb/pkg/util/tiflash"
 	"github.com/pingcap/tidb/pkg/util/tiflashcompute"
+	"github.com/pingcap/tipb/go-tipb"
 	"github.com/tikv/client-go/v2/metrics"
 	"github.com/tikv/client-go/v2/tikv"
 	"github.com/tikv/client-go/v2/tikvrpc"
@@ -1345,7 +1347,14 @@ func (b *batchCopIterator) handleTaskOnce(ctx context.Context, bo *backoff.Backo
 		},
 	})
 	if b.req.ResourceGroupTagger != nil {
-		b.req.ResourceGroupTagger(req)
+		builderSchemaAndTable := func(req *tikvrpc.Request, tag *tipb.ResourceGroupTag) {
+			if len(task.regionInfos) > 0 {
+				tid := tablecodec.DecodeTableID(task.regionInfos[0].Meta.GetStartKey())
+				tag.TableName = []byte(strconv.Itoa(int(tid)))
+			}
+		}
+		tag := &tipb.ResourceGroupTag{}
+		kv.ChainResourceGroupTagBuilderWithSetupKVRequest(b.req.ResourceGroupTagger, builderSchemaAndTable)(req, tag)
 	}
 	req.StoreTp = getEndPointType(kv.TiFlash)
 

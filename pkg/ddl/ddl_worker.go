@@ -48,6 +48,7 @@ import (
 	"github.com/pingcap/tidb/pkg/util/resourcegrouptag"
 	"github.com/pingcap/tidb/pkg/util/topsql"
 	topsqlstate "github.com/pingcap/tidb/pkg/util/topsql/state"
+	"github.com/pingcap/tipb/go-tipb"
 	"github.com/tikv/client-go/v2/tikvrpc"
 	kvutil "github.com/tikv/client-go/v2/util"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -1065,15 +1066,16 @@ func (w *worker) HandleLocalDDLJob(d *ddlCtx, job *model.Job) (err error) {
 	return w.HandleJobDone(d, job, t)
 }
 
-func (w *JobContext) getResourceGroupTaggerForTopSQL() tikvrpc.ResourceGroupTagger {
+func (w *JobContext) getResourceGroupTaggerForTopSQL() kv.ResourceGroupTagBuilder {
 	if !topsqlstate.TopSQLEnabled() || w.cacheDigest == nil {
 		return nil
 	}
 
 	digest := w.cacheDigest
-	tagger := func(req *tikvrpc.Request) {
-		req.ResourceGroupTag = resourcegrouptag.EncodeResourceGroupTag(digest, nil,
-			resourcegrouptag.GetResourceGroupLabelByKey(resourcegrouptag.GetFirstKeyFromRequest(req)), "", "")
+	tagger := func(req *tikvrpc.Request, tag *tipb.ResourceGroupTag) {
+		tag.SqlDigest = digest.Bytes()
+		label := resourcegrouptag.GetResourceGroupLabelByKey(resourcegrouptag.GetFirstKeyFromRequest(req))
+		tag.Label = &label
 	}
 	return tagger
 }

@@ -46,6 +46,7 @@ import (
 	"github.com/pingcap/tidb/pkg/store/driver/backoff"
 	derr "github.com/pingcap/tidb/pkg/store/driver/error"
 	"github.com/pingcap/tidb/pkg/store/driver/options"
+	"github.com/pingcap/tidb/pkg/tablecodec"
 	util2 "github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/execdetails"
 	"github.com/pingcap/tidb/pkg/util/logutil"
@@ -1241,7 +1242,18 @@ func (worker *copIteratorWorker) handleTaskOnce(bo *Backoffer, task *copTask, ch
 		req.IsRetryRequest = true
 	}
 	if worker.req.ResourceGroupTagger != nil {
-		worker.req.ResourceGroupTagger(req)
+		builderSchemaAndTable := func(req *tikvrpc.Request, tag *tipb.ResourceGroupTag) {
+			if task.ranges != nil {
+				if task.ranges.Len() > 0 {
+					tid := tablecodec.DecodeTableID(task.ranges.RefAt(0).StartKey)
+					tag.TableName = []byte(strconv.Itoa(int(tid)))
+				}
+			} else {
+				logutil.BgLogger().Warn("task", zap.Any("task", task))
+			}
+		}
+		tag := &tipb.ResourceGroupTag{}
+		kv.ChainResourceGroupTagBuilderWithSetupKVRequest(worker.req.ResourceGroupTagger, builderSchemaAndTable)(req, tag)
 	}
 	timeout := config.GetGlobalConfig().TiKVClient.CoprReqTimeout
 	if task.tikvClientReadTimeout > 0 {

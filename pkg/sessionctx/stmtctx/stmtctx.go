@@ -28,6 +28,7 @@ import (
 	distsqlctx "github.com/pingcap/tidb/pkg/distsql/context"
 	"github.com/pingcap/tidb/pkg/domain/resourcegroup"
 	"github.com/pingcap/tidb/pkg/errctx"
+	"github.com/pingcap/tidb/pkg/kv"
 	"github.com/pingcap/tidb/pkg/parser"
 	"github.com/pingcap/tidb/pkg/parser/model"
 	"github.com/pingcap/tidb/pkg/parser/mysql"
@@ -47,6 +48,7 @@ import (
 	"github.com/pingcap/tidb/pkg/util/resourcegrouptag"
 	"github.com/pingcap/tidb/pkg/util/topsql/stmtstats"
 	"github.com/pingcap/tidb/pkg/util/tracing"
+	"github.com/pingcap/tipb/go-tipb"
 	"github.com/tikv/client-go/v2/tikvrpc"
 	atomic2 "go.uber.org/atomic"
 	"golang.org/x/exp/maps"
@@ -234,6 +236,7 @@ type StatementContext struct {
 	// per statement resource group name
 	// hint /* +ResourceGroup(name) */ can change the statement group name
 	ResourceGroupName   string
+	CurrentDBName       string
 	RunawayChecker      *resourcegroup.RunawayChecker
 	IsTiFlash           atomic2.Bool
 	RuntimeStatsColl    *execdetails.RuntimeStatsColl
@@ -640,22 +643,33 @@ func (sc *StatementContext) SetBinaryPlan(binaryPlan string) {
 }
 
 // GetResourceGroupTagger returns the implementation of tikvrpc.ResourceGroupTagger related to self.
-func (sc *StatementContext) GetResourceGroupTagger() tikvrpc.ResourceGroupTagger {
+func (sc *StatementContext) GetResourceGroupTagger() kv.ResourceGroupTagBuilder {
 	normalized, digest := sc.SQLDigest()
 	planDigest := sc.planDigest
 	var db, table string
 	if len(sc.Tables) > 0 {
 		db, table = sc.Tables[0].DB, sc.Tables[0].Table
 	}
-	return func(req *tikvrpc.Request) {
+	if len(db) == 0 {
+		db = sc.CurrentDBName
+	}
+	return func(req *tikvrpc.Request, tag *tipb.ResourceGroupTag) {
 		if req == nil {
 			return
 		}
 		if len(normalized) == 0 {
 			return
 		}
-		req.ResourceGroupTag = resourcegrouptag.EncodeResourceGroupTag(digest, planDigest,
-			resourcegrouptag.GetResourceGroupLabelByKey(resourcegrouptag.GetFirstKeyFromRequest(req)), table, db)
+		label := resourcegrouptag.GetResourceGroupLabelByKey(resourcegrouptag.GetFirstKeyFromRequest(req))
+		tag.Label = &label
+		if digest != nil {
+			tag.SqlDigest = digest.Bytes()
+		}
+		if planDigest != nil {
+			tag.PlanDigest = planDigest.Bytes()
+		}
+		tag.TableName = []byte(table)
+		tag.Schema = []byte(db)
 	}
 }
 

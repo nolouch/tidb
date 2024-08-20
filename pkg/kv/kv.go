@@ -31,6 +31,7 @@ import (
 	"github.com/pingcap/tidb/pkg/util/memory"
 	"github.com/pingcap/tidb/pkg/util/tiflash"
 	"github.com/pingcap/tidb/pkg/util/trxevents"
+	"github.com/pingcap/tipb/go-tipb"
 	tikvstore "github.com/tikv/client-go/v2/kv"
 	"github.com/tikv/client-go/v2/oracle"
 	"github.com/tikv/client-go/v2/tikv"
@@ -574,7 +575,7 @@ type Request struct {
 	// MatchStoreLabels indicates the labels the store should be matched
 	MatchStoreLabels []*metapb.StoreLabel
 	// ResourceGroupTagger indicates the kv request task group tagger.
-	ResourceGroupTagger tikvrpc.ResourceGroupTagger
+	ResourceGroupTagger ResourceGroupTagBuilder
 	// Paging indicates whether the request is a paging request.
 	Paging struct {
 		Enable bool
@@ -602,6 +603,43 @@ type Request struct {
 	ConnID uint64
 	// ConnAlias stores the session connection alias.
 	ConnAlias string
+}
+
+// ResourceGroupTaggerBuilder is used to build a ResourceGroupTagger.
+type ResourceGroupTagBuilder func(req *tikvrpc.Request, tag *tipb.ResourceGroupTag)
+
+// ChainResourceGroupTagBuilder chains multiple ResourceGroupTagBuilder together.
+func ChainResourceGroupTagBuilder(builders ...ResourceGroupTagBuilder) ResourceGroupTagBuilder {
+	return func(req *tikvrpc.Request, tag *tipb.ResourceGroupTag) {
+		for _, builder := range builders {
+			builder(req, tag)
+		}
+	}
+}
+
+// ConvertToProtoTagger converts a ResourceGroupTagBuilder to a tikvrpc.ResourceGroupTagger.
+func ConvertToProtoTagger(builder ResourceGroupTagBuilder) tikvrpc.ResourceGroupTagger {
+	tag := &tipb.ResourceGroupTag{}
+	return func(req *tikvrpc.Request) {
+		builder(req, tag)
+		b, err := tag.Marshal()
+		if err != nil {
+			return
+		}
+		req.ResourceGroupTag = b
+	}
+}
+
+// ChainResourceGroupTagBuilderWithSetupKVRequest chains multiple ResourceGroupTagBuilder together and set the tag to the request.
+func ChainResourceGroupTagBuilderWithSetupKVRequest(builders ...ResourceGroupTagBuilder) ResourceGroupTagBuilder {
+	builders = append(builders, func(req *tikvrpc.Request, tag *tipb.ResourceGroupTag) {
+		b, err := tag.Marshal()
+		if err != nil {
+			return
+		}
+		req.ResourceGroupTag = b
+	})
+	return ChainResourceGroupTagBuilder(builders...)
 }
 
 // CoprRequestAdjuster is used to check and adjust a copr request according to specific rules.

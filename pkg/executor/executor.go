@@ -1232,6 +1232,9 @@ func newLockCtx(sctx sessionctx.Context, lockWaitTime int64, numKeys int) (*tikv
 				db = seVars.StmtCtx.Tables[0].DB
 				table = seVars.StmtCtx.Tables[0].Table
 			}
+			if len(db) == 0 {
+				db = seVars.CurrentDB
+			}
 			return resourcegrouptag.EncodeResourceGroupTag(digest, planDigest, label, table, db)
 		}
 		return nil
@@ -1799,6 +1802,7 @@ func ResetContextOfStmt(ctx sessionctx.Context, s ast.StmtNode) (err error) {
 	sc.IsSyncStatsFailed = false
 	sc.IsExplainAnalyzeDML = false
 	sc.ResourceGroupName = vars.ResourceGroupName
+	sc.CurrentDBName = vars.CurrentDB
 	// Firstly we assume that UseDynamicPruneMode can be enabled according session variable, then we will check other conditions
 	// in PlanBuilder.buildDataSource
 	if ctx.GetSessionVars().IsDynamicPartitionPruneEnabled() {
