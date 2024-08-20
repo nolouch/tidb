@@ -646,9 +646,9 @@ func (sc *StatementContext) SetBinaryPlan(binaryPlan string) {
 func (sc *StatementContext) GetResourceGroupTagger() kv.ResourceGroupTagBuilder {
 	normalized, digest := sc.SQLDigest()
 	planDigest := sc.planDigest
-	var db, table string
+	var db string
 	if len(sc.Tables) > 0 {
-		db, table = sc.Tables[0].DB, sc.Tables[0].Table
+		db = sc.Tables[0].DB
 	}
 	if len(db) == 0 {
 		db = sc.CurrentDBName
@@ -668,7 +668,6 @@ func (sc *StatementContext) GetResourceGroupTagger() kv.ResourceGroupTagBuilder 
 		if planDigest != nil {
 			tag.PlanDigest = planDigest.Bytes()
 		}
-		tag.TableName = []byte(table)
 		tag.Schema = []byte(db)
 	}
 }
