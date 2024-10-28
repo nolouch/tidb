@@ -226,7 +226,7 @@ func (c *CopClient) BuildCopIterator(ctx context.Context, req *kv.Request, vars 
 	// if the request is triggered cool down by the runaway checker, we need to adjust the concurrency, let the sql run slowly.
 	if req.RunawayChecker != nil && req.RunawayChecker.CheckAction() == rmpb.RunawayAction_CoolDown {
 		it.concurrency = 1
-		it.smallTaskConcurrency = 0
+		it.smallTaskConcurrency = 1
 	}
 
 	if it.req.KeepOrder {
