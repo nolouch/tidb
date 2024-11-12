@@ -191,21 +191,29 @@ type stmtSummaryByDigestElement struct {
 	backoffTypes         map[string]int
 	authUsers            map[string]struct{}
 	// other
-	sumMem               int64
-	maxMem               int64
-	sumDisk              int64
-	maxDisk              int64
-	sumAffectedRows      uint64
-	sumKVTotal           time.Duration
-	sumPDTotal           time.Duration
-	sumBackoffTotal      time.Duration
-	sumWriteSQLRespTotal time.Duration
-	sumTidbCPU           time.Duration
-	sumTikvCPU           time.Duration
-	sumResultRows        int64
-	maxResultRows        int64
-	minResultRows        int64
-	prepared             bool
+	sumMem                       int64
+	maxMem                       int64
+	sumDisk                      int64
+	maxDisk                      int64
+	sumAffectedRows              uint64
+	sumKVTotal                   time.Duration
+	sumBytesSendKVTotal          int64
+	sumBytesReceivedKVTotal      int64
+	sumBytesSendKVCrossZone      int64
+	sumBytesReceivedKVCrossZone  int64
+	sumBytesSendMPPTotal         int64
+	sumBytesReceivedMPPTotal     int64
+	sumBytesSendMPPCrossZone     int64
+	sumBytesReceivedMPPCrossZone int64
+	sumPDTotal                   time.Duration
+	sumBackoffTotal              time.Duration
+	sumWriteSQLRespTotal         time.Duration
+	sumTidbCPU                   time.Duration
+	sumTikvCPU                   time.Duration
+	sumResultRows                int64
+	maxResultRows                int64
+	minResultRows                int64
+	prepared                     bool
 	// The first time this type of SQL executes.
 	firstSeen time.Time
 	// The last time this type of SQL executes.
@@ -223,6 +231,7 @@ type stmtSummaryByDigestElement struct {
 
 	planCacheUnqualifiedCount int64
 	lastPlanCacheUnqualified  string // the reason why this query is unqualified for the plan cache
+
 }
 
 // StmtExecInfo records execution information of each statement.
@@ -918,6 +927,16 @@ func (ssElement *stmtSummaryByDigestElement) add(sei *StmtExecInfo, intervalSeco
 	ssElement.sumWriteSQLRespTotal += sei.StmtExecDetails.WriteSQLRespDuration
 	ssElement.sumTidbCPU += sei.CPUUsages.TidbCPUTime
 	ssElement.sumTikvCPU += sei.CPUUsages.TikvCPUTime
+
+	// networks
+	ssElement.sumBytesSendKVTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendKVTotal)
+	ssElement.sumBytesReceivedKVTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedKVTotal)
+	ssElement.sumBytesSendKVCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendKVCrossZone)
+	ssElement.sumBytesReceivedKVCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedKVCrossZone)
+	ssElement.sumBytesSendMPPTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendMPPTotal)
+	ssElement.sumBytesReceivedMPPTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedMPPTotal)
+	ssElement.sumBytesSendMPPCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendMPPCrossZone)
+	ssElement.sumBytesReceivedMPPCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedMPPCrossZone)
 
 	// request-units
 	ssElement.StmtRUSummary.Add(sei.RUDetail)

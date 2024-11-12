@@ -324,6 +324,10 @@ const (
 	AvgQueuedRcTimeStr                = "AVG_QUEUED_RC_TIME"
 	MaxQueuedRcTimeStr                = "MAX_QUEUED_RC_TIME"
 	ResourceGroupName                 = "RESOURCE_GROUP"
+	AVGBytesSendKVStr                 = "AVG_BYTES_SEND_KV"
+	AVGBytesReceiveKVStr              = "AVG_BYTES_RECEIVE_KV"
+	AVGKeysSendKVCrossZoneStr         = "AVG_KEYS_SEND_KV_CROSS_ZONE"
+	AVGKeysReceiveKVCrossZoneStr      = "AVG_KEYS_RECEIVE_KV_CROSS_ZONE"
 )
 
 type columnValueFactory func(reader *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, ssbd *stmtSummaryByDigest) any
@@ -675,5 +679,17 @@ var columnValueFactoryMap = map[string]columnValueFactory{
 	},
 	PlanCacheUnqualifiedLastReasonStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
 		return ssElement.lastPlanCacheUnqualified
+	},
+	AVGBytesSendKVStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
+		return avgInt(ssElement.sumBytesSendKVTotal, ssElement.commitCount)
+	},
+	AVGBytesReceiveKVStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
+		return avgInt(ssElement.sumBytesReceivedKVTotal, ssElement.commitCount)
+	},
+	AVGKeysSendKVCrossZoneStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
+		return avgInt(ssElement.sumBytesSendKVCrossZone, ssElement.commitCount)
+	},
+	AVGKeysReceiveKVCrossZoneStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
+		return avgInt(ssElement.sumBytesReceivedKVCrossZone, ssElement.commitCount)
 	},
 }
