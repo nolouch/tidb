@@ -139,6 +139,14 @@ const (
 	AvgQueuedRcTimeStr                = "AVG_QUEUED_RC_TIME"
 	MaxQueuedRcTimeStr                = "MAX_QUEUED_RC_TIME"
 	ResourceGroupName                 = "RESOURCE_GROUP"
+	BytesSendKVStr                    = "BYTES_SEND_KV"
+	BytesReceiveKVStr                 = "BYTES_RECEIVE_KV"
+	BytesSendKVCrossZoneStr           = "BYTES_SEND_KV_CROSS_ZONE"
+	BytesReceiveKVCrossZoneStr        = "BYTES_RECEIVE_KV_CROSS_ZONE"
+	BytesSendMPPStr                   = "BYTES_SEND_MPP"
+	BytesReceiveMPPStr                = "BYTES_RECEIVE_MPP"
+	BytesSendMPPCrossZoneStr          = "BYTES_SEND_MPP_CROSS_ZONE"
+	BytesReceiveMPPCrossZoneStr       = "BYTES_RECEIVE_MPP_CROSS_ZONE"
 )
 
 type columnInfo interface {
@@ -497,6 +505,30 @@ var columnFactoryMap = map[string]columnFactory{
 	},
 	PlanCacheUnqualifiedLastReasonStr: func(_ columnInfo, record *StmtRecord) any {
 		return record.PlanCacheUnqualifiedLastReason
+	},
+	BytesSendKVStr: func(_ columnInfo, record *StmtRecord) any {
+		return record.BytesSendKVTotal
+	},
+	BytesReceiveKVStr: func(_ columnInfo, record *StmtRecord) any {
+		return record.BytesReceivedKVTotal
+	},
+	BytesSendKVCrossZoneStr: func(_ columnInfo, record *StmtRecord) any {
+		return record.BytesSendKVCrossZone
+	},
+	BytesReceiveKVCrossZoneStr: func(_ columnInfo, record *StmtRecord) any {
+		return record.BytesReceivedKVCrossZone
+	},
+	BytesSendMPPStr: func(_ columnInfo, record *StmtRecord) any {
+		return record.BytesSendMPPTotal
+	},
+	BytesReceiveMPPStr: func(_ columnInfo, record *StmtRecord) any {
+		return record.BytesReceivedMPPTotal
+	},
+	BytesSendMPPCrossZoneStr: func(_ columnInfo, record *StmtRecord) any {
+		return record.BytesSendMPPCrossZone
+	},
+	BytesReceiveMPPCrossZoneStr: func(_ columnInfo, record *StmtRecord) any {
+		return record.BytesReceiveMPPCrossZone
 	},
 }
 

@@ -1061,3 +1061,42 @@ func (s *StmtRUSummary) Merge(other *StmtRUSummary) {
 		s.MaxRUWaitDuration = other.MaxRUWaitDuration
 	}
 }
+
+type StmtNetworkTrafficSummary struct {
+	BytesSendKVTotal         int64 `json:"bytes_send_kv_total"`
+	BytesReceivedKVTotal     int64 `json:"bytes_received_kv_total"`
+	BytesSendKVCrossZone     int64 `json:"bytes_send_kv_cross_zone"`
+	BytesReceivedKVCrossZone int64 `json:"bytes_received_kv_cross_zone"`
+	BytesSendMPPTotal        int64 `json:"bytes_send_mpp_total"`
+	BytesReceivedMPPTotal    int64 `json:"bytes_received_mpp_total"`
+	BytesSendMPPCrossZone    int64 `json:"bytes_send_mpp_cross_zone"`
+	BytesReceiveMPPCrossZone int64 `json:"bytes_received_mpp_cross_zone"`
+}
+
+func (s *StmtNetworkTrafficSummary) Merge(other *StmtNetworkTrafficSummary) {
+	if other == nil {
+		return
+	}
+	s.BytesSendKVTotal += other.BytesSendKVTotal
+	s.BytesReceivedKVTotal += other.BytesReceivedKVTotal
+	s.BytesSendKVCrossZone += other.BytesSendKVCrossZone
+	s.BytesReceivedKVCrossZone += other.BytesReceivedKVCrossZone
+	s.BytesSendMPPTotal += other.BytesSendMPPTotal
+	s.BytesReceivedMPPTotal += other.BytesReceivedMPPTotal
+	s.BytesSendMPPCrossZone += other.BytesSendMPPCrossZone
+	s.BytesReceiveMPPCrossZone += other.BytesReceiveMPPCrossZone
+}
+
+// Add add a new sample value to the ru summary record.
+func (s *StmtNetworkTrafficSummary) Add(info *util.ExecDetails) {
+	if info != nil {
+		s.BytesSendKVTotal += info.BytesSendKVTotal
+		s.BytesReceivedKVTotal += info.BytesReceivedKVTotal
+		s.BytesSendKVCrossZone += info.BytesSendKVCrossZone
+		s.BytesReceivedKVCrossZone += info.BytesReceivedKVCrossZone
+		s.BytesSendMPPTotal += info.BytesSendMPPTotal
+		s.BytesReceivedMPPTotal += info.BytesReceivedMPPTotal
+		s.BytesSendMPPCrossZone += info.BytesSendMPPCrossZone
+		s.BytesReceiveMPPCrossZone += info.BytesReceivedMPPCrossZone
+	}
+}
