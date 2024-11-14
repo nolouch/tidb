@@ -528,7 +528,7 @@ var columnFactoryMap = map[string]columnFactory{
 		return record.BytesSendMPPCrossZone
 	},
 	BytesReceiveMPPCrossZoneStr: func(_ columnInfo, record *StmtRecord) any {
-		return record.BytesReceiveMPPCrossZone
+		return record.BytesReceivedMPPCrossZone
 	},
 }
 

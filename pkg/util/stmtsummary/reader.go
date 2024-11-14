@@ -685,27 +685,27 @@ var columnValueFactoryMap = map[string]columnValueFactory{
 		return ssElement.lastPlanCacheUnqualified
 	},
 	BytesSendKVStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
-		return avgInt(ssElement.sumBytesSendKVTotal, ssElement.commitCount)
+		return ssElement.StmtNetworkTrafficSummary.BytesSendKVTotal
 	},
 	BytesReceiveKVStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
-		return avgInt(ssElement.sumBytesReceivedKVTotal, ssElement.commitCount)
+		return ssElement.StmtNetworkTrafficSummary.BytesReceivedKVTotal
 	},
 	BytesSendKVCrossZoneStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
-		return avgInt(ssElement.sumBytesSendKVCrossZone, ssElement.commitCount)
+		return ssElement.StmtNetworkTrafficSummary.BytesSendKVCrossZone
 	},
 	BytesReceiveKVCrossZoneStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
-		return avgInt(ssElement.sumBytesReceivedKVCrossZone, ssElement.commitCount)
+		return ssElement.StmtNetworkTrafficSummary.BytesReceivedKVCrossZone
 	},
 	BytesSendMPPStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
-		return avgInt(ssElement.sumBytesSendMPPTotal, ssElement.commitCount)
+		return ssElement.StmtNetworkTrafficSummary.BytesSendMPPTotal
 	},
 	BytesReceiveMPPStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
-		return avgInt(ssElement.sumBytesReceivedMPPTotal, ssElement.commitCount)
+		return ssElement.StmtNetworkTrafficSummary.BytesReceivedMPPTotal
 	},
 	BytesSendMPPCrossZoneStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
-		return avgInt(ssElement.sumBytesSendMPPCrossZone, ssElement.commitCount)
+		return ssElement.StmtNetworkTrafficSummary.BytesSendMPPCrossZone
 	},
 	BytesReceiveMPPCrossZoneStr: func(_ *stmtSummaryReader, ssElement *stmtSummaryByDigestElement, _ *stmtSummaryByDigest) any {
-		return avgInt(ssElement.sumBytesReceivedMPPCrossZone, ssElement.commitCount)
+		return ssElement.StmtNetworkTrafficSummary.BytesReceivedMPPCrossZone
 	},
 }

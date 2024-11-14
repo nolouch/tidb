@@ -34,10 +34,12 @@ import (
 	"github.com/pingcap/tidb/pkg/util/execdetails"
 	"github.com/pingcap/tidb/pkg/util/hack"
 	"github.com/pingcap/tidb/pkg/util/kvcache"
+	"github.com/pingcap/tidb/pkg/util/logutil"
 	"github.com/pingcap/tidb/pkg/util/plancodec"
 	"github.com/pingcap/tidb/pkg/util/ppcpuusage"
 	"github.com/tikv/client-go/v2/util"
 	atomic2 "go.uber.org/atomic"
+	"go.uber.org/zap"
 )
 
 // stmtSummaryByDigestKey defines key for stmtSummaryByDigestMap.summaryMap.
@@ -191,29 +193,21 @@ type stmtSummaryByDigestElement struct {
 	backoffTypes         map[string]int
 	authUsers            map[string]struct{}
 	// other
-	sumMem                       int64
-	maxMem                       int64
-	sumDisk                      int64
-	maxDisk                      int64
-	sumAffectedRows              uint64
-	sumKVTotal                   time.Duration
-	sumBytesSendKVTotal          int64
-	sumBytesReceivedKVTotal      int64
-	sumBytesSendKVCrossZone      int64
-	sumBytesReceivedKVCrossZone  int64
-	sumBytesSendMPPTotal         int64
-	sumBytesReceivedMPPTotal     int64
-	sumBytesSendMPPCrossZone     int64
-	sumBytesReceivedMPPCrossZone int64
-	sumPDTotal                   time.Duration
-	sumBackoffTotal              time.Duration
-	sumWriteSQLRespTotal         time.Duration
-	sumTidbCPU                   time.Duration
-	sumTikvCPU                   time.Duration
-	sumResultRows                int64
-	maxResultRows                int64
-	minResultRows                int64
-	prepared                     bool
+	sumMem               int64
+	maxMem               int64
+	sumDisk              int64
+	maxDisk              int64
+	sumAffectedRows      uint64
+	sumKVTotal           time.Duration
+	sumPDTotal           time.Duration
+	sumBackoffTotal      time.Duration
+	sumWriteSQLRespTotal time.Duration
+	sumTidbCPU           time.Duration
+	sumTikvCPU           time.Duration
+	sumResultRows        int64
+	maxResultRows        int64
+	minResultRows        int64
+	prepared             bool
 	// The first time this type of SQL executes.
 	firstSeen time.Time
 	// The last time this type of SQL executes.
@@ -228,6 +222,7 @@ type stmtSummaryByDigestElement struct {
 	// request-units
 	resourceGroupName string
 	StmtRUSummary
+	StmtNetworkTrafficSummary
 
 	planCacheUnqualifiedCount int64
 	lastPlanCacheUnqualified  string // the reason why this query is unqualified for the plan cache
@@ -366,6 +361,13 @@ func (ssMap *stmtSummaryByDigestMap) AddStatement(sei *StmtExecInfo) {
 		summary.isInternal = summary.isInternal && sei.IsInternal
 		return summary, beginTime
 	}()
+	if sei.User != "root" {
+		logutil.BgLogger().Info("add statement summary",
+			zap.String("schemaName", sei.SchemaName),
+			zap.Any("summary", summary),
+			zap.Bool("bool", summary != nil),
+		)
+	}
 	// Lock a single entry, not the whole cache.
 	if summary != nil {
 		summary.add(sei, beginTime, intervalSeconds, historySize)
@@ -632,6 +634,13 @@ func (ssbd *stmtSummaryByDigest) add(sei *StmtExecInfo, beginTime int64, interva
 	// Lock a single entry, not the whole `ssbd`.
 	if !isElementNew {
 		ssElement.add(sei, intervalSeconds)
+	}
+	if sei.User != "root" {
+		logutil.BgLogger().Info("add statement summary",
+			zap.String("schemaName", sei.SchemaName),
+			zap.Any("ssElement", ssElement),
+			zap.Bool("isNew", isElementNew),
+		)
 	}
 }
 
@@ -929,14 +938,16 @@ func (ssElement *stmtSummaryByDigestElement) add(sei *StmtExecInfo, intervalSeco
 	ssElement.sumTikvCPU += sei.CPUUsages.TikvCPUTime
 
 	// networks
-	ssElement.sumBytesSendKVTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendKVTotal)
-	ssElement.sumBytesReceivedKVTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedKVTotal)
-	ssElement.sumBytesSendKVCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendKVCrossZone)
-	ssElement.sumBytesReceivedKVCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedKVCrossZone)
-	ssElement.sumBytesSendMPPTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendMPPTotal)
-	ssElement.sumBytesReceivedMPPTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedMPPTotal)
-	ssElement.sumBytesSendMPPCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendMPPCrossZone)
-	ssElement.sumBytesReceivedMPPCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedMPPCrossZone)
+	// ssElement.sumBytesSendKVTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendKVTotal)
+	// ssElement.sumBytesReceivedKVTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedKVTotal)
+	// ssElement.sumBytesSendKVCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendKVCrossZone)
+	// ssElement.sumBytesReceivedKVCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedKVCrossZone)
+	// ssElement.sumBytesSendMPPTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendMPPTotal)
+	// ssElement.sumBytesReceivedMPPTotal += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedMPPTotal)
+	// ssElement.sumBytesSendMPPCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesSendMPPCrossZone)
+	// ssElement.sumBytesReceivedMPPCrossZone += atomic.LoadInt64(&sei.TiKVExecDetails.BytesReceivedMPPCrossZone)
+
+	ssElement.StmtNetworkTrafficSummary.Add(&sei.TiKVExecDetails)
 
 	// request-units
 	ssElement.StmtRUSummary.Add(sei.RUDetail)
@@ -1063,14 +1074,14 @@ func (s *StmtRUSummary) Merge(other *StmtRUSummary) {
 }
 
 type StmtNetworkTrafficSummary struct {
-	BytesSendKVTotal         int64 `json:"bytes_send_kv_total"`
-	BytesReceivedKVTotal     int64 `json:"bytes_received_kv_total"`
-	BytesSendKVCrossZone     int64 `json:"bytes_send_kv_cross_zone"`
-	BytesReceivedKVCrossZone int64 `json:"bytes_received_kv_cross_zone"`
-	BytesSendMPPTotal        int64 `json:"bytes_send_mpp_total"`
-	BytesReceivedMPPTotal    int64 `json:"bytes_received_mpp_total"`
-	BytesSendMPPCrossZone    int64 `json:"bytes_send_mpp_cross_zone"`
-	BytesReceiveMPPCrossZone int64 `json:"bytes_received_mpp_cross_zone"`
+	BytesSendKVTotal          int64 `json:"bytes_send_kv_total"`
+	BytesReceivedKVTotal      int64 `json:"bytes_received_kv_total"`
+	BytesSendKVCrossZone      int64 `json:"bytes_send_kv_cross_zone"`
+	BytesReceivedKVCrossZone  int64 `json:"bytes_received_kv_cross_zone"`
+	BytesSendMPPTotal         int64 `json:"bytes_send_mpp_total"`
+	BytesReceivedMPPTotal     int64 `json:"bytes_received_mpp_total"`
+	BytesSendMPPCrossZone     int64 `json:"bytes_send_mpp_cross_zone"`
+	BytesReceivedMPPCrossZone int64 `json:"bytes_received_mpp_cross_zone"`
 }
 
 func (s *StmtNetworkTrafficSummary) Merge(other *StmtNetworkTrafficSummary) {
@@ -1084,7 +1095,7 @@ func (s *StmtNetworkTrafficSummary) Merge(other *StmtNetworkTrafficSummary) {
 	s.BytesSendMPPTotal += other.BytesSendMPPTotal
 	s.BytesReceivedMPPTotal += other.BytesReceivedMPPTotal
 	s.BytesSendMPPCrossZone += other.BytesSendMPPCrossZone
-	s.BytesReceiveMPPCrossZone += other.BytesReceiveMPPCrossZone
+	s.BytesReceivedMPPCrossZone += other.BytesReceivedMPPCrossZone
 }
 
 // Add add a new sample value to the ru summary record.
@@ -1097,6 +1108,6 @@ func (s *StmtNetworkTrafficSummary) Add(info *util.ExecDetails) {
 		s.BytesSendMPPTotal += info.BytesSendMPPTotal
 		s.BytesReceivedMPPTotal += info.BytesReceivedMPPTotal
 		s.BytesSendMPPCrossZone += info.BytesSendMPPCrossZone
-		s.BytesReceiveMPPCrossZone += info.BytesReceivedMPPCrossZone
+		s.BytesReceivedMPPCrossZone += info.BytesReceivedMPPCrossZone
 	}
 }

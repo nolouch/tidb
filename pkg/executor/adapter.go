@@ -1982,6 +1982,14 @@ func (a *ExecStmt) SummaryStmt(succ bool) {
 	if tikvExecDetailRaw != nil {
 		tikvExecDetail = *(tikvExecDetailRaw.(*util.ExecDetails))
 	}
+	if userString != "root" {
+		logutil.BgLogger().Info("SummaryStmt",
+			zap.String("user", userString),
+			zap.String("sql", normalizedSQL),
+			zap.String("digest", digest.String()),
+			zap.Any("tikvDetail", tikvExecDetail),
+		)
+	}
 	var ruDetail *util.RUDetails
 	if ruDetailRaw := a.GoCtx.Value(util.RUDetailsCtxKey); ruDetailRaw != nil {
 		ruDetail = ruDetailRaw.(*util.RUDetails)
