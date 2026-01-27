@@ -468,6 +468,14 @@ func (e *stmtEvicted) add(key *stmtsummary.StmtDigestKey, record *StmtRecord) {
 	}
 	e.Lock()
 	defer e.Unlock()
+	if record.ExecCount == 0 {
+		logutil.BgLogger().Info("stmtsummary: evicting record with 0 exec count",
+			zap.String("schema", record.SchemaName),
+			zap.String("table_names", record.TableNames),
+			zap.String("digest", record.Digest),
+			zap.String("stmt_type", record.StmtType),
+			zap.String("normalized_sql", record.NormalizedSQL))
+	}
 	e.keys[string(key.Hash())] = struct{}{}
 	e.other.Merge(record)
 }

@@ -3,6 +3,7 @@ bazel-out/
 bazel-tidb/
 bazel-testlogs/
 bin/
+!bin/tidb-server-linux
 tidb-server/tidb-server
 *.test.bin
 Dockerfile

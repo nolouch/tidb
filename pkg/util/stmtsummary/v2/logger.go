@@ -49,6 +49,12 @@ func newStmtLogStorage(cfg *log.Config) *stmtLogStorage {
 
 func (s *stmtLogStorage) persist(w *stmtWindow, end time.Time) {
 	begin := w.begin.Unix()
+	logutil.BgLogger().Info("stmtsummary: persisting window",
+		zap.Time("begin", w.begin),
+		zap.Time("end", end),
+		zap.Int("lru_cache_size", w.lru.Size()),
+		zap.Int("evicted_count", w.evicted.count()))
+
 	for _, v := range w.lru.Values() {
 		r := v.(*lockedStmtRecord)
 		r.Lock()
@@ -58,9 +64,18 @@ func (s *stmtLogStorage) persist(w *stmtWindow, end time.Time) {
 		r.Unlock()
 	}
 	w.evicted.Lock()
+	logutil.BgLogger().Info("stmtsummary: persisting evicted record",
+		zap.Int("evicted_keys", len(w.evicted.keys)),
+		zap.Int64("exec_count", w.evicted.other.ExecCount))
 	if w.evicted.other.ExecCount > 0 {
 		w.evicted.other.Begin = begin
 		w.evicted.other.End = end.Unix()
+		if otherJSON, err := json.Marshal(w.evicted.other); err == nil {
+			logutil.BgLogger().Info("stmtsummary: persisting others record",
+				zap.Int("evicted_keys", len(w.evicted.keys)),
+				zap.Int64("exec_count", w.evicted.other.ExecCount),
+				zap.String("record", string(otherJSON)))
+		}
 		s.log(w.evicted.other)
 	}
 	w.evicted.Unlock()
