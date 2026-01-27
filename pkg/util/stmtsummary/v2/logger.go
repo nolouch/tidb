@@ -78,6 +78,19 @@ func (s *stmtLogStorage) persist(w *stmtWindow, end time.Time) {
 		} else {
 			logutil.BgLogger().Error("stmtsummary: checking evicted record marshal error",
 				zap.Error(err))
+			// Fallback: reset FirstSeen and LastSeen to avoid year out of range error
+			// If the FirstSeen or LastSeen is too large, it will cause marshal error.
+			w.evicted.other.FirstSeen = time.Time{}
+			w.evicted.other.LastSeen = time.Time{}
+			if otherJSON, err := json.Marshal(w.evicted.other); err == nil {
+				logutil.BgLogger().Info("stmtsummary: persisting others record (fallback)",
+					zap.Int("evicted_keys", len(w.evicted.keys)),
+					zap.Int64("exec_count", w.evicted.other.ExecCount),
+					zap.String("record", string(otherJSON)))
+			} else {
+				logutil.BgLogger().Error("stmtsummary: checking evicted record marshal error (fallback)",
+					zap.Error(err))
+			}
 		}
 		s.log(w.evicted.other)
 	}
