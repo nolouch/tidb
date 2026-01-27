@@ -457,7 +457,7 @@ func newStmtEvicted() *stmtEvicted {
 			AuthUsers:    make(map[string]struct{}),
 			MinLatency:   time.Duration(math.MaxInt64),
 			BackoffTypes: make(map[string]int),
-			FirstSeen:    time.Unix(math.MaxInt64, 0),
+			FirstSeen:    time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
 		},
 	}
 }
