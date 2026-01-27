@@ -75,6 +75,9 @@ func (s *stmtLogStorage) persist(w *stmtWindow, end time.Time) {
 				zap.Int("evicted_keys", len(w.evicted.keys)),
 				zap.Int64("exec_count", w.evicted.other.ExecCount),
 				zap.String("record", string(otherJSON)))
+		} else {
+			logutil.BgLogger().Error("stmtsummary: checking evicted record marshal error",
+				zap.Error(err))
 		}
 		s.log(w.evicted.other)
 	}
