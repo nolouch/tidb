@@ -47,11 +47,11 @@ type Pusher struct {
 	conn   *grpc.ClientConn
 	client stmtsummaryv3proto.SystemTablePushServiceClient
 
-	// Circuit breaker state
-	circuitState  atomic.Int32
-	failureCount  atomic.Int32
-	lastFailure   atomic.Int64
-	successCount  atomic.Int32
+	// Circuit breaker for fault tolerance
+	circuitBreaker *CircuitBreaker
+
+	// Retry executor
+	retryExecutor *RetryExecutor
 
 	// Batch queue
 	pendingBatches chan *AggregationWindow
@@ -89,8 +89,28 @@ func NewPusher(cfg *Config, clusterID, instanceID string) (*Pusher, error) {
 		pendingBatches: make(chan *AggregationWindow, 100),
 	}
 
-	// Initialize circuit breaker as closed (healthy)
-	p.circuitState.Store(int32(CircuitClosed))
+	// Initialize retry executor
+	retryPolicy := RetryPolicy{
+		MaxAttempts:  cfg.Push.Retry.MaxAttempts,
+		InitialDelay: cfg.Push.Retry.InitialDelay,
+		MaxDelay:     cfg.Push.Retry.MaxDelay,
+		Multiplier:   2.0,
+		Jitter:       0.1,
+	}
+	p.retryExecutor = NewRetryExecutor(retryPolicy)
+
+	// Initialize circuit breaker
+	cbConfig := CircuitBreakerConfig{
+		FailureThreshold: cfg.Push.Retry.MaxAttempts,
+		SuccessThreshold: 3,
+		Timeout:          cfg.Push.Retry.MaxDelay,
+	}
+	p.circuitBreaker = NewCircuitBreaker(cbConfig)
+	p.circuitBreaker.SetOnStateChange(func(from, to CircuitState) {
+		logutil.BgLogger().Info("pusher circuit breaker state changed",
+			zap.String("from", from.String()),
+			zap.String("to", to.String()))
+	})
 
 	// Establish gRPC connection
 	if err := p.connect(); err != nil {
@@ -194,25 +214,35 @@ func (p *Pusher) pushWorker() {
 // pushWithRetry attempts to push a window with retry logic.
 func (p *Pusher) pushWithRetry(window *AggregationWindow) {
 	// Check circuit breaker
-	if !p.canPush() {
+	if !p.circuitBreaker.Allow() {
+		logutil.BgLogger().Warn("circuit breaker open, buffering batch for retry",
+			zap.String("state", p.circuitBreaker.State().String()))
 		p.addToRetryBuffer(window)
 		return
 	}
 
 	batch := p.buildBatch(window)
-	result := p.doPush(batch)
 
-	if result.Success {
-		p.recordSuccess()
-		logutil.BgLogger().Debug("statement batch pushed successfully",
-			zap.Int32("accepted", result.AcceptedCount),
-			zap.Duration("latency", result.Latency))
-	} else {
-		p.recordFailure()
-		logutil.BgLogger().Warn("statement batch push failed",
-			zap.String("message", result.Message),
-			zap.Strings("errors", result.Errors))
+	// Execute push with retry
+	err := p.retryExecutor.Execute(p.ctx, func() error {
+		result := p.doPush(batch)
+		if !result.Success {
+			return errors.New(result.Message)
+		}
+		return nil
+	})
+
+	if err != nil {
+		// All retries exhausted
+		p.circuitBreaker.RecordFailure()
+		logutil.BgLogger().Warn("statement batch push failed after retries",
+			zap.Error(err),
+			zap.String("circuitState", p.circuitBreaker.State().String()))
 		p.addToRetryBuffer(window)
+	} else {
+		p.circuitBreaker.RecordSuccess()
+		logutil.BgLogger().Debug("statement batch pushed successfully",
+			zap.Int32("sequence", batch.Metadata.BatchSequence))
 	}
 }
 
@@ -417,47 +447,6 @@ func (p *Pusher) doPush(batch *stmtsummaryv3proto.StatementBatch) PushResult {
 	}
 }
 
-// Circuit breaker methods
-
-func (p *Pusher) canPush() bool {
-	state := CircuitState(p.circuitState.Load())
-	switch state {
-	case CircuitClosed:
-		return true
-	case CircuitOpen:
-		// Check if we should transition to half-open
-		lastFailure := time.UnixMilli(p.lastFailure.Load())
-		if time.Since(lastFailure) > p.cfg.Push.Retry.MaxDelay {
-			p.circuitState.Store(int32(CircuitHalfOpen))
-			return true
-		}
-		return false
-	case CircuitHalfOpen:
-		return true
-	default:
-		return true
-	}
-}
-
-func (p *Pusher) recordSuccess() {
-	p.successCount.Add(1)
-	state := CircuitState(p.circuitState.Load())
-	if state == CircuitHalfOpen {
-		// Transition to closed
-		p.circuitState.Store(int32(CircuitClosed))
-		p.failureCount.Store(0)
-	}
-}
-
-func (p *Pusher) recordFailure() {
-	p.failureCount.Add(1)
-	p.lastFailure.Store(time.Now().UnixMilli())
-
-	if p.failureCount.Load() >= int32(p.cfg.Push.Retry.MaxAttempts) {
-		p.circuitState.Store(int32(CircuitOpen))
-	}
-}
-
 // Retry buffer methods
 
 func (p *Pusher) addToRetryBuffer(window *AggregationWindow) {
@@ -473,7 +462,7 @@ func (p *Pusher) addToRetryBuffer(window *AggregationWindow) {
 }
 
 func (p *Pusher) retryFailedBatches() {
-	if !p.canPush() {
+	if !p.circuitBreaker.Allow() {
 		return
 	}
 
@@ -534,5 +523,5 @@ func (p *Pusher) Ping() error {
 
 // CircuitState returns the current circuit breaker state.
 func (p *Pusher) CircuitState() CircuitState {
-	return CircuitState(p.circuitState.Load())
+	return p.circuitBreaker.State()
 }
