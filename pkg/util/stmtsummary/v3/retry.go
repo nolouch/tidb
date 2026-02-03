@@ -83,6 +83,9 @@ func (r *RetryExecutor) Execute(ctx context.Context, fn func() error) error {
 				break
 			}
 
+			// Record retry attempt
+			RetryAttemptsTotal.Inc()
+
 			// Calculate delay with exponential backoff and jitter
 			delay := r.calculateDelay(attempt)
 

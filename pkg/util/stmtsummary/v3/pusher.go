@@ -230,6 +230,7 @@ func (p *Pusher) pushWithRetry(window *AggregationWindow) {
 	}
 
 	batch := p.buildBatch(window)
+	statementCount := int64(len(batch.Statements))
 
 	// Execute push with retry
 	err := p.retryExecutor.Execute(p.ctx, func() error {
@@ -237,18 +238,28 @@ func (p *Pusher) pushWithRetry(window *AggregationWindow) {
 		if !result.Success {
 			return errors.New(result.Message)
 		}
+		// Record success metrics
+		PushSuccessTotal.Inc()
+		PushLatency.Observe(result.Latency.Seconds())
+		PushBatchSize.Observe(float64(statementCount))
 		return nil
 	})
 
 	if err != nil {
 		// All retries exhausted
 		p.circuitBreaker.RecordFailure()
+		PushFailureTotal.Inc()
+		CircuitBreakerFailuresTotal.WithLabelValues(p.cfg.Push.Endpoint).Inc()
+		// Update circuit breaker state metric
+		CircuitBreakerState.WithLabelValues(p.cfg.Push.Endpoint).Set(float64(p.circuitBreaker.State()))
 		logutil.BgLogger().Warn("statement batch push failed after retries",
 			zap.Error(err),
 			zap.String("circuitState", p.circuitBreaker.State().String()))
 		p.addToRetryBuffer(window)
 	} else {
 		p.circuitBreaker.RecordSuccess()
+		// Update circuit breaker state metric
+		CircuitBreakerState.WithLabelValues(p.cfg.Push.Endpoint).Set(float64(p.circuitBreaker.State()))
 		logutil.BgLogger().Debug("statement batch pushed successfully",
 			zap.Int32("sequence", batch.Metadata.BatchSequence))
 	}
@@ -465,8 +476,10 @@ func (p *Pusher) addToRetryBuffer(window *AggregationWindow) {
 	if len(p.retryBuffer) >= 10 {
 		// Drop oldest
 		p.retryBuffer = p.retryBuffer[1:]
+		RetryBufferDroppedTotal.Inc()
 	}
 	p.retryBuffer = append(p.retryBuffer, window)
+	RetryBufferSize.Set(float64(len(p.retryBuffer)))
 }
 
 func (p *Pusher) retryFailedBatches() {
@@ -478,6 +491,8 @@ func (p *Pusher) retryFailedBatches() {
 	batches := p.retryBuffer
 	p.retryBuffer = nil
 	p.retryBufferLock.Unlock()
+
+	RetryBufferSize.Set(0)
 
 	for _, window := range batches {
 		p.pushWithRetry(window)

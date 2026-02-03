@@ -107,6 +107,35 @@ var (
 		Help:      "Circuit breaker state (0=closed, 1=open, 2=half-open)",
 	}, []string{"endpoint"})
 
+	CircuitBreakerFailuresTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "circuit_breaker_failures_total",
+		Help:      "Total number of circuit breaker failures",
+	}, []string{"endpoint"})
+
+	// Retry buffer metrics
+	RetryBufferSize = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "retry_buffer_size",
+		Help:      "Current number of batches in the retry buffer",
+	})
+
+	RetryBufferDroppedTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "retry_buffer_dropped_total",
+		Help:      "Total number of batches dropped from retry buffer due to overflow",
+	})
+
+	RetryAttemptsTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "retry_attempts_total",
+		Help:      "Total number of retry attempts",
+	})
+
 	// Window metrics
 	WindowFlushTotal = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
@@ -137,6 +166,10 @@ func init() {
 		EvictedTotal,
 		OtherBucketCount,
 		CircuitBreakerState,
+		CircuitBreakerFailuresTotal,
+		RetryBufferSize,
+		RetryBufferDroppedTotal,
+		RetryAttemptsTotal,
 		WindowFlushTotal,
 		WindowFlushLatency,
 	)
