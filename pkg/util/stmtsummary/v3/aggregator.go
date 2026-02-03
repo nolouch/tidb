@@ -540,6 +540,23 @@ func (a *Aggregator) Stats() AggregatorStats {
 	}
 }
 
+// GetCurrentStats returns a snapshot of current statement stats for querying.
+func (a *Aggregator) GetCurrentStats() []*StmtStats {
+	a.windowLock.RLock()
+	defer a.windowLock.RUnlock()
+
+	stats := make([]*StmtStats, 0, len(a.window.Statements))
+	for _, s := range a.window.Statements {
+		stats = append(stats, s)
+	}
+
+	if a.window.OtherBucket != nil {
+		stats = append(stats, a.window.OtherBucket)
+	}
+
+	return stats
+}
+
 // AggregatorStats holds aggregator statistics for monitoring.
 type AggregatorStats struct {
 	DigestCount    int
