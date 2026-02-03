@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -116,6 +117,13 @@ func NewPusher(cfg *Config, clusterID, instanceID string) (*Pusher, error) {
 	if err := p.connect(); err != nil {
 		cancel()
 		return nil, err
+	}
+
+	// Fetch and validate requirements contract
+	if err := p.validateContract(ctx); err != nil {
+		logutil.BgLogger().Warn("failed to validate requirements contract",
+			zap.Error(err))
+		// Continue anyway - contract validation is not critical for operation
 	}
 
 	// Start push worker
@@ -524,4 +532,48 @@ func (p *Pusher) Ping() error {
 // CircuitState returns the current circuit breaker state.
 func (p *Pusher) CircuitState() CircuitState {
 	return p.circuitBreaker.State()
+}
+
+// validateContract fetches and validates the requirements contract from Vector.
+func (p *Pusher) validateContract(ctx context.Context) error {
+	contractURL := p.cfg.Push.ContractURL
+	if contractURL == "" {
+		logutil.BgLogger().Info("no contract URL configured, skipping contract validation")
+		return nil
+	}
+
+	client := NewContractClient(contractURL)
+	if err := client.FetchContract(ctx); err != nil {
+		return fmt.Errorf("fetch contract: %w", err)
+	}
+
+	result, err := client.Validate()
+	if err != nil {
+		return fmt.Errorf("validate contract: %w", err)
+	}
+
+	// Log validation result
+	logutil.BgLogger().Info("contract validation completed",
+		zap.String("version", result.Version),
+		zap.String("publisher", result.Publisher),
+		zap.Bool("valid", result.Valid),
+		zap.Int("total_fields", result.TotalFields),
+		zap.Int("missing", len(result.Missing)),
+		zap.Int("warnings", len(result.Warnings)))
+
+	// Log warnings for optional fields
+	for _, warning := range result.Warnings {
+		logutil.BgLogger().Warn("contract validation warning", zap.String("warning", warning))
+	}
+
+	// Fail startup if required fields are missing
+	if !result.Valid {
+		for _, missing := range result.Missing {
+			logutil.BgLogger().Error("missing required field",
+				zap.String("field", missing))
+		}
+		return fmt.Errorf("contract validation failed: missing %d required fields", len(result.Missing))
+	}
+
+	return nil
 }
