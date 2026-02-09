@@ -38,9 +38,18 @@ type StmtStats struct {
 	StmtType      string
 
 	// Sample data (from first/latest execution)
-	SampleSQL  string
-	SamplePlan string
-	PrevSQL    string
+	SampleSQL        string
+	SamplePlan       string
+	SampleBinaryPlan string
+	PlanHint         string
+	PrevSQL          string
+	IndexNames       []string
+	Charset          string
+	Collation        string
+
+	// Binding
+	BindingSQL    string
+	BindingDigest string
 
 	// Execution statistics
 	ExecCount   int64
@@ -48,9 +57,9 @@ type StmtStats struct {
 	SumWarnings int64
 
 	// Latency metrics (nanoseconds, converted to microseconds in proto)
-	SumLatency     time.Duration
-	MaxLatency     time.Duration
-	MinLatency     time.Duration
+	SumLatency        time.Duration
+	MaxLatency        time.Duration
+	MinLatency        time.Duration
 	SumParseLatency   time.Duration
 	MaxParseLatency   time.Duration
 	SumCompileLatency time.Duration
@@ -68,11 +77,21 @@ type StmtStats struct {
 	SumTiKVCPU   time.Duration
 
 	// TiKV coprocessor metrics
-	SumNumCopTasks  int64
-	SumProcessTime  time.Duration
-	MaxProcessTime  time.Duration
-	SumWaitTime     time.Duration
-	MaxWaitTime     time.Duration
+	SumNumCopTasks       int64
+	SumCopProcessTime    time.Duration
+	MaxCopProcessTime    time.Duration
+	MaxCopProcessAddress string
+	SumCopWaitTime       time.Duration
+	MaxCopWaitTime       time.Duration
+	MaxCopWaitAddress    string
+
+	// TiKV time
+	SumProcessTime time.Duration
+	MaxProcessTime time.Duration
+	SumWaitTime    time.Duration
+	MaxWaitTime    time.Duration
+	SumBackoffTime time.Duration
+	MaxBackoffTime time.Duration
 
 	// Key scan metrics
 	SumTotalKeys     int64
@@ -80,16 +99,45 @@ type StmtStats struct {
 	SumProcessedKeys int64
 	MaxProcessedKeys int64
 
+	// RocksDB metrics
+	SumRocksdbDeleteSkippedCount uint64
+	MaxRocksdbDeleteSkippedCount uint64
+	SumRocksdbKeySkippedCount    uint64
+	MaxRocksdbKeySkippedCount    uint64
+	SumRocksdbBlockCacheHitCount uint64
+	MaxRocksdbBlockCacheHitCount uint64
+	SumRocksdbBlockReadCount     uint64
+	MaxRocksdbBlockReadCount     uint64
+	SumRocksdbBlockReadByte      uint64
+	MaxRocksdbBlockReadByte      uint64
+
 	// Transaction metrics
-	CommitCount      int64
-	SumPrewriteTime  time.Duration
-	MaxPrewriteTime  time.Duration
-	SumCommitTime    time.Duration
-	MaxCommitTime    time.Duration
-	SumWriteKeys     int64
-	MaxWriteKeys     int64
-	SumWriteSizeBytes int64
-	MaxWriteSizeBytes int64
+	CommitCount          int64
+	SumGetCommitTsTime   time.Duration
+	MaxGetCommitTsTime   time.Duration
+	SumPrewriteTime      time.Duration
+	MaxPrewriteTime      time.Duration
+	SumCommitTime        time.Duration
+	MaxCommitTime        time.Duration
+	SumLocalLatchTime    time.Duration
+	MaxLocalLatchTime    time.Duration
+	SumCommitBackoffTime int64
+	MaxCommitBackoffTime int64
+	SumResolveLockTime   int64
+	MaxResolveLockTime   int64
+	SumWriteKeys         int64
+	MaxWriteKeys         int64
+	SumWriteSizeBytes    int64
+	MaxWriteSizeBytes    int64
+	SumPrewriteRegionNum int64
+	MaxPrewriteRegionNum int32
+	SumTxnRetry          int64
+	MaxTxnRetry          int
+	SumBackoffTimes      int64
+	BackoffTypes         map[string]int
+
+	// Auth/User
+	AuthUsers map[string]struct{}
 
 	// Row statistics
 	SumAffectedRows int64
@@ -98,8 +146,11 @@ type StmtStats struct {
 	MinResultRows   int64
 
 	// Plan cache
-	PlanInCache   bool
-	PlanCacheHits int64
+	PlanInCache                  bool
+	PlanCacheHits                int64
+	PlanInBinding                bool
+	PlanCacheUnqualifiedCount    int64
+	PlanCacheUnqualifiedLastReason string
 
 	// Timestamps
 	FirstSeen time.Time
@@ -112,6 +163,36 @@ type StmtStats struct {
 	// Multi-tenancy
 	KeyspaceName string
 	KeyspaceID   uint32
+
+	// Other
+	SumKVTotal           time.Duration
+	SumPDTotal           time.Duration
+	SumBackoffTotal      time.Duration
+	SumWriteSQLRespTotal time.Duration
+	ExecRetryCount       uint
+	ExecRetryTime        time.Duration
+	SumMemArbitration    float64
+	MaxMemArbitration    float64
+	StorageKV            bool
+	StorageMPP           bool
+
+	// Request-units
+	SumRRU            float64
+	MaxRRU            float64
+	SumWRU            float64
+	MaxWRU            float64
+	SumRUWaitDuration time.Duration
+	MaxRUWaitDuration time.Duration
+
+	// Network traffic
+	UnpackedBytesSentTiKVTotal            int64
+	UnpackedBytesReceivedTiKVTotal        int64
+	UnpackedBytesSentTiKVCrossZone        int64
+	UnpackedBytesReceivedTiKVCrossZone    int64
+	UnpackedBytesSentTiFlashTotal         int64
+	UnpackedBytesReceivedTiFlashTotal     int64
+	UnpackedBytesSentTiFlashCrossZone     int64
+	UnpackedBytesReceivedTiFlashCrossZone int64
 
 	// Extended metrics for dynamic additions
 	ExtendedMetrics map[string]MetricValue
@@ -147,6 +228,8 @@ func NewStmtStats(key StmtKey) *StmtStats {
 		MinResultRows:   1<<63 - 1,                // Max int64
 		FirstSeen:       time.Now(),
 		LastSeen:        time.Now(),
+		BackoffTypes:    make(map[string]int),
+		AuthUsers:       make(map[string]struct{}),
 		ExtendedMetrics: make(map[string]MetricValue),
 	}
 }
@@ -156,15 +239,29 @@ func (s *StmtStats) EstimatedSize() int64 {
 	if s.estimatedSize > 0 {
 		return s.estimatedSize
 	}
-	// Base struct size
-	size := int64(512) // Approximate base size
+	// Base struct size (increased for new fields)
+	size := int64(1024) // Approximate base size
 	// Add string sizes
 	size += int64(len(s.Key.SchemaName) + len(s.Key.Digest) + len(s.Key.PlanDigest) + len(s.Key.ResourceGroupName))
 	size += int64(len(s.NormalizedSQL) + len(s.TableNames) + len(s.StmtType))
-	size += int64(len(s.SampleSQL) + len(s.SamplePlan) + len(s.PrevSQL))
+	size += int64(len(s.SampleSQL) + len(s.SamplePlan) + len(s.SampleBinaryPlan) + len(s.PlanHint) + len(s.PrevSQL))
+	size += int64(len(s.Charset) + len(s.Collation))
+	size += int64(len(s.BindingSQL) + len(s.BindingDigest))
 	size += int64(len(s.KeyspaceName))
+	size += int64(len(s.MaxCopProcessAddress) + len(s.MaxCopWaitAddress))
+	size += int64(len(s.PlanCacheUnqualifiedLastReason))
+	// IndexNames
+	for _, name := range s.IndexNames {
+		size += int64(len(name) + 16) // string header overhead
+	}
 	// Add histogram size
 	size += int64(len(s.LatencyHistogram))
+	// BackoffTypes map
+	for k := range s.BackoffTypes {
+		size += int64(len(k) + 24) // Key + value overhead
+	}
+	// AuthUsers map
+	size += int64(len(s.AuthUsers) * 40) // Approximate per-entry overhead
 	// Add extended metrics size
 	for k, v := range s.ExtendedMetrics {
 		size += int64(len(k) + 32) // Key + value overhead
