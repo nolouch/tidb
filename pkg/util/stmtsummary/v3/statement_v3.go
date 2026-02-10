@@ -87,6 +87,10 @@ func Setup(cfg *Config, clusterID, instanceID string) error {
 			s.aggregator.SetOnFlush(func(window *AggregationWindow) {
 				s.pusher.Push(window)
 			})
+			// Register config change callback for hot-reload
+			s.pusher.SetOnConfigChange(func(newCfg *Config) {
+				s.ApplyConfig(newCfg)
+			})
 		}
 	}
 
@@ -201,6 +205,29 @@ type StatsInfo struct {
 	WindowEnd      interface{} `json:"window_end"`
 	HasOtherBucket bool   `json:"has_other_bucket"`
 	CircuitState   string `json:"circuit_state"`
+}
+
+// ApplyConfig applies updated configuration at runtime (hot-reload).
+// This is called when Vector pushes new collection config via Ping.
+func (s *StatementV3) ApplyConfig(cfg *Config) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	oldCfg := s.cfg
+	s.cfg = cfg
+
+	// Update aggregator config
+	if s.aggregator != nil {
+		s.aggregator.UpdateConfig(cfg)
+	}
+
+	logutil.BgLogger().Info("statement v3 config hot-reloaded",
+		zap.Duration("old_aggregation_window", oldCfg.AggregationWindow),
+		zap.Duration("new_aggregation_window", cfg.AggregationWindow),
+		zap.Int("old_max_digests", oldCfg.Memory.MaxDigestsPerWindow),
+		zap.Int("new_max_digests", cfg.Memory.MaxDigestsPerWindow),
+		zap.Int64("old_max_memory", oldCfg.Memory.MaxMemoryBytes),
+		zap.Int64("new_max_memory", cfg.Memory.MaxMemoryBytes))
 }
 
 // Flush forces a flush of the current aggregation window.

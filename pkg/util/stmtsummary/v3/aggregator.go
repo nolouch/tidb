@@ -89,6 +89,14 @@ func (a *Aggregator) SetOnFlush(fn func(*AggregationWindow)) {
 	a.onFlush = fn
 }
 
+// UpdateConfig updates the aggregator's configuration at runtime.
+// Changes take effect on the next aggregation window rotation.
+func (a *Aggregator) UpdateConfig(cfg *Config) {
+	a.windowLock.Lock()
+	defer a.windowLock.Unlock()
+	a.cfg = cfg
+}
+
 // Add records a statement execution into the current aggregation window.
 func (a *Aggregator) Add(info *stmtsummary.StmtExecInfo) {
 	if a.closed.Load() {

@@ -16,6 +16,8 @@ package stmtsummaryv3
 
 import (
 	"time"
+
+	stmtsummaryv3proto "github.com/pingcap/tidb/pkg/util/stmtsummary/v3/proto/v1"
 )
 
 const (
@@ -185,6 +187,61 @@ func DefaultConfig() *Config {
 			EvictionStrategy:    defaultEvictionStrategy,
 			EarlyFlushThreshold: defaultEarlyFlushThreshold,
 		},
+	}
+}
+
+// MergeFromRemote applies a CollectionConfig received from Vector via Ping.
+// Remote values override local defaults. Zero-values in the remote config are
+// treated as "not set" and will not override.
+func (c *Config) MergeFromRemote(cc *stmtsummaryv3proto.CollectionConfig) {
+	if cc == nil {
+		return
+	}
+	if cc.AggregationWindowSecs > 0 {
+		c.AggregationWindow = time.Duration(cc.AggregationWindowSecs) * time.Second
+	}
+	c.EnableInternalQuery = cc.EnableInternalQuery
+	if cc.PushBatchSize > 0 {
+		c.Push.BatchSize = int(cc.PushBatchSize)
+	}
+	if cc.PushIntervalSecs > 0 {
+		c.Push.Interval = time.Duration(cc.PushIntervalSecs) * time.Second
+	}
+	if cc.PushTimeoutSecs > 0 {
+		c.Push.Timeout = time.Duration(cc.PushTimeoutSecs) * time.Second
+	}
+	if cc.MaxDigestsPerWindow > 0 {
+		c.Memory.MaxDigestsPerWindow = int(cc.MaxDigestsPerWindow)
+	}
+	if cc.MaxMemoryBytes > 0 {
+		c.Memory.MaxMemoryBytes = cc.MaxMemoryBytes
+	}
+	if cc.EvictionStrategy != "" {
+		c.Memory.EvictionStrategy = EvictionStrategy(cc.EvictionStrategy)
+	}
+	if cc.EarlyFlushThreshold > 0 {
+		c.Memory.EarlyFlushThreshold = cc.EarlyFlushThreshold
+	}
+	if cc.RetryMaxAttempts > 0 {
+		c.Push.Retry.MaxAttempts = int(cc.RetryMaxAttempts)
+	}
+	if cc.RetryInitialDelayMs > 0 {
+		c.Push.Retry.InitialDelay = time.Duration(cc.RetryInitialDelayMs) * time.Millisecond
+	}
+	if cc.RetryMaxDelayMs > 0 {
+		c.Push.Retry.MaxDelay = time.Duration(cc.RetryMaxDelayMs) * time.Millisecond
+	}
+	if len(cc.ExtendedMetrics) > 0 {
+		c.ExtendedMetrics = make([]ExtendedMetricConfig, 0, len(cc.ExtendedMetrics))
+		for _, em := range cc.ExtendedMetrics {
+			c.ExtendedMetrics = append(c.ExtendedMetrics, ExtendedMetricConfig{
+				Name:        em.Name,
+				Type:        em.Type,
+				Source:      em.Source,
+				Enabled:     em.Enabled,
+				Aggregation: em.Aggregation,
+			})
+		}
 	}
 }
 

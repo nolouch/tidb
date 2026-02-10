@@ -553,6 +553,8 @@ type PingResponse struct {
 	// Server capabilities
 	SupportedTables []string `protobuf:"bytes,10,rep,name=supported_tables,json=supportedTables,proto3" json:"supported_tables,omitempty"`
 	ProtocolVersion string   `protobuf:"bytes,11,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	// Collection configuration pushed from Vector to TiDB
+	CollectionConfig *CollectionConfig `protobuf:"bytes,20,opt,name=collection_config,json=collectionConfig,proto3,oneof" json:"collection_config,omitempty"`
 }
 
 func (x *PingResponse) Reset() {
@@ -620,6 +622,13 @@ func (x *PingResponse) GetProtocolVersion() string {
 		return x.ProtocolVersion
 	}
 	return ""
+}
+
+func (x *PingResponse) GetCollectionConfig() *CollectionConfig {
+	if x != nil {
+		return x.CollectionConfig
+	}
+	return nil
 }
 
 // Query request - SQL-like syntax
@@ -2492,6 +2501,190 @@ func (x *FieldRequirement) GetDescription() string {
 func (x *FieldRequirement) GetDefaultValue() string {
 	if x != nil && x.DefaultValue != nil {
 		return *x.DefaultValue
+	}
+	return ""
+}
+
+// Vector pushes this configuration to TiDB during Ping handshake.
+type CollectionConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	AggregationWindowSecs int32              `protobuf:"varint,1,opt,name=aggregation_window_secs,json=aggregationWindowSecs,proto3" json:"aggregation_window_secs,omitempty"`
+	EnableInternalQuery   bool               `protobuf:"varint,2,opt,name=enable_internal_query,json=enableInternalQuery,proto3" json:"enable_internal_query,omitempty"`
+	PushBatchSize         int32              `protobuf:"varint,10,opt,name=push_batch_size,json=pushBatchSize,proto3" json:"push_batch_size,omitempty"`
+	PushIntervalSecs      int32              `protobuf:"varint,11,opt,name=push_interval_secs,json=pushIntervalSecs,proto3" json:"push_interval_secs,omitempty"`
+	PushTimeoutSecs       int32              `protobuf:"varint,12,opt,name=push_timeout_secs,json=pushTimeoutSecs,proto3" json:"push_timeout_secs,omitempty"`
+	MaxDigestsPerWindow   int32              `protobuf:"varint,20,opt,name=max_digests_per_window,json=maxDigestsPerWindow,proto3" json:"max_digests_per_window,omitempty"`
+	MaxMemoryBytes        int64              `protobuf:"varint,21,opt,name=max_memory_bytes,json=maxMemoryBytes,proto3" json:"max_memory_bytes,omitempty"`
+	EvictionStrategy      string             `protobuf:"bytes,22,opt,name=eviction_strategy,json=evictionStrategy,proto3" json:"eviction_strategy,omitempty"`
+	EarlyFlushThreshold   float64            `protobuf:"fixed64,23,opt,name=early_flush_threshold,json=earlyFlushThreshold,proto3" json:"early_flush_threshold,omitempty"`
+	RetryMaxAttempts      int32              `protobuf:"varint,30,opt,name=retry_max_attempts,json=retryMaxAttempts,proto3" json:"retry_max_attempts,omitempty"`
+	RetryInitialDelayMs   int32              `protobuf:"varint,31,opt,name=retry_initial_delay_ms,json=retryInitialDelayMs,proto3" json:"retry_initial_delay_ms,omitempty"`
+	RetryMaxDelayMs       int32              `protobuf:"varint,32,opt,name=retry_max_delay_ms,json=retryMaxDelayMs,proto3" json:"retry_max_delay_ms,omitempty"`
+	ExtendedMetrics       []*ExtendedMetricDef `protobuf:"bytes,40,rep,name=extended_metrics,json=extendedMetrics,proto3" json:"extended_metrics,omitempty"`
+	ConfigVersion         int64              `protobuf:"varint,50,opt,name=config_version,json=configVersion,proto3" json:"config_version,omitempty"`
+}
+
+func (x *CollectionConfig) Reset()         { *x = CollectionConfig{} }
+func (x *CollectionConfig) String() string { return protoimpl.X.MessageStringOf(x) }
+func (*CollectionConfig) ProtoMessage()    {}
+
+func (x *CollectionConfig) ProtoReflect() protoreflect.Message {
+	return nil // Simplified - full reflection requires regenerated descriptors
+}
+
+func (x *CollectionConfig) GetAggregationWindowSecs() int32 {
+	if x != nil {
+		return x.AggregationWindowSecs
+	}
+	return 0
+}
+
+func (x *CollectionConfig) GetEnableInternalQuery() bool {
+	if x != nil {
+		return x.EnableInternalQuery
+	}
+	return false
+}
+
+func (x *CollectionConfig) GetPushBatchSize() int32 {
+	if x != nil {
+		return x.PushBatchSize
+	}
+	return 0
+}
+
+func (x *CollectionConfig) GetPushIntervalSecs() int32 {
+	if x != nil {
+		return x.PushIntervalSecs
+	}
+	return 0
+}
+
+func (x *CollectionConfig) GetPushTimeoutSecs() int32 {
+	if x != nil {
+		return x.PushTimeoutSecs
+	}
+	return 0
+}
+
+func (x *CollectionConfig) GetMaxDigestsPerWindow() int32 {
+	if x != nil {
+		return x.MaxDigestsPerWindow
+	}
+	return 0
+}
+
+func (x *CollectionConfig) GetMaxMemoryBytes() int64 {
+	if x != nil {
+		return x.MaxMemoryBytes
+	}
+	return 0
+}
+
+func (x *CollectionConfig) GetEvictionStrategy() string {
+	if x != nil {
+		return x.EvictionStrategy
+	}
+	return ""
+}
+
+func (x *CollectionConfig) GetEarlyFlushThreshold() float64 {
+	if x != nil {
+		return x.EarlyFlushThreshold
+	}
+	return 0
+}
+
+func (x *CollectionConfig) GetRetryMaxAttempts() int32 {
+	if x != nil {
+		return x.RetryMaxAttempts
+	}
+	return 0
+}
+
+func (x *CollectionConfig) GetRetryInitialDelayMs() int32 {
+	if x != nil {
+		return x.RetryInitialDelayMs
+	}
+	return 0
+}
+
+func (x *CollectionConfig) GetRetryMaxDelayMs() int32 {
+	if x != nil {
+		return x.RetryMaxDelayMs
+	}
+	return 0
+}
+
+func (x *CollectionConfig) GetExtendedMetrics() []*ExtendedMetricDef {
+	if x != nil {
+		return x.ExtendedMetrics
+	}
+	return nil
+}
+
+func (x *CollectionConfig) GetConfigVersion() int64 {
+	if x != nil {
+		return x.ConfigVersion
+	}
+	return 0
+}
+
+// Definition for an extended metric that TiDB should collect.
+type ExtendedMetricDef struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Name        string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Type        string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Source      string `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	Enabled     bool   `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Aggregation string `protobuf:"bytes,5,opt,name=aggregation,proto3" json:"aggregation,omitempty"`
+}
+
+func (x *ExtendedMetricDef) Reset()         { *x = ExtendedMetricDef{} }
+func (x *ExtendedMetricDef) String() string { return protoimpl.X.MessageStringOf(x) }
+func (*ExtendedMetricDef) ProtoMessage()    {}
+
+func (x *ExtendedMetricDef) ProtoReflect() protoreflect.Message {
+	return nil // Simplified - full reflection requires regenerated descriptors
+}
+
+func (x *ExtendedMetricDef) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ExtendedMetricDef) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *ExtendedMetricDef) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *ExtendedMetricDef) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *ExtendedMetricDef) GetAggregation() string {
+	if x != nil {
+		return x.Aggregation
 	}
 	return ""
 }

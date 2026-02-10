@@ -64,6 +64,12 @@ type Pusher struct {
 	// Sequence tracking
 	batchSequence atomic.Int32
 
+	// Remote config version (for change detection)
+	remoteConfigVersion atomic.Int64
+
+	// Callback to notify StatementV3 of config changes
+	onConfigChange func(*Config)
+
 	// Lifecycle
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -124,6 +130,15 @@ func NewPusher(cfg *Config, clusterID, instanceID string) (*Pusher, error) {
 		logutil.BgLogger().Warn("failed to validate requirements contract",
 			zap.Error(err))
 		// Continue anyway - contract validation is not critical for operation
+	}
+
+	// Initial Ping to fetch remote configuration from Vector
+	resp, err := p.ping()
+	if err != nil {
+		logutil.BgLogger().Warn("initial ping failed, using local config",
+			zap.Error(err))
+	} else {
+		p.applyRemoteConfig(resp)
 	}
 
 	// Start push worker
@@ -203,6 +218,9 @@ func (p *Pusher) pushWorker() {
 	retryTicker := time.NewTicker(p.cfg.Push.Retry.InitialDelay)
 	defer retryTicker.Stop()
 
+	configTicker := time.NewTicker(5 * time.Minute)
+	defer configTicker.Stop()
+
 	for {
 		select {
 		case <-p.ctx.Done():
@@ -215,6 +233,9 @@ func (p *Pusher) pushWorker() {
 
 		case <-retryTicker.C:
 			p.retryFailedBatches()
+
+		case <-configTicker.C:
+			p.syncRemoteConfig()
 		}
 	}
 }
@@ -399,12 +420,122 @@ func (p *Pusher) convertStats(stats *StmtStats) *stmtsummaryv3proto.Statement {
 		stmt.AvgLatencyUs = stats.SumLatency.Microseconds() / stats.ExecCount
 	}
 
-	// Convert extended metrics
+	// Map new fields that are not in proto as extended metrics.
+	// These fields were added to StmtStats to match v1 parity.
+	em := stmt.ExtendedMetrics
+
+	// Sample/Identity extended
+	setStringMetric(em, "sample_binary_plan", stats.SampleBinaryPlan)
+	setStringMetric(em, "plan_hint", stats.PlanHint)
+	setStringMetric(em, "index_names", formatIndexNames(stats.IndexNames))
+	setStringMetric(em, "charset", stats.Charset)
+	setStringMetric(em, "collation", stats.Collation)
+	setStringMetric(em, "binding_sql", stats.BindingSQL)
+	setStringMetric(em, "binding_digest", stats.BindingDigest)
+	setStringMetric(em, "sample_user", formatAuthUsers(stats.AuthUsers))
+
+	// Coprocessor extended
+	setInt64Metric(em, "sum_cop_process_time_us", stats.SumCopProcessTime.Microseconds())
+	setInt64Metric(em, "max_cop_process_time_us", stats.MaxCopProcessTime.Microseconds())
+	setStringMetric(em, "max_cop_process_address", stats.MaxCopProcessAddress)
+	setInt64Metric(em, "sum_cop_wait_time_us", stats.SumCopWaitTime.Microseconds())
+	setInt64Metric(em, "max_cop_wait_time_us", stats.MaxCopWaitTime.Microseconds())
+	setStringMetric(em, "max_cop_wait_address", stats.MaxCopWaitAddress)
+
+	// TiKV backoff
+	setInt64Metric(em, "sum_backoff_time_us", stats.SumBackoffTime.Microseconds())
+	setInt64Metric(em, "max_backoff_time_us", stats.MaxBackoffTime.Microseconds())
+
+	// RocksDB
+	setUint64Metric(em, "sum_rocksdb_delete_skipped_count", stats.SumRocksdbDeleteSkippedCount)
+	setUint64Metric(em, "max_rocksdb_delete_skipped_count", stats.MaxRocksdbDeleteSkippedCount)
+	setUint64Metric(em, "sum_rocksdb_key_skipped_count", stats.SumRocksdbKeySkippedCount)
+	setUint64Metric(em, "max_rocksdb_key_skipped_count", stats.MaxRocksdbKeySkippedCount)
+	setUint64Metric(em, "sum_rocksdb_block_cache_hit_count", stats.SumRocksdbBlockCacheHitCount)
+	setUint64Metric(em, "max_rocksdb_block_cache_hit_count", stats.MaxRocksdbBlockCacheHitCount)
+	setUint64Metric(em, "sum_rocksdb_block_read_count", stats.SumRocksdbBlockReadCount)
+	setUint64Metric(em, "max_rocksdb_block_read_count", stats.MaxRocksdbBlockReadCount)
+	setUint64Metric(em, "sum_rocksdb_block_read_byte", stats.SumRocksdbBlockReadByte)
+	setUint64Metric(em, "max_rocksdb_block_read_byte", stats.MaxRocksdbBlockReadByte)
+
+	// Transaction extended
+	setInt64Metric(em, "sum_get_commit_ts_time_us", stats.SumGetCommitTsTime.Microseconds())
+	setInt64Metric(em, "max_get_commit_ts_time_us", stats.MaxGetCommitTsTime.Microseconds())
+	setInt64Metric(em, "sum_local_latch_time_us", stats.SumLocalLatchTime.Microseconds())
+	setInt64Metric(em, "max_local_latch_time_us", stats.MaxLocalLatchTime.Microseconds())
+	setInt64Metric(em, "sum_commit_backoff_time", stats.SumCommitBackoffTime)
+	setInt64Metric(em, "max_commit_backoff_time", stats.MaxCommitBackoffTime)
+	setInt64Metric(em, "sum_resolve_lock_time", stats.SumResolveLockTime)
+	setInt64Metric(em, "max_resolve_lock_time", stats.MaxResolveLockTime)
+	setInt64Metric(em, "sum_prewrite_region_num", stats.SumPrewriteRegionNum)
+	setInt64Metric(em, "max_prewrite_region_num", int64(stats.MaxPrewriteRegionNum))
+	setInt64Metric(em, "sum_txn_retry", stats.SumTxnRetry)
+	setInt64Metric(em, "max_txn_retry", int64(stats.MaxTxnRetry))
+	setInt64Metric(em, "sum_backoff_times", stats.SumBackoffTimes)
+	setStringMetric(em, "backoff_types", formatBackoffTypes(stats.BackoffTypes))
+
+	// Plan cache extended
+	setBoolMetric(em, "plan_in_binding", stats.PlanInBinding)
+	setInt64Metric(em, "plan_cache_unqualified_count", stats.PlanCacheUnqualifiedCount)
+	setStringMetric(em, "plan_cache_unqualified_last_reason", stats.PlanCacheUnqualifiedLastReason)
+
+	// Other
+	setInt64Metric(em, "sum_kv_total_us", stats.SumKVTotal.Microseconds())
+	setInt64Metric(em, "sum_pd_total_us", stats.SumPDTotal.Microseconds())
+	setInt64Metric(em, "sum_backoff_total_us", stats.SumBackoffTotal.Microseconds())
+	setInt64Metric(em, "sum_write_sql_resp_total_us", stats.SumWriteSQLRespTotal.Microseconds())
+	setInt64Metric(em, "exec_retry_count", int64(stats.ExecRetryCount))
+	setInt64Metric(em, "exec_retry_time_us", stats.ExecRetryTime.Microseconds())
+	setDoubleMetric(em, "sum_mem_arbitration", stats.SumMemArbitration)
+	setDoubleMetric(em, "max_mem_arbitration", stats.MaxMemArbitration)
+	setBoolMetric(em, "storage_kv", stats.StorageKV)
+	setBoolMetric(em, "storage_mpp", stats.StorageMPP)
+
+	// RU
+	setDoubleMetric(em, "sum_rru", stats.SumRRU)
+	setDoubleMetric(em, "max_rru", stats.MaxRRU)
+	setDoubleMetric(em, "sum_wru", stats.SumWRU)
+	setDoubleMetric(em, "max_wru", stats.MaxWRU)
+	setInt64Metric(em, "sum_ru_wait_duration_us", stats.SumRUWaitDuration.Microseconds())
+	setInt64Metric(em, "max_ru_wait_duration_us", stats.MaxRUWaitDuration.Microseconds())
+
+	// Network traffic
+	setInt64Metric(em, "sum_unpacked_bytes_sent_tikv_total", stats.UnpackedBytesSentTiKVTotal)
+	setInt64Metric(em, "sum_unpacked_bytes_received_tikv_total", stats.UnpackedBytesReceivedTiKVTotal)
+	setInt64Metric(em, "sum_unpacked_bytes_sent_tikv_cross_zone", stats.UnpackedBytesSentTiKVCrossZone)
+	setInt64Metric(em, "sum_unpacked_bytes_received_tikv_cross_zone", stats.UnpackedBytesReceivedTiKVCrossZone)
+	setInt64Metric(em, "sum_unpacked_bytes_sent_tiflash_total", stats.UnpackedBytesSentTiFlashTotal)
+	setInt64Metric(em, "sum_unpacked_bytes_received_tiflash_total", stats.UnpackedBytesReceivedTiFlashTotal)
+	setInt64Metric(em, "sum_unpacked_bytes_sent_tiflash_cross_zone", stats.UnpackedBytesSentTiFlashCrossZone)
+	setInt64Metric(em, "sum_unpacked_bytes_received_tiflash_cross_zone", stats.UnpackedBytesReceivedTiFlashCrossZone)
+
+	// Convert user-defined extended metrics
 	for name, value := range stats.ExtendedMetrics {
-		stmt.ExtendedMetrics[name] = p.convertMetricValue(value)
+		em[name] = p.convertMetricValue(value)
 	}
 
 	return stmt
+}
+
+// Extended metric setter helpers.
+func setStringMetric(m map[string]*stmtsummaryv3proto.MetricValue, name, val string) {
+	m[name] = &stmtsummaryv3proto.MetricValue{Value: &stmtsummaryv3proto.MetricValue_StringVal{StringVal: val}}
+}
+
+func setInt64Metric(m map[string]*stmtsummaryv3proto.MetricValue, name string, val int64) {
+	m[name] = &stmtsummaryv3proto.MetricValue{Value: &stmtsummaryv3proto.MetricValue_Int64Val{Int64Val: val}}
+}
+
+func setUint64Metric(m map[string]*stmtsummaryv3proto.MetricValue, name string, val uint64) {
+	m[name] = &stmtsummaryv3proto.MetricValue{Value: &stmtsummaryv3proto.MetricValue_Int64Val{Int64Val: int64(val)}}
+}
+
+func setDoubleMetric(m map[string]*stmtsummaryv3proto.MetricValue, name string, val float64) {
+	m[name] = &stmtsummaryv3proto.MetricValue{Value: &stmtsummaryv3proto.MetricValue_DoubleVal{DoubleVal: val}}
+}
+
+func setBoolMetric(m map[string]*stmtsummaryv3proto.MetricValue, name string, val bool) {
+	m[name] = &stmtsummaryv3proto.MetricValue{Value: &stmtsummaryv3proto.MetricValue_BoolVal{BoolVal: val}}
 }
 
 // convertMetricValue converts internal MetricValue to proto MetricValue.
@@ -528,6 +659,12 @@ func (p *Pusher) Close() error {
 
 // Ping checks connectivity to the Vector service.
 func (p *Pusher) Ping() error {
+	_, err := p.ping()
+	return err
+}
+
+// ping performs a Ping RPC and returns the full response.
+func (p *Pusher) ping() (*stmtsummaryv3proto.PingResponse, error) {
 	ctx, cancel := context.WithTimeout(p.ctx, 5*time.Second)
 	defer cancel()
 
@@ -536,12 +673,61 @@ func (p *Pusher) Ping() error {
 		InstanceId: p.instanceID,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !resp.Ok {
-		return errors.New("ping failed: server returned not ok")
+		return nil, errors.New("ping failed: server returned not ok")
 	}
-	return nil
+	return resp, nil
+}
+
+// applyRemoteConfig applies the CollectionConfig from a PingResponse to the local config.
+func (p *Pusher) applyRemoteConfig(resp *stmtsummaryv3proto.PingResponse) {
+	cc := resp.CollectionConfig
+	if cc == nil {
+		return
+	}
+
+	p.cfg.MergeFromRemote(cc)
+	p.remoteConfigVersion.Store(cc.ConfigVersion)
+
+	logutil.BgLogger().Info("applied remote collection config from Vector",
+		zap.Int64("config_version", cc.ConfigVersion),
+		zap.Int32("aggregation_window_secs", cc.AggregationWindowSecs),
+		zap.Int32("push_batch_size", cc.PushBatchSize),
+		zap.Int32("push_interval_secs", cc.PushIntervalSecs),
+		zap.Int32("max_digests_per_window", cc.MaxDigestsPerWindow),
+		zap.Int64("max_memory_bytes", cc.MaxMemoryBytes))
+
+	if p.onConfigChange != nil {
+		p.onConfigChange(p.cfg)
+	}
+}
+
+// syncRemoteConfig performs a Ping and applies new config if the version changed.
+func (p *Pusher) syncRemoteConfig() {
+	resp, err := p.ping()
+	if err != nil {
+		logutil.BgLogger().Debug("config sync ping failed", zap.Error(err))
+		return
+	}
+	cc := resp.CollectionConfig
+	if cc == nil {
+		return
+	}
+	if cc.ConfigVersion <= p.remoteConfigVersion.Load() {
+		return
+	}
+
+	logutil.BgLogger().Info("remote config version changed, applying update",
+		zap.Int64("old_version", p.remoteConfigVersion.Load()),
+		zap.Int64("new_version", cc.ConfigVersion))
+	p.applyRemoteConfig(resp)
+}
+
+// SetOnConfigChange registers a callback invoked when remote config is applied.
+func (p *Pusher) SetOnConfigChange(fn func(*Config)) {
+	p.onConfigChange = fn
 }
 
 // CircuitState returns the current circuit breaker state.
