@@ -39,6 +39,8 @@ import (
 	"github.com/pingcap/tidb/pkg/sessionctx/vardef"
 	"github.com/pingcap/tidb/pkg/util/logutil"
 	"github.com/pingcap/tidb/pkg/util/memory"
+	stmtsummaryv3 "github.com/pingcap/tidb/pkg/util/stmtsummary/v3"
+	stmtsummaryv3proto "github.com/pingcap/tidb/pkg/util/stmtsummary/v3/proto/v1"
 	"github.com/pingcap/tidb/pkg/util/topsql"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -78,6 +80,9 @@ func NewRPCServer(config *config.Config, dom *domain.Domain, sm sessmgr.Manager)
 	diagnosticspb.RegisterDiagnosticsServer(s, rpcSrv)
 	tikvpb.RegisterTikvServer(s, rpcSrv)
 	topsql.RegisterPubSubServer(s)
+	if stmtsummaryv3.GlobalStatementV3 != nil {
+		stmtsummaryv3proto.RegisterStatementPushControlServer(s, stmtsummaryv3.GlobalStatementV3.GetPusherControlServer())
+	}
 	return s
 }
 

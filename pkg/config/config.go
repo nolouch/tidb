@@ -542,6 +542,8 @@ type Instance struct {
 	// StmtSummaryFileMaxBackups indicates the maximum number of files written
 	// by stmtsummary when StmtSummaryEnablePersistent is true.
 	StmtSummaryFileMaxBackups int `toml:"tidb_stmt_summary_file_max_backups" json:"tidb_stmt_summary_file_max_backups"`
+	// StmtSummaryV3Enabled indicates whether to enable statement summary v3 push-based collection.
+	StmtSummaryV3Enabled bool `toml:"tidb_stmt_summary_v3_enabled" json:"tidb_stmt_summary_v3_enabled"`
 	// StmtSummaryMaxStmtCount indicates the max number of statements kept in memory.
 	StmtSummaryMaxStmtCount uint64 `toml:"tidb_stmt_summary_max_stmt_count" json:"tidb_stmt_summary_max_stmt_count"`
 	// ServerMemoryLimit indicates the memory limit of the tidb-server instance.
@@ -1012,6 +1014,7 @@ var defaultConf = Config{
 		StmtSummaryFileMaxDays:      3,
 		StmtSummaryFileMaxSize:      64,
 		StmtSummaryFileMaxBackups:   0,
+		StmtSummaryV3Enabled:       false,
 		EnableSlowLog:               *NewAtomicBool(logutil.DefaultTiDBEnableSlowLog),
 		SlowThreshold:               logutil.DefaultSlowThreshold,
 		RecordPlanInSlowLog:         logutil.DefaultRecordPlanInSlowLog,

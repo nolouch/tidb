@@ -80,6 +80,7 @@ import (
 	semv2 "github.com/pingcap/tidb/pkg/util/sem/v2"
 	"github.com/pingcap/tidb/pkg/util/signal"
 	stmtsummaryv2 "github.com/pingcap/tidb/pkg/util/stmtsummary/v2"
+	stmtsummaryv3 "github.com/pingcap/tidb/pkg/util/stmtsummary/v3"
 	"github.com/pingcap/tidb/pkg/util/sys/linux"
 	storageSys "github.com/pingcap/tidb/pkg/util/sys/storage"
 	"github.com/pingcap/tidb/pkg/util/systimemon"
@@ -1100,12 +1101,25 @@ func setupStmtSummary() {
 			logutil.BgLogger().Error("failed to setup statements summary", zap.Error(err))
 		}
 	}
+
+	if instanceCfg.StmtSummaryV3Enabled {
+		cfg := stmtsummaryv3.DefaultConfig()
+		cfg.Enabled = true
+		globalCfg := config.GetGlobalConfig()
+		instanceID := fmt.Sprintf("%s:%d", globalCfg.AdvertiseAddress, globalCfg.Status.StatusPort)
+		if err := stmtsummaryv3.Setup(cfg, "", instanceID); err != nil {
+			logutil.BgLogger().Error("failed to setup statement v3", zap.Error(err))
+		}
+	}
 }
 
 func closeStmtSummary() {
 	instanceCfg := config.GetGlobalConfig().Instance
 	if instanceCfg.StmtSummaryEnablePersistent {
 		stmtsummaryv2.Close()
+	}
+	if instanceCfg.StmtSummaryV3Enabled {
+		stmtsummaryv3.Close()
 	}
 }
 

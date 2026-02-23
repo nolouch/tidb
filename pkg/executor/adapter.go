@@ -75,6 +75,7 @@ import (
 	"github.com/pingcap/tidb/pkg/util/sqlexec"
 	"github.com/pingcap/tidb/pkg/util/stmtsummary"
 	stmtsummaryv2 "github.com/pingcap/tidb/pkg/util/stmtsummary/v2"
+	stmtsummaryv3 "github.com/pingcap/tidb/pkg/util/stmtsummary/v3"
 	"github.com/pingcap/tidb/pkg/util/stringutil"
 	"github.com/pingcap/tidb/pkg/util/topsql"
 	topsqlstate "github.com/pingcap/tidb/pkg/util/topsql/state"
@@ -1945,7 +1946,9 @@ func (a *ExecStmt) SummaryStmt(succ bool) {
 	// Internal SQLs must also be recorded to keep the consistency of `PrevStmt` and `PrevStmtDigest`.
 	// If this SQL is under `explain explore {SQL}`, we still want to record them in stmt summary.
 	isInternalSQL := (sessVars.InRestrictedSQL || len(userString) == 0) && !sessVars.InExplainExplore
-	if !stmtsummaryv2.Enabled() || (isInternalSQL && !stmtsummaryv2.EnabledInternal()) {
+	v2Enabled := stmtsummaryv2.Enabled() && (!isInternalSQL || stmtsummaryv2.EnabledInternal())
+	v3Enabled := stmtsummaryv3.Enabled()
+	if !v2Enabled && !v3Enabled {
 		sessVars.SetPrevStmtDigest("")
 		return
 	}
@@ -2047,7 +2050,10 @@ func (a *ExecStmt) SummaryStmt(succ bool) {
 	}
 	stmtExecInfo.MemArbitration = stmtCtx.MemTracker.MemArbitration().Seconds()
 
-	stmtsummaryv2.Add(stmtExecInfo)
+	if v2Enabled {
+		stmtsummaryv2.Add(stmtExecInfo)
+	}
+	stmtsummaryv3.Add(stmtExecInfo)
 }
 
 // GetOriginalSQL implements StmtExecLazyInfo interface.

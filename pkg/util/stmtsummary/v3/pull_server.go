@@ -37,6 +37,8 @@ const (
 
 // PullServer handles pull requests for statement data.
 type PullServer struct {
+	stmtsummaryv3proto.UnimplementedSystemTablePullServiceServer
+
 	aggregator *Aggregator
 	clusterID  string
 	instanceID string

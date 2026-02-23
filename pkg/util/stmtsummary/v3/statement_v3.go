@@ -115,7 +115,10 @@ func Close() {
 
 // Add records a statement execution to the global instance.
 func Add(info *stmtsummary.StmtExecInfo) {
-	if GlobalStatementV3 == nil || !GlobalStatementV3.enabled.Load() {
+	if GlobalStatementV3 == nil {
+		return
+	}
+	if !GlobalStatementV3.enabled.Load() {
 		return
 	}
 	GlobalStatementV3.aggregator.Add(info)
@@ -244,4 +247,46 @@ func Ping(ctx context.Context) error {
 		return nil
 	}
 	return GlobalStatementV3.pusher.Ping()
+}
+
+// getConfigCopy returns a copy of the current configuration.
+// This is used by PushTargetControlServer to create a new pusher.
+func (s *StatementV3) getConfigCopy() *Config {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cfg.Copy()
+}
+
+// setPusher sets a new pusher. Used by PushTargetControlServer.
+func (s *StatementV3) setPusher(pusher *Pusher) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pusher = pusher
+}
+
+// closePusher closes the existing pusher if any. Used by PushTargetControlServer.
+func (s *StatementV3) closePusher() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.pusher != nil {
+		if err := s.pusher.Close(); err != nil {
+			logutil.BgLogger().Warn("error closing pusher", zap.Error(err))
+		}
+		s.pusher = nil
+	}
+}
+
+// setAggregatorOnFlush sets the onFlush callback for the aggregator.
+// Used by PushTargetControlServer to connect a new pusher.
+func (s *StatementV3) setAggregatorOnFlush(onFlush func(*AggregationWindow)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.aggregator != nil {
+		s.aggregator.SetOnFlush(onFlush)
+	}
+}
+
+// GetPusherControlServer returns the PushTargetControlServer for this StatementV3.
+func (s *StatementV3) GetPusherControlServer() *PushTargetControlServer {
+	return NewPushTargetControlServer(s.clusterID, s.instanceID, s)
 }

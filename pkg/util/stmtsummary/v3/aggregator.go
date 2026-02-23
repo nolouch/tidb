@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/HdrHistogram/hdrhistogram-go"
+	"github.com/pingcap/tidb/pkg/util/logutil"
 	"github.com/pingcap/tidb/pkg/util/plancodec"
 	"github.com/pingcap/tidb/pkg/util/stmtsummary"
 	tikvutil "github.com/tikv/client-go/v2/util"
@@ -100,6 +101,11 @@ func (a *Aggregator) UpdateConfig(cfg *Config) {
 // Add records a statement execution into the current aggregation window.
 func (a *Aggregator) Add(info *stmtsummary.StmtExecInfo) {
 	if a.closed.Load() {
+		return
+	}
+
+	// Skip internal queries if not enabled
+	if info.IsInternal && !a.cfg.EnableInternalQuery {
 		return
 	}
 
@@ -799,10 +805,13 @@ func (a *Aggregator) rotationLoop() {
 	for {
 		select {
 		case <-a.ctx.Done():
+			logutil.BgLogger().Debug("[stmt-v3] rotationLoop exiting")
 			return
 		case <-ticker.C:
 			a.windowLock.Lock()
-			if time.Now().After(a.window.End) {
+			now := time.Now()
+			windowEnd := a.window.End
+			if now.After(windowEnd) {
 				a.rotateWindowLocked()
 			}
 			a.windowLock.Unlock()

@@ -273,3 +273,55 @@ func (c *Config) Validate() error {
 	}
 	return nil
 }
+
+// Copy creates a deep copy of the Config.
+func (c *Config) Copy() *Config {
+	if c == nil {
+		return nil
+	}
+
+	// Copy extended metrics
+	extendedMetrics := make([]ExtendedMetricConfig, len(c.ExtendedMetrics))
+	for i, em := range c.ExtendedMetrics {
+		extendedMetrics[i] = ExtendedMetricConfig{
+			Name:        em.Name,
+			Type:        em.Type,
+			Source:      em.Source,
+			Enabled:     em.Enabled,
+			Aggregation: em.Aggregation,
+		}
+	}
+
+	return &Config{
+		Enabled:             c.Enabled,
+		EnableInternalQuery: c.EnableInternalQuery,
+		AggregationWindow:   c.AggregationWindow,
+		Push: PushConfig{
+			Enabled:      c.Push.Enabled,
+			Endpoint:     c.Push.Endpoint,
+			BatchSize:    c.Push.BatchSize,
+			Interval:     c.Push.Interval,
+			Timeout:      c.Push.Timeout,
+			Retry: RetryConfig{
+				MaxAttempts:  c.Push.Retry.MaxAttempts,
+				InitialDelay: c.Push.Retry.InitialDelay,
+				MaxDelay:     c.Push.Retry.MaxDelay,
+			},
+			TLS: TLSConfig{
+				Enabled:    c.Push.TLS.Enabled,
+				CertFile:   c.Push.TLS.CertFile,
+				KeyFile:    c.Push.TLS.KeyFile,
+				CAFile:     c.Push.TLS.CAFile,
+				ServerName: c.Push.TLS.ServerName,
+			},
+			ContractURL: c.Push.ContractURL,
+		},
+		Memory: MemoryConfig{
+			MaxDigestsPerWindow: c.Memory.MaxDigestsPerWindow,
+			MaxMemoryBytes:      c.Memory.MaxMemoryBytes,
+			EvictionStrategy:    c.Memory.EvictionStrategy,
+			EarlyFlushThreshold: c.Memory.EarlyFlushThreshold,
+		},
+		ExtendedMetrics: extendedMetrics,
+	}
+}
