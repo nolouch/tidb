@@ -30,6 +30,7 @@ import (
 
 	"github.com/pingcap/tidb/pkg/util/logutil"
 	"github.com/pingcap/tidb/pkg/util/stmtsummary"
+	"github.com/pingcap/tidb/pkg/util/vectorsvc"
 	"go.uber.org/zap"
 )
 
@@ -75,32 +76,15 @@ func Setup(cfg *Config, clusterID, instanceID string) error {
 	// Create aggregator
 	s.aggregator = NewAggregator(cfg)
 
-	// Set up push if enabled
-	if cfg.Push.Enabled && cfg.Push.Endpoint != "" {
-		pusher, err := NewPusher(cfg, clusterID, instanceID)
-		if err != nil {
-			logutil.BgLogger().Warn("failed to create statement pusher, push disabled",
-				zap.Error(err))
-		} else {
-			s.pusher = pusher
-			// Connect aggregator to pusher
-			s.aggregator.SetOnFlush(func(window *AggregationWindow) {
-				s.pusher.Push(window)
-			})
-			// Register config change callback for hot-reload
-			s.pusher.SetOnConfigChange(func(newCfg *Config) {
-				s.ApplyConfig(newCfg)
-			})
-		}
-	}
+	// Register the StmtSummaryProvider with the global vectorsvc registry
+	// so the Pull Service can serve STATEMENTS_SUMMARY data.
+	vectorsvc.Register(NewStmtSummaryProvider(s.aggregator, clusterID, instanceID))
 
 	s.enabled.Store(cfg.Enabled)
 	GlobalStatementV3 = s
 
 	logutil.BgLogger().Info("statement v3 initialized",
 		zap.Bool("enabled", cfg.Enabled),
-		zap.Bool("pushEnabled", cfg.Push.Enabled),
-		zap.String("endpoint", cfg.Push.Endpoint),
 		zap.Duration("aggregationWindow", cfg.AggregationWindow))
 
 	return nil
@@ -161,6 +145,9 @@ func (s *StatementV3) close() {
 	if s.aggregator != nil {
 		s.aggregator.Close()
 	}
+
+	// Unregister from vectorsvc
+	vectorsvc.Unregister(statementsTableName)
 
 	// Close pusher
 	if s.pusher != nil {

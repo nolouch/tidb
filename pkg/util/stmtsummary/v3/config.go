@@ -17,7 +17,7 @@ package stmtsummaryv3
 import (
 	"time"
 
-	stmtsummaryv3proto "github.com/pingcap/tidb/pkg/util/stmtsummary/v3/proto/v1"
+	stmtsummaryv3proto "github.com/pingcap/tidb/pkg/util/vectorsvc/proto/v1"
 )
 
 const (
@@ -76,9 +76,11 @@ type Config struct {
 // PushConfig holds configuration for pushing statements to Vector.
 type PushConfig struct {
 	// Enabled controls whether pushing is enabled.
+	// Note: This is set dynamically when Vector registers via gRPC.
 	Enabled bool `toml:"enabled" json:"enabled"`
 
 	// Endpoint is the gRPC endpoint of the Vector service.
+	// Note: This is set dynamically when Vector registers via gRPC.
 	Endpoint string `toml:"endpoint" json:"endpoint"`
 
 	// BatchSize is the maximum number of statements per batch.
