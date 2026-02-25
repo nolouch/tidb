@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stmtsummaryv3
+package vectorsvc
 
 import (
 	"fmt"
@@ -61,7 +61,7 @@ type Expression interface {
 // WhereExpression represents a parsed WHERE clause.
 type WhereExpression struct {
 	Conditions []Condition
-	LogicalOps  []LogicalOperator
+	LogicalOps []LogicalOperator
 }
 
 // Evaluate evaluates the WHERE expression against a row.
@@ -125,7 +125,7 @@ func (c *Condition) Evaluate(row map[string]interface{}) (bool, error) {
 		eq, err := compareEqual(fieldValue, c.Value)
 		return !less || eq, err
 	case OpLike:
-		return compareLike(fieldValue, c.Value)
+		return CompareConditionLike(fieldValue, c.Value)
 	case OpIn:
 		return compareIn(fieldValue, c.Value)
 	case OpNotIn:
@@ -155,27 +155,23 @@ func compareLess(a, b interface{}) (bool, error) {
 	return aNum < bNum, nil
 }
 
-// compareLike performs a LIKE comparison.
-func compareLike(a, b interface{}) (bool, error) {
+// CompareLike performs a SQL LIKE comparison on two strings.
+func CompareLike(value, pattern string) (bool, error) {
+	regexPattern := strings.ReplaceAll(regexp.QuoteMeta(pattern), "%", ".*")
+	regexPattern = strings.ReplaceAll(regexPattern, "_", ".")
+	regexPattern = "^" + regexPattern + "$"
+	return regexp.MatchString(regexPattern, value)
+}
+
+// CompareConditionLike performs a LIKE comparison on interface{} values.
+func CompareConditionLike(a, b interface{}) (bool, error) {
 	pattern, ok := b.(string)
 	if !ok {
 		return false, fmt.Errorf("LIKE pattern must be string")
 	}
 
 	value := stringify(a)
-
-	// Convert SQL LIKE pattern to regex
-	// % -> .*, _ -> .
-	regexPattern := strings.ReplaceAll(regexp.QuoteMeta(pattern), "%", ".*")
-	regexPattern = strings.ReplaceAll(regexPattern, "_", ".")
-	regexPattern = "^" + regexPattern + "$"
-
-	matched, err := regexp.MatchString(regexPattern, value)
-	if err != nil {
-		return false, err
-	}
-
-	return matched, nil
+	return CompareLike(value, pattern)
 }
 
 // compareIn checks if a value is in a list.
@@ -261,7 +257,7 @@ func (p *QueryParser) ParseWhere(whereClause string) (*WhereExpression, error) {
 
 	expr := &WhereExpression{
 		Conditions: make([]Condition, 0, len(andParts)),
-		LogicalOps:  make([]LogicalOperator, 0, len(andParts)-1),
+		LogicalOps: make([]LogicalOperator, 0, len(andParts)-1),
 	}
 
 	for i, part := range andParts {
@@ -520,12 +516,12 @@ type OrderByField struct {
 
 // TableQuery represents a parsed table query.
 type TableQuery struct {
-	TableName    string
-	Columns      []string
-	Where        *WhereExpression
-	OrderBy      []OrderByField
-	Limit        int
-	Offset       int
+	TableName string
+	Columns   []string
+	Where     *WhereExpression
+	OrderBy   []OrderByField
+	Limit     int
+	Offset    int
 }
 
 // ParseTableQuery parses a full table query string.
@@ -552,7 +548,7 @@ func (p *QueryParser) ParseTableQuery(query string) (*TableQuery, error) {
 	}
 
 	// Parse columns
-	columnsStr := query[selectIdx+6:fromIdx]
+	columnsStr := query[selectIdx+6 : fromIdx]
 	result.Columns = p.ParseColumns(columnsStr)
 
 	// Parse table name

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stmtsummaryv3
+package vectorsvc
 
 import (
 	"context"
@@ -23,6 +23,41 @@ import (
 	"github.com/pingcap/tidb/pkg/util/logutil"
 	"go.uber.org/zap"
 )
+
+// CircuitState represents the state of a circuit breaker.
+type CircuitState int
+
+const (
+	CircuitClosed   CircuitState = iota
+	CircuitOpen
+	CircuitHalfOpen
+)
+
+// String returns the string representation of CircuitState.
+func (s CircuitState) String() string {
+	switch s {
+	case CircuitClosed:
+		return "closed"
+	case CircuitOpen:
+		return "open"
+	case CircuitHalfOpen:
+		return "half-open"
+	default:
+		return "unknown"
+	}
+}
+
+// PushResult holds the result of a push operation.
+type PushResult struct {
+	Success        bool
+	Message        string
+	ReceivedCount  int32
+	AcceptedCount  int32
+	RejectedCount  int32
+	Errors         []string
+	ReceivedAt     time.Time
+	Latency        time.Duration
+}
 
 // RetryPolicy defines the retry policy for push operations.
 type RetryPolicy struct {
@@ -55,7 +90,9 @@ func DefaultRetryPolicy() RetryPolicy {
 
 // RetryExecutor executes a function with retry logic.
 type RetryExecutor struct {
-	policy RetryPolicy
+	policy  RetryPolicy
+	// OnRetry is called on each retry attempt. Can be used to record metrics.
+	OnRetry func()
 }
 
 // NewRetryExecutor creates a new RetryExecutor.
@@ -83,8 +120,10 @@ func (r *RetryExecutor) Execute(ctx context.Context, fn func() error) error {
 				break
 			}
 
-			// Record retry attempt
-			RetryAttemptsTotal.Inc()
+			// Record retry attempt via callback
+			if r.OnRetry != nil {
+				r.OnRetry()
+			}
 
 			// Calculate delay with exponential backoff and jitter
 			delay := r.calculateDelay(attempt)

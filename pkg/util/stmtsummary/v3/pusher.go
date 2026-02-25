@@ -25,8 +25,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	stmtsummaryv3proto "github.com/pingcap/tidb/pkg/util/stmtsummary/v3/proto/v1"
 	"github.com/pingcap/tidb/pkg/util/logutil"
+	"github.com/pingcap/tidb/pkg/util/vectorsvc"
+	stmtsummaryv3proto "github.com/pingcap/tidb/pkg/util/vectorsvc/proto/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -49,10 +50,10 @@ type Pusher struct {
 	client stmtsummaryv3proto.SystemTablePushServiceClient
 
 	// Circuit breaker for fault tolerance
-	circuitBreaker *CircuitBreaker
+	circuitBreaker *vectorsvc.CircuitBreaker
 
 	// Retry executor
-	retryExecutor *RetryExecutor
+	retryExecutor *vectorsvc.RetryExecutor
 
 	// Batch queue
 	pendingBatches chan *AggregationWindow
@@ -97,23 +98,26 @@ func NewPusher(cfg *Config, clusterID, instanceID string) (*Pusher, error) {
 	}
 
 	// Initialize retry executor
-	retryPolicy := RetryPolicy{
+	retryPolicy := vectorsvc.RetryPolicy{
 		MaxAttempts:  cfg.Push.Retry.MaxAttempts,
 		InitialDelay: cfg.Push.Retry.InitialDelay,
 		MaxDelay:     cfg.Push.Retry.MaxDelay,
 		Multiplier:   2.0,
 		Jitter:       0.1,
 	}
-	p.retryExecutor = NewRetryExecutor(retryPolicy)
+	p.retryExecutor = vectorsvc.NewRetryExecutor(retryPolicy)
+	p.retryExecutor.OnRetry = func() {
+		RetryAttemptsTotal.Inc()
+	}
 
 	// Initialize circuit breaker
-	cbConfig := CircuitBreakerConfig{
+	cbConfig := vectorsvc.CircuitBreakerConfig{
 		FailureThreshold: cfg.Push.Retry.MaxAttempts,
 		SuccessThreshold: 3,
 		Timeout:          cfg.Push.Retry.MaxDelay,
 	}
-	p.circuitBreaker = NewCircuitBreaker(cbConfig)
-	p.circuitBreaker.SetOnStateChange(func(from, to CircuitState) {
+	p.circuitBreaker = vectorsvc.NewCircuitBreaker(cbConfig)
+	p.circuitBreaker.SetOnStateChange(func(from, to vectorsvc.CircuitState) {
 		logutil.BgLogger().Info("pusher circuit breaker state changed",
 			zap.String("from", from.String()),
 			zap.String("to", to.String()))
@@ -570,7 +574,7 @@ func (p *Pusher) collectFieldNames(window *AggregationWindow) []string {
 }
 
 // doPush performs the actual gRPC push.
-func (p *Pusher) doPush(batch *stmtsummaryv3proto.StatementBatch) PushResult {
+func (p *Pusher) doPush(batch *stmtsummaryv3proto.StatementBatch) vectorsvc.PushResult {
 	ctx, cancel := context.WithTimeout(p.ctx, p.cfg.Push.Timeout)
 	defer cancel()
 
@@ -579,14 +583,14 @@ func (p *Pusher) doPush(batch *stmtsummaryv3proto.StatementBatch) PushResult {
 	latency := time.Since(start)
 
 	if err != nil {
-		return PushResult{
+		return vectorsvc.PushResult{
 			Success: false,
 			Message: err.Error(),
 			Latency: latency,
 		}
 	}
 
-	return PushResult{
+	return vectorsvc.PushResult{
 		Success:       resp.Success,
 		Message:       resp.Message,
 		ReceivedCount: resp.AcceptedCount + resp.RejectedCount,
@@ -731,7 +735,7 @@ func (p *Pusher) SetOnConfigChange(fn func(*Config)) {
 }
 
 // CircuitState returns the current circuit breaker state.
-func (p *Pusher) CircuitState() CircuitState {
+func (p *Pusher) CircuitState() vectorsvc.CircuitState {
 	return p.circuitBreaker.State()
 }
 

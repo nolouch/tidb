@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	stmtsummaryv3proto "github.com/pingcap/tidb/pkg/util/stmtsummary/v3/proto/v1"
+	stmtsummaryv3proto "github.com/pingcap/tidb/pkg/util/vectorsvc/proto/v1"
 	"github.com/stretchr/testify/require"
 )
 

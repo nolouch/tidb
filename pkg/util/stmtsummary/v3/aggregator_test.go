@@ -316,8 +316,8 @@ func TestStatToMapFieldCoverage(t *testing.T) {
 	info := generateTestStmtExecInfo("test_digest")
 	aggregator.Add(info)
 
-	// Create a PullServer to test statToMap
-	pullServer := NewPullServer(aggregator, "test-cluster", "test-instance")
+	// Create a StmtSummaryProvider to test statToMap
+	provider := NewStmtSummaryProvider(aggregator, "test-cluster", "test-instance")
 
 	// Get the current stats
 	statsList := aggregator.GetCurrentStats()
@@ -333,8 +333,8 @@ func TestStatToMapFieldCoverage(t *testing.T) {
 	}
 	require.NotNil(t, stats, "Statement should be in the stats")
 
-	// Convert to map using PullServer's method
-	m := pullServer.statToMap(stats)
+	// Convert to map using StmtSummaryProvider's method
+	m := provider.statToMap(stats)
 
 	// Verify all new fields are present in the map
 	fieldChecks := map[string]bool{
