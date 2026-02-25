@@ -2331,9 +2331,9 @@ type Statement struct {
 	// ========================================================================
 	// SAMPLE DATA
 	// ========================================================================
-	SampleSql  string `protobuf:"bytes,10,opt,name=sample_sql,json=sampleSql,proto3" json:"sample_sql,omitempty"`    // Sample SQL with parameters
-	SamplePlan string `protobuf:"bytes,11,opt,name=sample_plan,json=samplePlan,proto3" json:"sample_plan,omitempty"` // Sample execution plan
-	PrevSql    string `protobuf:"bytes,12,opt,name=prev_sql,json=prevSql,proto3" json:"prev_sql,omitempty"`          // Previous SQL in transaction
+	SampleSql  string `protobuf:"bytes,10,opt,name=sample_sql,json=querySampleText,proto3" json:"query_sample_text,omitempty"`    // Sample SQL with parameters
+	SamplePlan string `protobuf:"bytes,11,opt,name=sample_plan,json=plan,proto3" json:"plan,omitempty"` // Sample execution plan
+	PrevSql    string `protobuf:"bytes,12,opt,name=prev_sql,json=prevSampleText,proto3" json:"prev_sample_text,omitempty"`          // Previous SQL in transaction
 	// ========================================================================
 	// EXECUTION STATISTICS
 	// ========================================================================
@@ -2343,37 +2343,37 @@ type Statement struct {
 	// ========================================================================
 	// LATENCY METRICS (microseconds)
 	// ========================================================================
-	SumLatencyUs int64 `protobuf:"varint,30,opt,name=sum_latency_us,json=sumLatencyUs,proto3" json:"sum_latency_us,omitempty"` // Total latency
-	MaxLatencyUs int64 `protobuf:"varint,31,opt,name=max_latency_us,json=maxLatencyUs,proto3" json:"max_latency_us,omitempty"` // Maximum latency
-	MinLatencyUs int64 `protobuf:"varint,32,opt,name=min_latency_us,json=minLatencyUs,proto3" json:"min_latency_us,omitempty"` // Minimum latency
-	AvgLatencyUs int64 `protobuf:"varint,33,opt,name=avg_latency_us,json=avgLatencyUs,proto3" json:"avg_latency_us,omitempty"` // Average latency
-	P50LatencyUs int64 `protobuf:"varint,34,opt,name=p50_latency_us,json=p50LatencyUs,proto3" json:"p50_latency_us,omitempty"` // P50 latency
-	P95LatencyUs int64 `protobuf:"varint,35,opt,name=p95_latency_us,json=p95LatencyUs,proto3" json:"p95_latency_us,omitempty"` // P95 latency
-	P99LatencyUs int64 `protobuf:"varint,36,opt,name=p99_latency_us,json=p99LatencyUs,proto3" json:"p99_latency_us,omitempty"` // P99 latency
+	SumLatencyUs int64 `protobuf:"varint,30,opt,name=sum_latency_us,json=sumLatency,proto3" json:"sum_latency,omitempty"` // Total latency
+	MaxLatencyUs int64 `protobuf:"varint,31,opt,name=max_latency_us,json=maxLatency,proto3" json:"max_latency,omitempty"` // Maximum latency
+	MinLatencyUs int64 `protobuf:"varint,32,opt,name=min_latency_us,json=minLatency,proto3" json:"min_latency,omitempty"` // Minimum latency
+	AvgLatencyUs int64 `protobuf:"varint,33,opt,name=avg_latency_us,json=avgLatency,proto3" json:"avg_latency,omitempty"` // Average latency
+	P50LatencyUs int64 `protobuf:"varint,34,opt,name=p50_latency_us,json=p50Latency,proto3" json:"p50_latency,omitempty"` // P50 latency
+	P95LatencyUs int64 `protobuf:"varint,35,opt,name=p95_latency_us,json=p95Latency,proto3" json:"p95_latency,omitempty"` // P95 latency
+	P99LatencyUs int64 `protobuf:"varint,36,opt,name=p99_latency_us,json=p99Latency,proto3" json:"p99_latency,omitempty"` // P99 latency
 	// ========================================================================
 	// PARSE/COMPILE METRICS
 	// ========================================================================
-	SumParseLatencyUs   int64 `protobuf:"varint,40,opt,name=sum_parse_latency_us,json=sumParseLatencyUs,proto3" json:"sum_parse_latency_us,omitempty"`       // Total parse time
-	MaxParseLatencyUs   int64 `protobuf:"varint,41,opt,name=max_parse_latency_us,json=maxParseLatencyUs,proto3" json:"max_parse_latency_us,omitempty"`       // Max parse time
-	SumCompileLatencyUs int64 `protobuf:"varint,42,opt,name=sum_compile_latency_us,json=sumCompileLatencyUs,proto3" json:"sum_compile_latency_us,omitempty"` // Total compile time
-	MaxCompileLatencyUs int64 `protobuf:"varint,43,opt,name=max_compile_latency_us,json=maxCompileLatencyUs,proto3" json:"max_compile_latency_us,omitempty"` // Max compile time
+	SumParseLatencyUs   int64 `protobuf:"varint,40,opt,name=sum_parse_latency_us,json=sumParseLatency,proto3" json:"sum_parse_latency,omitempty"`       // Total parse time
+	MaxParseLatencyUs   int64 `protobuf:"varint,41,opt,name=max_parse_latency_us,json=maxParseLatency,proto3" json:"max_parse_latency,omitempty"`       // Max parse time
+	SumCompileLatencyUs int64 `protobuf:"varint,42,opt,name=sum_compile_latency_us,json=sumCompileLatency,proto3" json:"sum_compile_latency,omitempty"` // Total compile time
+	MaxCompileLatencyUs int64 `protobuf:"varint,43,opt,name=max_compile_latency_us,json=maxCompileLatency,proto3" json:"max_compile_latency,omitempty"` // Max compile time
 	// ========================================================================
 	// RESOURCE USAGE
 	// ========================================================================
-	SumMemBytes  int64 `protobuf:"varint,50,opt,name=sum_mem_bytes,json=sumMemBytes,proto3" json:"sum_mem_bytes,omitempty"`      // Total memory usage
-	MaxMemBytes  int64 `protobuf:"varint,51,opt,name=max_mem_bytes,json=maxMemBytes,proto3" json:"max_mem_bytes,omitempty"`      // Peak memory usage
-	SumDiskBytes int64 `protobuf:"varint,52,opt,name=sum_disk_bytes,json=sumDiskBytes,proto3" json:"sum_disk_bytes,omitempty"`   // Total disk I/O
-	MaxDiskBytes int64 `protobuf:"varint,53,opt,name=max_disk_bytes,json=maxDiskBytes,proto3" json:"max_disk_bytes,omitempty"`   // Peak disk I/O
-	SumTidbCpuUs int64 `protobuf:"varint,54,opt,name=sum_tidb_cpu_us,json=sumTidbCpuUs,proto3" json:"sum_tidb_cpu_us,omitempty"` // Total TiDB CPU time
-	SumTikvCpuUs int64 `protobuf:"varint,55,opt,name=sum_tikv_cpu_us,json=sumTikvCpuUs,proto3" json:"sum_tikv_cpu_us,omitempty"` // Total TiKV CPU time
+	SumMemBytes  int64 `protobuf:"varint,50,opt,name=sum_mem_bytes,json=sumMem,proto3" json:"sum_mem,omitempty"`      // Total memory usage
+	MaxMemBytes  int64 `protobuf:"varint,51,opt,name=max_mem_bytes,json=maxMem,proto3" json:"max_mem,omitempty"`      // Peak memory usage
+	SumDiskBytes int64 `protobuf:"varint,52,opt,name=sum_disk_bytes,json=sumDisk,proto3" json:"sum_disk,omitempty"`   // Total disk I/O
+	MaxDiskBytes int64 `protobuf:"varint,53,opt,name=max_disk_bytes,json=maxDisk,proto3" json:"max_disk,omitempty"`   // Peak disk I/O
+	SumTidbCpuUs int64 `protobuf:"varint,54,opt,name=sum_tidb_cpu_us,json=sumTidbCpu,proto3" json:"sum_tidb_cpu,omitempty"` // Total TiDB CPU time
+	SumTikvCpuUs int64 `protobuf:"varint,55,opt,name=sum_tikv_cpu_us,json=sumTikvCpu,proto3" json:"sum_tikv_cpu,omitempty"` // Total TiKV CPU time
 	// ========================================================================
 	// TIKV COPROCESSOR METRICS
 	// ========================================================================
-	SumNumCopTasks   int64 `protobuf:"varint,60,opt,name=sum_num_cop_tasks,json=sumNumCopTasks,proto3" json:"sum_num_cop_tasks,omitempty"`       // Total coprocessor tasks
-	SumProcessTimeUs int64 `protobuf:"varint,61,opt,name=sum_process_time_us,json=sumProcessTimeUs,proto3" json:"sum_process_time_us,omitempty"` // Total TiKV process time
-	MaxProcessTimeUs int64 `protobuf:"varint,62,opt,name=max_process_time_us,json=maxProcessTimeUs,proto3" json:"max_process_time_us,omitempty"` // Max TiKV process time
-	SumWaitTimeUs    int64 `protobuf:"varint,63,opt,name=sum_wait_time_us,json=sumWaitTimeUs,proto3" json:"sum_wait_time_us,omitempty"`          // Total TiKV wait time
-	MaxWaitTimeUs    int64 `protobuf:"varint,64,opt,name=max_wait_time_us,json=maxWaitTimeUs,proto3" json:"max_wait_time_us,omitempty"`          // Max TiKV wait time
+	SumNumCopTasks   int64 `protobuf:"varint,60,opt,name=sum_num_cop_tasks,json=sumCopTaskNum,proto3" json:"sum_cop_task_num,omitempty"`       // Total coprocessor tasks
+	SumProcessTimeUs int64 `protobuf:"varint,61,opt,name=sum_process_time_us,json=sumProcessTime,proto3" json:"sum_process_time,omitempty"` // Total TiKV process time
+	MaxProcessTimeUs int64 `protobuf:"varint,62,opt,name=max_process_time_us,json=maxProcessTime,proto3" json:"max_process_time,omitempty"` // Max TiKV process time
+	SumWaitTimeUs    int64 `protobuf:"varint,63,opt,name=sum_wait_time_us,json=sumWaitTime,proto3" json:"sum_wait_time,omitempty"`          // Total TiKV wait time
+	MaxWaitTimeUs    int64 `protobuf:"varint,64,opt,name=max_wait_time_us,json=maxWaitTime,proto3" json:"max_wait_time,omitempty"`          // Max TiKV wait time
 	// ========================================================================
 	// KEY SCAN METRICS
 	// ========================================================================
@@ -2385,14 +2385,14 @@ type Statement struct {
 	// TRANSACTION METRICS
 	// ========================================================================
 	CommitCount       int64 `protobuf:"varint,80,opt,name=commit_count,json=commitCount,proto3" json:"commit_count,omitempty"`                       // Number of commits
-	SumPrewriteTimeUs int64 `protobuf:"varint,81,opt,name=sum_prewrite_time_us,json=sumPrewriteTimeUs,proto3" json:"sum_prewrite_time_us,omitempty"` // Total prewrite time
-	MaxPrewriteTimeUs int64 `protobuf:"varint,82,opt,name=max_prewrite_time_us,json=maxPrewriteTimeUs,proto3" json:"max_prewrite_time_us,omitempty"` // Max prewrite time
-	SumCommitTimeUs   int64 `protobuf:"varint,83,opt,name=sum_commit_time_us,json=sumCommitTimeUs,proto3" json:"sum_commit_time_us,omitempty"`       // Total commit time
-	MaxCommitTimeUs   int64 `protobuf:"varint,84,opt,name=max_commit_time_us,json=maxCommitTimeUs,proto3" json:"max_commit_time_us,omitempty"`       // Max commit time
+	SumPrewriteTimeUs int64 `protobuf:"varint,81,opt,name=sum_prewrite_time_us,json=sumPrewriteTime,proto3" json:"sum_prewrite_time,omitempty"` // Total prewrite time
+	MaxPrewriteTimeUs int64 `protobuf:"varint,82,opt,name=max_prewrite_time_us,json=maxPrewriteTime,proto3" json:"max_prewrite_time,omitempty"` // Max prewrite time
+	SumCommitTimeUs   int64 `protobuf:"varint,83,opt,name=sum_commit_time_us,json=sumCommitTime,proto3" json:"sum_commit_time,omitempty"`       // Total commit time
+	MaxCommitTimeUs   int64 `protobuf:"varint,84,opt,name=max_commit_time_us,json=maxCommitTime,proto3" json:"max_commit_time,omitempty"`       // Max commit time
 	SumWriteKeys      int64 `protobuf:"varint,85,opt,name=sum_write_keys,json=sumWriteKeys,proto3" json:"sum_write_keys,omitempty"`                  // Total write keys
 	MaxWriteKeys      int64 `protobuf:"varint,86,opt,name=max_write_keys,json=maxWriteKeys,proto3" json:"max_write_keys,omitempty"`                  // Max write keys
-	SumWriteSizeBytes int64 `protobuf:"varint,87,opt,name=sum_write_size_bytes,json=sumWriteSizeBytes,proto3" json:"sum_write_size_bytes,omitempty"` // Total write size
-	MaxWriteSizeBytes int64 `protobuf:"varint,88,opt,name=max_write_size_bytes,json=maxWriteSizeBytes,proto3" json:"max_write_size_bytes,omitempty"` // Max write size
+	SumWriteSizeBytes int64 `protobuf:"varint,87,opt,name=sum_write_size_bytes,json=sumWriteSize,proto3" json:"sum_write_size,omitempty"` // Total write size
+	MaxWriteSizeBytes int64 `protobuf:"varint,88,opt,name=max_write_size_bytes,json=maxWriteSize,proto3" json:"max_write_size,omitempty"` // Max write size
 	// ========================================================================
 	// ROW STATISTICS
 	// ========================================================================
@@ -2408,8 +2408,8 @@ type Statement struct {
 	// ========================================================================
 	// TIMESTAMPS
 	// ========================================================================
-	FirstSeenMs int64 `protobuf:"varint,120,opt,name=first_seen_ms,json=firstSeenMs,proto3" json:"first_seen_ms,omitempty"` // First execution time
-	LastSeenMs  int64 `protobuf:"varint,121,opt,name=last_seen_ms,json=lastSeenMs,proto3" json:"last_seen_ms,omitempty"`    // Last execution time
+	FirstSeenMs int64 `protobuf:"varint,120,opt,name=first_seen_ms,json=firstSeen,proto3" json:"first_seen,omitempty"` // First execution time
+	LastSeenMs  int64 `protobuf:"varint,121,opt,name=last_seen_ms,json=lastSeen,proto3" json:"last_seen,omitempty"`    // Last execution time
 	// ========================================================================
 	// FLAGS
 	// ========================================================================
@@ -2420,7 +2420,7 @@ type Statement struct {
 	// ========================================================================
 	KeyspaceName      string `protobuf:"bytes,140,opt,name=keyspace_name,json=keyspaceName,proto3" json:"keyspace_name,omitempty"`                  // Keyspace name
 	KeyspaceId        uint32 `protobuf:"varint,141,opt,name=keyspace_id,json=keyspaceId,proto3" json:"keyspace_id,omitempty"`                       // Keyspace ID
-	ResourceGroupName string `protobuf:"bytes,142,opt,name=resource_group_name,json=resourceGroupName,proto3" json:"resource_group_name,omitempty"` // Resource group
+	ResourceGroupName string `protobuf:"bytes,142,opt,name=resource_group_name,json=resourceGroup,proto3" json:"resource_group,omitempty"` // Resource group
 	// ========================================================================
 	// EXTENDED METRICS (Dynamic - for schema evolution)
 	// ========================================================================

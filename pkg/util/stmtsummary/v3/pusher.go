@@ -513,6 +513,63 @@ func (p *Pusher) convertStats(stats *StmtStats) *stmtsummaryv3proto.Statement {
 	setInt64Metric(em, "sum_unpacked_bytes_sent_tiflash_cross_zone", stats.UnpackedBytesSentTiFlashCrossZone)
 	setInt64Metric(em, "sum_unpacked_bytes_received_tiflash_cross_zone", stats.UnpackedBytesReceivedTiFlashCrossZone)
 
+	// Average metrics (computed from sum/exec_count)
+	// Note: avg_latency is already in proto as AvgLatencyUs, so we don't add it here
+	execCount := float64(stats.ExecCount)
+	if execCount > 0 {
+		// Latency averages (excluding avg_latency - already in proto)
+		setDoubleMetric(em, "avg_parse_latency", float64(stats.SumParseLatency.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_compile_latency", float64(stats.SumCompileLatency.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_process_time", float64(stats.SumProcessTime.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_wait_time", float64(stats.SumWaitTime.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_backoff_time", float64(stats.SumBackoffTime.Microseconds())/execCount)
+
+		// Resource averages
+		setDoubleMetric(em, "avg_mem", float64(stats.SumMemBytes)/execCount)
+		setDoubleMetric(em, "avg_disk", float64(stats.SumDiskBytes)/execCount)
+		setDoubleMetric(em, "avg_tidb_cpu", float64(stats.SumTiDBCPU.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_tikv_cpu", float64(stats.SumTiKVCPU.Microseconds())/execCount)
+
+		// Key averages
+		setDoubleMetric(em, "avg_total_keys", float64(stats.SumTotalKeys)/execCount)
+		setDoubleMetric(em, "avg_processed_keys", float64(stats.SumProcessedKeys)/execCount)
+
+		// RocksDB averages
+		setDoubleMetric(em, "avg_rocksdb_delete_skipped_count", float64(stats.SumRocksdbDeleteSkippedCount)/execCount)
+		setDoubleMetric(em, "avg_rocksdb_key_skipped_count", float64(stats.SumRocksdbKeySkippedCount)/execCount)
+		setDoubleMetric(em, "avg_rocksdb_block_cache_hit_count", float64(stats.SumRocksdbBlockCacheHitCount)/execCount)
+		setDoubleMetric(em, "avg_rocksdb_block_read_count", float64(stats.SumRocksdbBlockReadCount)/execCount)
+		setDoubleMetric(em, "avg_rocksdb_block_read_byte", float64(stats.SumRocksdbBlockReadByte)/execCount)
+
+		// Transaction averages
+		setDoubleMetric(em, "avg_prewrite_time", float64(stats.SumPrewriteTime.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_commit_time", float64(stats.SumCommitTime.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_local_latch_wait_time", float64(stats.SumLocalLatchTime.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_commit_backoff_time", float64(stats.SumCommitBackoffTime)/execCount)
+		setDoubleMetric(em, "avg_resolve_lock_time", float64(stats.SumResolveLockTime)/execCount)
+		setDoubleMetric(em, "avg_write_keys", float64(stats.SumWriteKeys)/execCount)
+		setDoubleMetric(em, "avg_write_size", float64(stats.SumWriteSizeBytes)/execCount)
+		setDoubleMetric(em, "avg_prewrite_regions", float64(stats.SumPrewriteRegionNum)/execCount)
+		setDoubleMetric(em, "avg_txn_retry", float64(stats.SumTxnRetry)/execCount)
+
+		// Result averages
+		setDoubleMetric(em, "avg_result_rows", float64(stats.SumResultRows)/execCount)
+		setDoubleMetric(em, "avg_affected_rows", float64(stats.SumAffectedRows)/execCount)
+
+		// Other averages
+		setDoubleMetric(em, "avg_kv_time", float64(stats.SumKVTotal.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_pd_time", float64(stats.SumPDTotal.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_backoff_total_time", float64(stats.SumBackoffTotal.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_write_sql_resp_time", float64(stats.SumWriteSQLRespTotal.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_mem_arbitration", stats.SumMemArbitration/execCount)
+		setDoubleMetric(em, "avg_rru", stats.SumRRU/execCount)
+		setDoubleMetric(em, "avg_wru", stats.SumWRU/execCount)
+		setDoubleMetric(em, "avg_ru_wait_duration", float64(stats.SumRUWaitDuration.Microseconds())/execCount)
+		setDoubleMetric(em, "avg_request_unit_read", stats.SumRRU/execCount)
+		setDoubleMetric(em, "avg_request_unit_write", stats.SumWRU/execCount)
+		setDoubleMetric(em, "avg_queued_rc_time", float64(stats.SumRUWaitDuration.Microseconds())/execCount)
+	}
+
 	// Convert user-defined extended metrics
 	for name, value := range stats.ExtendedMetrics {
 		em[name] = p.convertMetricValue(value)
