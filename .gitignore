@@ -78,3 +78,10 @@ var
 # Personal config files
 /*config.toml
 .cache
+
+# Large binary files (removed from history)
+code_graph.json
+tidb-server
+integration_test
+cluster_statements_summary_client/
+pkg/util/stmtsummary/v3/integration_test/mock_vector_server
