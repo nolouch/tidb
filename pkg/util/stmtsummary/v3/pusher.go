@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -38,6 +39,77 @@ const (
 	// SchemaVersion is the current schema version for statement data.
 	SchemaVersion = "1.0.0"
 )
+
+var statementSummaryColumns = []string{
+	"INSTANCE", "SUMMARY_BEGIN_TIME", "SUMMARY_END_TIME", "STMT_TYPE", "SCHEMA_NAME", "DIGEST", "DIGEST_TEXT",
+	"TABLE_NAMES", "INDEX_NAMES", "SAMPLE_USER", "EXEC_COUNT", "SUM_ERRORS", "SUM_WARNINGS", "SUM_LATENCY",
+	"MAX_LATENCY", "MIN_LATENCY", "AVG_LATENCY", "AVG_PARSE_LATENCY", "MAX_PARSE_LATENCY", "AVG_COMPILE_LATENCY",
+	"MAX_COMPILE_LATENCY", "SUM_COP_TASK_NUM", "MAX_COP_PROCESS_TIME", "MAX_COP_PROCESS_ADDRESS", "MAX_COP_WAIT_TIME",
+	"MAX_COP_WAIT_ADDRESS", "AVG_PROCESS_TIME", "MAX_PROCESS_TIME", "AVG_WAIT_TIME", "MAX_WAIT_TIME", "AVG_BACKOFF_TIME",
+	"MAX_BACKOFF_TIME", "AVG_TOTAL_KEYS", "MAX_TOTAL_KEYS", "AVG_PROCESSED_KEYS", "MAX_PROCESSED_KEYS",
+	"AVG_ROCKSDB_DELETE_SKIPPED_COUNT", "MAX_ROCKSDB_DELETE_SKIPPED_COUNT", "AVG_ROCKSDB_KEY_SKIPPED_COUNT",
+	"MAX_ROCKSDB_KEY_SKIPPED_COUNT", "AVG_ROCKSDB_BLOCK_CACHE_HIT_COUNT", "MAX_ROCKSDB_BLOCK_CACHE_HIT_COUNT",
+	"AVG_ROCKSDB_BLOCK_READ_COUNT", "MAX_ROCKSDB_BLOCK_READ_COUNT", "AVG_ROCKSDB_BLOCK_READ_BYTE",
+	"MAX_ROCKSDB_BLOCK_READ_BYTE", "AVG_PREWRITE_TIME", "MAX_PREWRITE_TIME", "AVG_COMMIT_TIME", "MAX_COMMIT_TIME",
+	"AVG_GET_COMMIT_TS_TIME", "MAX_GET_COMMIT_TS_TIME", "AVG_COMMIT_BACKOFF_TIME", "MAX_COMMIT_BACKOFF_TIME",
+	"AVG_RESOLVE_LOCK_TIME", "MAX_RESOLVE_LOCK_TIME", "AVG_LOCAL_LATCH_WAIT_TIME", "MAX_LOCAL_LATCH_WAIT_TIME",
+	"AVG_WRITE_KEYS", "MAX_WRITE_KEYS", "AVG_WRITE_SIZE", "MAX_WRITE_SIZE", "AVG_PREWRITE_REGIONS",
+	"MAX_PREWRITE_REGIONS", "AVG_TXN_RETRY", "MAX_TXN_RETRY", "SUM_EXEC_RETRY", "SUM_EXEC_RETRY_TIME",
+	"SUM_BACKOFF_TIMES", "BACKOFF_TYPES", "AVG_MEM", "MAX_MEM", "AVG_MEM_ARBITRATION", "MAX_MEM_ARBITRATION",
+	"AVG_DISK", "MAX_DISK", "AVG_KV_TIME", "AVG_PD_TIME", "AVG_BACKOFF_TOTAL_TIME", "AVG_WRITE_SQL_RESP_TIME",
+	"AVG_TIDB_CPU_TIME", "AVG_TIKV_CPU_TIME", "MAX_RESULT_ROWS", "MIN_RESULT_ROWS", "AVG_RESULT_ROWS", "PREPARED",
+	"AVG_AFFECTED_ROWS", "FIRST_SEEN", "LAST_SEEN", "PLAN_IN_CACHE", "PLAN_CACHE_HITS", "PLAN_IN_BINDING",
+	"QUERY_SAMPLE_TEXT", "PREV_SAMPLE_TEXT", "PLAN_DIGEST", "PLAN", "BINARY_PLAN", "BINDING_DIGEST",
+	"BINDING_DIGEST_TEXT", "CHARSET", "COLLATION", "PLAN_HINT", "MAX_REQUEST_UNIT_READ", "AVG_REQUEST_UNIT_READ",
+	"MAX_REQUEST_UNIT_WRITE", "AVG_REQUEST_UNIT_WRITE", "MAX_QUEUED_RC_TIME", "AVG_QUEUED_RC_TIME", "RESOURCE_GROUP",
+	"PLAN_CACHE_UNQUALIFIED", "PLAN_CACHE_UNQUALIFIED_LAST_REASON", "SUM_UNPACKED_BYTES_SENT_TIKV_TOTAL",
+	"SUM_UNPACKED_BYTES_RECEIVED_TIKV_TOTAL", "SUM_UNPACKED_BYTES_SENT_TIKV_CROSS_ZONE",
+	"SUM_UNPACKED_BYTES_RECEIVED_TIKV_CROSS_ZONE", "SUM_UNPACKED_BYTES_SENT_TIFLASH_TOTAL",
+	"SUM_UNPACKED_BYTES_RECEIVED_TIFLASH_TOTAL", "SUM_UNPACKED_BYTES_SENT_TIFLASH_CROSS_ZONE",
+	"SUM_UNPACKED_BYTES_RECEIVED_TIFLASH_CROSS_ZONE", "STORAGE_KV", "STORAGE_MPP",
+}
+
+func nullProtoValue() *stmtsummaryv3proto.Value {
+	return &stmtsummaryv3proto.Value{Kind: &stmtsummaryv3proto.Value_NullVal{NullVal: stmtsummaryv3proto.NullValue_NULL}}
+}
+
+func stringProtoValue(v string) *stmtsummaryv3proto.Value {
+	return &stmtsummaryv3proto.Value{Kind: &stmtsummaryv3proto.Value_StringVal{StringVal: v}}
+}
+
+func int64ProtoValue(v int64) *stmtsummaryv3proto.Value {
+	return &stmtsummaryv3proto.Value{Kind: &stmtsummaryv3proto.Value_Int64Val{Int64Val: v}}
+}
+
+func uint64ProtoValue(v uint64) *stmtsummaryv3proto.Value {
+	return &stmtsummaryv3proto.Value{Kind: &stmtsummaryv3proto.Value_Uint64Val{Uint64Val: v}}
+}
+
+func float64ProtoValue(v float64) *stmtsummaryv3proto.Value {
+	return &stmtsummaryv3proto.Value{Kind: &stmtsummaryv3proto.Value_Float64Val{Float64Val: v}}
+}
+
+func boolProtoValue(v bool) *stmtsummaryv3proto.Value {
+	return &stmtsummaryv3proto.Value{Kind: &stmtsummaryv3proto.Value_BoolVal{BoolVal: v}}
+}
+
+func timestampProtoValue(ms int64) *stmtsummaryv3proto.Value {
+	return &stmtsummaryv3proto.Value{Kind: &stmtsummaryv3proto.Value_TimestampMs{TimestampMs: ms}}
+}
+
+func avgFloat(sum float64, execCount int64) float64 {
+	if execCount <= 0 {
+		return 0
+	}
+	return sum / float64(execCount)
+}
+
+func avgInt64(sum int64, execCount int64) float64 {
+	if execCount <= 0 {
+		return 0
+	}
+	return float64(sum) / float64(execCount)
+}
 
 // Pusher handles pushing aggregated statements to Vector via gRPC.
 type Pusher struct {
@@ -254,8 +326,8 @@ func (p *Pusher) pushWithRetry(window *AggregationWindow) {
 		return
 	}
 
-	batch := p.buildBatch(window)
-	statementCount := int64(len(batch.Statements))
+	batch := p.buildTableRowBatch(window)
+	statementCount := int64(len(batch.Rows))
 
 	// Execute push with retry
 	err := p.retryExecutor.Execute(p.ctx, func() error {
@@ -290,35 +362,193 @@ func (p *Pusher) pushWithRetry(window *AggregationWindow) {
 	}
 }
 
-// buildBatch converts an AggregationWindow to a StatementBatch proto.
-func (p *Pusher) buildBatch(window *AggregationWindow) *stmtsummaryv3proto.StatementBatch {
-	batch := &stmtsummaryv3proto.StatementBatch{
-		Metadata: &stmtsummaryv3proto.BatchMetadata{
-			ClusterId:        p.clusterID,
-			InstanceId:       p.instanceID,
-			WindowStartMs:    window.Begin.UnixMilli(),
-			WindowEndMs:      window.End.UnixMilli(),
-			BatchSequence:    p.batchSequence.Add(1),
-			BatchTimestampMs: time.Now().UnixMilli(),
-			SchemaVersion:    SchemaVersion,
-			FieldNames:       p.collectFieldNames(window),
-		},
-		Statements: make([]*stmtsummaryv3proto.Statement, 0, len(window.Statements)),
+// buildTableRowBatch converts an AggregationWindow to a TableRowBatch with
+// CLUSTER_STATEMENTS_SUMMARY-compatible schema/column names.
+func (p *Pusher) buildTableRowBatch(window *AggregationWindow) *stmtsummaryv3proto.TableRowBatch {
+	metadata := &stmtsummaryv3proto.BatchMetadata{
+		ClusterId:        p.clusterID,
+		InstanceId:       p.instanceID,
+		WindowStartMs:    window.Begin.UnixMilli(),
+		WindowEndMs:      window.End.UnixMilli(),
+		BatchSequence:    p.batchSequence.Add(1),
+		BatchTimestampMs: time.Now().UnixMilli(),
+		SchemaVersion:    SchemaVersion,
+		FieldNames:       statementSummaryColumns,
 	}
 
-	// Convert each statement
+	columns := make([]*stmtsummaryv3proto.Column, 0, len(statementSummaryColumns))
+	for i, name := range statementSummaryColumns {
+		dataType := stmtsummaryv3proto.DataType_UNKNOWN
+		if name == "SUMMARY_BEGIN_TIME" || name == "SUMMARY_END_TIME" || name == "FIRST_SEEN" || name == "LAST_SEEN" {
+			dataType = stmtsummaryv3proto.DataType_TIMESTAMP
+		}
+		columns = append(columns, &stmtsummaryv3proto.Column{
+			Name:     name,
+			Ordinal:  int32(i),
+			Type:     dataType,
+			Nullable: true,
+		})
+	}
+
+	schema := &stmtsummaryv3proto.TableSchema{
+		TableName: "CLUSTER_STATEMENTS_SUMMARY",
+		Columns:   columns,
+	}
+
+	rows := make([]*stmtsummaryv3proto.TableRow, 0, len(window.Statements)+1)
 	for _, stats := range window.Statements {
-		stmt := p.convertStats(stats)
-		batch.Statements = append(batch.Statements, stmt)
+		rows = append(rows, p.toStatementSummaryRow(stats, window))
 	}
-
-	// Include OTHER bucket if present
 	if window.OtherBucket != nil {
-		stmt := p.convertStats(window.OtherBucket)
-		batch.Statements = append(batch.Statements, stmt)
+		rows = append(rows, p.toStatementSummaryRow(window.OtherBucket, window))
 	}
 
-	return batch
+	return &stmtsummaryv3proto.TableRowBatch{
+		Metadata:  metadata,
+		TableName: "CLUSTER_STATEMENTS_SUMMARY",
+		Schema:    schema,
+		Rows:      rows,
+	}
+}
+
+func (p *Pusher) toStatementSummaryRow(stats *StmtStats, window *AggregationWindow) *stmtsummaryv3proto.TableRow {
+	stmt := p.convertStats(stats)
+	execCount := stats.ExecCount
+
+	row := map[string]*stmtsummaryv3proto.Value{
+		"INSTANCE":                                stringProtoValue(p.instanceID),
+		"SUMMARY_BEGIN_TIME":                      timestampProtoValue(window.Begin.UnixMilli()),
+		"SUMMARY_END_TIME":                        timestampProtoValue(window.End.UnixMilli()),
+		"STMT_TYPE":                               stringProtoValue(stats.StmtType),
+		"SCHEMA_NAME":                             stringProtoValue(stats.Key.SchemaName),
+		"DIGEST":                                  stringProtoValue(stats.Key.Digest),
+		"DIGEST_TEXT":                             stringProtoValue(stats.NormalizedSQL),
+		"TABLE_NAMES":                             stringProtoValue(stats.TableNames),
+		"INDEX_NAMES":                             stringProtoValue(strings.Join(stats.IndexNames, ",")),
+		"SAMPLE_USER":                             stringProtoValue(formatAuthUsers(stats.AuthUsers)),
+		"EXEC_COUNT":                              int64ProtoValue(stats.ExecCount),
+		"SUM_ERRORS":                              int64ProtoValue(stats.SumErrors),
+		"SUM_WARNINGS":                            int64ProtoValue(stats.SumWarnings),
+		"SUM_LATENCY":                             int64ProtoValue(stats.SumLatency.Microseconds()),
+		"MAX_LATENCY":                             int64ProtoValue(stats.MaxLatency.Microseconds()),
+		"MIN_LATENCY":                             int64ProtoValue(stats.MinLatency.Microseconds()),
+		"AVG_LATENCY":                             int64ProtoValue(stmt.AvgLatencyUs),
+		"AVG_PARSE_LATENCY":                       float64ProtoValue(avgInt64(stats.SumParseLatency.Microseconds(), execCount)),
+		"MAX_PARSE_LATENCY":                       int64ProtoValue(stats.MaxParseLatency.Microseconds()),
+		"AVG_COMPILE_LATENCY":                     float64ProtoValue(avgInt64(stats.SumCompileLatency.Microseconds(), execCount)),
+		"MAX_COMPILE_LATENCY":                     int64ProtoValue(stats.MaxCompileLatency.Microseconds()),
+		"SUM_COP_TASK_NUM":                        int64ProtoValue(stats.SumNumCopTasks),
+		"MAX_COP_PROCESS_TIME":                    int64ProtoValue(stats.MaxCopProcessTime.Microseconds()),
+		"MAX_COP_PROCESS_ADDRESS":                 stringProtoValue(stats.MaxCopProcessAddress),
+		"MAX_COP_WAIT_TIME":                       int64ProtoValue(stats.MaxCopWaitTime.Microseconds()),
+		"MAX_COP_WAIT_ADDRESS":                    stringProtoValue(stats.MaxCopWaitAddress),
+		"AVG_PROCESS_TIME":                        float64ProtoValue(avgInt64(stats.SumProcessTime.Microseconds(), execCount)),
+		"MAX_PROCESS_TIME":                        int64ProtoValue(stats.MaxProcessTime.Microseconds()),
+		"AVG_WAIT_TIME":                           float64ProtoValue(avgInt64(stats.SumWaitTime.Microseconds(), execCount)),
+		"MAX_WAIT_TIME":                           int64ProtoValue(stats.MaxWaitTime.Microseconds()),
+		"AVG_BACKOFF_TIME":                        float64ProtoValue(avgInt64(stats.SumBackoffTime.Microseconds(), execCount)),
+		"MAX_BACKOFF_TIME":                        int64ProtoValue(stats.MaxBackoffTime.Microseconds()),
+		"AVG_TOTAL_KEYS":                          float64ProtoValue(avgInt64(stats.SumTotalKeys, execCount)),
+		"MAX_TOTAL_KEYS":                          int64ProtoValue(stats.MaxTotalKeys),
+		"AVG_PROCESSED_KEYS":                      float64ProtoValue(avgInt64(stats.SumProcessedKeys, execCount)),
+		"MAX_PROCESSED_KEYS":                      int64ProtoValue(stats.MaxProcessedKeys),
+		"AVG_ROCKSDB_DELETE_SKIPPED_COUNT":        float64ProtoValue(avgFloat(float64(stats.SumRocksdbDeleteSkippedCount), execCount)),
+		"MAX_ROCKSDB_DELETE_SKIPPED_COUNT":        uint64ProtoValue(stats.MaxRocksdbDeleteSkippedCount),
+		"AVG_ROCKSDB_KEY_SKIPPED_COUNT":           float64ProtoValue(avgFloat(float64(stats.SumRocksdbKeySkippedCount), execCount)),
+		"MAX_ROCKSDB_KEY_SKIPPED_COUNT":           uint64ProtoValue(stats.MaxRocksdbKeySkippedCount),
+		"AVG_ROCKSDB_BLOCK_CACHE_HIT_COUNT":       float64ProtoValue(avgFloat(float64(stats.SumRocksdbBlockCacheHitCount), execCount)),
+		"MAX_ROCKSDB_BLOCK_CACHE_HIT_COUNT":       uint64ProtoValue(stats.MaxRocksdbBlockCacheHitCount),
+		"AVG_ROCKSDB_BLOCK_READ_COUNT":            float64ProtoValue(avgFloat(float64(stats.SumRocksdbBlockReadCount), execCount)),
+		"MAX_ROCKSDB_BLOCK_READ_COUNT":            uint64ProtoValue(stats.MaxRocksdbBlockReadCount),
+		"AVG_ROCKSDB_BLOCK_READ_BYTE":             float64ProtoValue(avgFloat(float64(stats.SumRocksdbBlockReadByte), execCount)),
+		"MAX_ROCKSDB_BLOCK_READ_BYTE":             uint64ProtoValue(stats.MaxRocksdbBlockReadByte),
+		"AVG_PREWRITE_TIME":                       float64ProtoValue(avgInt64(stats.SumPrewriteTime.Microseconds(), execCount)),
+		"MAX_PREWRITE_TIME":                       int64ProtoValue(stats.MaxPrewriteTime.Microseconds()),
+		"AVG_COMMIT_TIME":                         float64ProtoValue(avgInt64(stats.SumCommitTime.Microseconds(), execCount)),
+		"MAX_COMMIT_TIME":                         int64ProtoValue(stats.MaxCommitTime.Microseconds()),
+		"AVG_GET_COMMIT_TS_TIME":                  float64ProtoValue(avgInt64(stats.SumGetCommitTsTime.Microseconds(), execCount)),
+		"MAX_GET_COMMIT_TS_TIME":                  int64ProtoValue(stats.MaxGetCommitTsTime.Microseconds()),
+		"AVG_COMMIT_BACKOFF_TIME":                 float64ProtoValue(avgInt64(stats.SumCommitBackoffTime, execCount)),
+		"MAX_COMMIT_BACKOFF_TIME":                 int64ProtoValue(stats.MaxCommitBackoffTime),
+		"AVG_RESOLVE_LOCK_TIME":                   float64ProtoValue(avgInt64(stats.SumResolveLockTime, execCount)),
+		"MAX_RESOLVE_LOCK_TIME":                   int64ProtoValue(stats.MaxResolveLockTime),
+		"AVG_LOCAL_LATCH_WAIT_TIME":               float64ProtoValue(avgInt64(stats.SumLocalLatchTime.Microseconds(), execCount)),
+		"MAX_LOCAL_LATCH_WAIT_TIME":               int64ProtoValue(stats.MaxLocalLatchTime.Microseconds()),
+		"AVG_WRITE_KEYS":                          float64ProtoValue(avgInt64(stats.SumWriteKeys, execCount)),
+		"MAX_WRITE_KEYS":                          int64ProtoValue(stats.MaxWriteKeys),
+		"AVG_WRITE_SIZE":                          float64ProtoValue(avgInt64(stats.SumWriteSizeBytes, execCount)),
+		"MAX_WRITE_SIZE":                          int64ProtoValue(stats.MaxWriteSizeBytes),
+		"AVG_PREWRITE_REGIONS":                    float64ProtoValue(avgInt64(stats.SumPrewriteRegionNum, execCount)),
+		"MAX_PREWRITE_REGIONS":                    int64ProtoValue(int64(stats.MaxPrewriteRegionNum)),
+		"AVG_TXN_RETRY":                           float64ProtoValue(avgInt64(stats.SumTxnRetry, execCount)),
+		"MAX_TXN_RETRY":                           int64ProtoValue(int64(stats.MaxTxnRetry)),
+		"SUM_EXEC_RETRY":                          int64ProtoValue(int64(stats.ExecRetryCount)),
+		"SUM_EXEC_RETRY_TIME":                     int64ProtoValue(stats.ExecRetryTime.Microseconds()),
+		"SUM_BACKOFF_TIMES":                       int64ProtoValue(stats.SumBackoffTimes),
+		"BACKOFF_TYPES":                           stringProtoValue(formatBackoffTypes(stats.BackoffTypes)),
+		"AVG_MEM":                                 float64ProtoValue(avgInt64(stats.SumMemBytes, execCount)),
+		"MAX_MEM":                                 int64ProtoValue(stats.MaxMemBytes),
+		"AVG_MEM_ARBITRATION":                     float64ProtoValue(avgFloat(stats.SumMemArbitration, execCount)),
+		"MAX_MEM_ARBITRATION":                     float64ProtoValue(stats.MaxMemArbitration),
+		"AVG_DISK":                                float64ProtoValue(avgInt64(stats.SumDiskBytes, execCount)),
+		"MAX_DISK":                                int64ProtoValue(stats.MaxDiskBytes),
+		"AVG_KV_TIME":                             float64ProtoValue(avgInt64(stats.SumKVTotal.Microseconds(), execCount)),
+		"AVG_PD_TIME":                             float64ProtoValue(avgInt64(stats.SumPDTotal.Microseconds(), execCount)),
+		"AVG_BACKOFF_TOTAL_TIME":                  float64ProtoValue(avgInt64(stats.SumBackoffTotal.Microseconds(), execCount)),
+		"AVG_WRITE_SQL_RESP_TIME":                 float64ProtoValue(avgInt64(stats.SumWriteSQLRespTotal.Microseconds(), execCount)),
+		"AVG_TIDB_CPU_TIME":                       float64ProtoValue(avgInt64(stats.SumTiDBCPU.Microseconds(), execCount)),
+		"AVG_TIKV_CPU_TIME":                       float64ProtoValue(avgInt64(stats.SumTiKVCPU.Microseconds(), execCount)),
+		"MAX_RESULT_ROWS":                         int64ProtoValue(stats.MaxResultRows),
+		"MIN_RESULT_ROWS":                         int64ProtoValue(stats.MinResultRows),
+		"AVG_RESULT_ROWS":                         float64ProtoValue(avgInt64(stats.SumResultRows, execCount)),
+		"PREPARED":                                boolProtoValue(stats.Prepared),
+		"AVG_AFFECTED_ROWS":                       float64ProtoValue(avgInt64(stats.SumAffectedRows, execCount)),
+		"FIRST_SEEN":                              timestampProtoValue(stats.FirstSeen.UnixMilli()),
+		"LAST_SEEN":                               timestampProtoValue(stats.LastSeen.UnixMilli()),
+		"PLAN_IN_CACHE":                           boolProtoValue(stats.PlanInCache),
+		"PLAN_CACHE_HITS":                         int64ProtoValue(stats.PlanCacheHits),
+		"PLAN_IN_BINDING":                         boolProtoValue(stats.PlanInBinding),
+		"QUERY_SAMPLE_TEXT":                       stringProtoValue(stats.SampleSQL),
+		"PREV_SAMPLE_TEXT":                        stringProtoValue(stats.PrevSQL),
+		"PLAN_DIGEST":                             stringProtoValue(stats.Key.PlanDigest),
+		"PLAN":                                    stringProtoValue(stats.SamplePlan),
+		"BINARY_PLAN":                             stringProtoValue(stats.SampleBinaryPlan),
+		"BINDING_DIGEST":                          stringProtoValue(stats.BindingDigest),
+		"BINDING_DIGEST_TEXT":                     stringProtoValue(stats.BindingSQL),
+		"CHARSET":                                 stringProtoValue(stats.Charset),
+		"COLLATION":                               stringProtoValue(stats.Collation),
+		"PLAN_HINT":                               stringProtoValue(stats.PlanHint),
+		"MAX_REQUEST_UNIT_READ":                   float64ProtoValue(stats.MaxRRU),
+		"AVG_REQUEST_UNIT_READ":                   float64ProtoValue(avgFloat(stats.SumRRU, execCount)),
+		"MAX_REQUEST_UNIT_WRITE":                  float64ProtoValue(stats.MaxWRU),
+		"AVG_REQUEST_UNIT_WRITE":                  float64ProtoValue(avgFloat(stats.SumWRU, execCount)),
+		"MAX_QUEUED_RC_TIME":                      int64ProtoValue(stats.MaxRUWaitDuration.Microseconds()),
+		"AVG_QUEUED_RC_TIME":                      float64ProtoValue(avgInt64(stats.SumRUWaitDuration.Microseconds(), execCount)),
+		"RESOURCE_GROUP":                          stringProtoValue(stats.Key.ResourceGroupName),
+		"PLAN_CACHE_UNQUALIFIED":                  boolProtoValue(stats.PlanCacheUnqualifiedCount > 0),
+		"PLAN_CACHE_UNQUALIFIED_LAST_REASON":      stringProtoValue(stats.PlanCacheUnqualifiedLastReason),
+		"SUM_UNPACKED_BYTES_SENT_TIKV_TOTAL":      int64ProtoValue(stats.UnpackedBytesSentTiKVTotal),
+		"SUM_UNPACKED_BYTES_RECEIVED_TIKV_TOTAL":  int64ProtoValue(stats.UnpackedBytesReceivedTiKVTotal),
+		"SUM_UNPACKED_BYTES_SENT_TIKV_CROSS_ZONE": int64ProtoValue(stats.UnpackedBytesSentTiKVCrossZone),
+		"SUM_UNPACKED_BYTES_RECEIVED_TIKV_CROSS_ZONE":    int64ProtoValue(stats.UnpackedBytesReceivedTiKVCrossZone),
+		"SUM_UNPACKED_BYTES_SENT_TIFLASH_TOTAL":          int64ProtoValue(stats.UnpackedBytesSentTiFlashTotal),
+		"SUM_UNPACKED_BYTES_RECEIVED_TIFLASH_TOTAL":      int64ProtoValue(stats.UnpackedBytesReceivedTiFlashTotal),
+		"SUM_UNPACKED_BYTES_SENT_TIFLASH_CROSS_ZONE":     int64ProtoValue(stats.UnpackedBytesSentTiFlashCrossZone),
+		"SUM_UNPACKED_BYTES_RECEIVED_TIFLASH_CROSS_ZONE": int64ProtoValue(stats.UnpackedBytesReceivedTiFlashCrossZone),
+		"STORAGE_KV":  boolProtoValue(stats.StorageKV),
+		"STORAGE_MPP": boolProtoValue(stats.StorageMPP),
+	}
+
+	values := make([]*stmtsummaryv3proto.Value, 0, len(statementSummaryColumns))
+	for _, col := range statementSummaryColumns {
+		if v, ok := row[col]; ok {
+			values = append(values, v)
+		} else {
+			values = append(values, nullProtoValue())
+		}
+	}
+
+	return &stmtsummaryv3proto.TableRow{Values: values}
 }
 
 // convertStats converts StmtStats to stmtsummaryv3proto.Statement.
@@ -631,12 +861,12 @@ func (p *Pusher) collectFieldNames(window *AggregationWindow) []string {
 }
 
 // doPush performs the actual gRPC push.
-func (p *Pusher) doPush(batch *stmtsummaryv3proto.StatementBatch) vectorsvc.PushResult {
+func (p *Pusher) doPush(batch *stmtsummaryv3proto.TableRowBatch) vectorsvc.PushResult {
 	ctx, cancel := context.WithTimeout(p.ctx, p.cfg.Push.Timeout)
 	defer cancel()
 
 	start := time.Now()
-	resp, err := p.client.PushStatements(ctx, batch)
+	resp, err := p.client.PushTableRows(ctx, batch)
 	latency := time.Since(start)
 
 	if err != nil {
@@ -695,7 +925,7 @@ func (p *Pusher) drainPendingBatches() {
 	for {
 		select {
 		case window := <-p.pendingBatches:
-			batch := p.buildBatch(window)
+			batch := p.buildTableRowBatch(window)
 			_ = p.doPush(batch)
 		default:
 			return
