@@ -125,6 +125,44 @@ func inferProtoDataType(v *stmtsummaryv3proto.Value) stmtsummaryv3proto.DataType
 	}
 }
 
+func statementSummaryProtoDataType(column string) (stmtsummaryv3proto.DataType, bool) {
+	switch column {
+	case "SUMMARY_BEGIN_TIME", "SUMMARY_END_TIME", "FIRST_SEEN", "LAST_SEEN":
+		return stmtsummaryv3proto.DataType_TIMESTAMP, true
+	case "PREPARED", "PLAN_IN_CACHE", "PLAN_IN_BINDING", "PLAN_CACHE_UNQUALIFIED", "STORAGE_KV", "STORAGE_MPP":
+		return stmtsummaryv3proto.DataType_BOOL, true
+	case "MAX_ROCKSDB_DELETE_SKIPPED_COUNT", "MAX_ROCKSDB_KEY_SKIPPED_COUNT", "MAX_ROCKSDB_BLOCK_CACHE_HIT_COUNT", "MAX_ROCKSDB_BLOCK_READ_COUNT", "MAX_ROCKSDB_BLOCK_READ_BYTE":
+		return stmtsummaryv3proto.DataType_UINT64, true
+	case "AVG_PARSE_LATENCY", "AVG_COMPILE_LATENCY", "AVG_PROCESS_TIME", "AVG_WAIT_TIME", "AVG_BACKOFF_TIME", "AVG_TOTAL_KEYS",
+		"AVG_PROCESSED_KEYS", "AVG_ROCKSDB_DELETE_SKIPPED_COUNT", "AVG_ROCKSDB_KEY_SKIPPED_COUNT", "AVG_ROCKSDB_BLOCK_CACHE_HIT_COUNT",
+		"AVG_ROCKSDB_BLOCK_READ_COUNT", "AVG_ROCKSDB_BLOCK_READ_BYTE", "AVG_PREWRITE_TIME", "AVG_COMMIT_TIME", "AVG_GET_COMMIT_TS_TIME",
+		"AVG_COMMIT_BACKOFF_TIME", "AVG_RESOLVE_LOCK_TIME", "AVG_LOCAL_LATCH_WAIT_TIME", "AVG_WRITE_KEYS", "AVG_WRITE_SIZE",
+		"AVG_PREWRITE_REGIONS", "AVG_TXN_RETRY", "AVG_MEM", "AVG_MEM_ARBITRATION", "MAX_MEM_ARBITRATION", "AVG_DISK",
+		"AVG_KV_TIME", "AVG_PD_TIME", "AVG_BACKOFF_TOTAL_TIME", "AVG_WRITE_SQL_RESP_TIME", "AVG_TIDB_CPU_TIME", "AVG_TIKV_CPU_TIME",
+		"AVG_RESULT_ROWS", "AVG_AFFECTED_ROWS", "MAX_REQUEST_UNIT_READ", "AVG_REQUEST_UNIT_READ", "MAX_REQUEST_UNIT_WRITE",
+		"AVG_REQUEST_UNIT_WRITE", "AVG_QUEUED_RC_TIME":
+		return stmtsummaryv3proto.DataType_FLOAT64, true
+	case "INSTANCE", "STMT_TYPE", "SCHEMA_NAME", "DIGEST", "DIGEST_TEXT", "TABLE_NAMES", "INDEX_NAMES", "SAMPLE_USER",
+		"MAX_COP_PROCESS_ADDRESS", "MAX_COP_WAIT_ADDRESS", "BACKOFF_TYPES", "QUERY_SAMPLE_TEXT", "PREV_SAMPLE_TEXT",
+		"PLAN_DIGEST", "PLAN", "BINARY_PLAN", "BINDING_DIGEST", "BINDING_DIGEST_TEXT", "CHARSET", "COLLATION", "PLAN_HINT",
+		"RESOURCE_GROUP", "PLAN_CACHE_UNQUALIFIED_LAST_REASON":
+		return stmtsummaryv3proto.DataType_STRING, true
+	case "EXEC_COUNT", "SUM_ERRORS", "SUM_WARNINGS", "SUM_LATENCY", "MAX_LATENCY", "MIN_LATENCY", "AVG_LATENCY",
+		"MAX_PARSE_LATENCY", "MAX_COMPILE_LATENCY", "SUM_COP_TASK_NUM", "MAX_COP_PROCESS_TIME", "MAX_COP_WAIT_TIME",
+		"MAX_PROCESS_TIME", "MAX_WAIT_TIME", "MAX_BACKOFF_TIME", "MAX_TOTAL_KEYS", "MAX_PROCESSED_KEYS",
+		"MAX_PREWRITE_TIME", "MAX_COMMIT_TIME", "MAX_GET_COMMIT_TS_TIME", "MAX_COMMIT_BACKOFF_TIME",
+		"MAX_RESOLVE_LOCK_TIME", "MAX_LOCAL_LATCH_WAIT_TIME", "MAX_WRITE_KEYS", "MAX_WRITE_SIZE", "MAX_PREWRITE_REGIONS",
+		"MAX_TXN_RETRY", "SUM_EXEC_RETRY", "SUM_EXEC_RETRY_TIME", "SUM_BACKOFF_TIMES", "MAX_MEM", "MAX_DISK",
+		"MAX_RESULT_ROWS", "MIN_RESULT_ROWS", "PLAN_CACHE_HITS", "MAX_QUEUED_RC_TIME", "SUM_UNPACKED_BYTES_SENT_TIKV_TOTAL",
+		"SUM_UNPACKED_BYTES_RECEIVED_TIKV_TOTAL", "SUM_UNPACKED_BYTES_SENT_TIKV_CROSS_ZONE", "SUM_UNPACKED_BYTES_RECEIVED_TIKV_CROSS_ZONE",
+		"SUM_UNPACKED_BYTES_SENT_TIFLASH_TOTAL", "SUM_UNPACKED_BYTES_RECEIVED_TIFLASH_TOTAL", "SUM_UNPACKED_BYTES_SENT_TIFLASH_CROSS_ZONE",
+		"SUM_UNPACKED_BYTES_RECEIVED_TIFLASH_CROSS_ZONE":
+		return stmtsummaryv3proto.DataType_INT64, true
+	default:
+		return stmtsummaryv3proto.DataType_UNKNOWN, false
+	}
+}
+
 func avgFloat(sum float64, execCount int64) float64 {
 	if execCount <= 0 {
 		return 0
@@ -414,20 +452,29 @@ func (p *Pusher) buildTableRowBatch(window *AggregationWindow) *stmtsummaryv3pro
 
 	columns := make([]*stmtsummaryv3proto.Column, 0, len(statementSummaryColumns))
 	for i, name := range statementSummaryColumns {
-		dataType := stmtsummaryv3proto.DataType_UNKNOWN
-		for _, row := range rows {
-			if row == nil || i >= len(row.Values) {
-				continue
+		dataType, fromProto := statementSummaryProtoDataType(name)
+		if !fromProto {
+			logutil.BgLogger().Warn("statement summary column type not mapped in proto type map, fallback to value inference",
+				zap.String("column", name))
+			dataType = stmtsummaryv3proto.DataType_UNKNOWN
+			for _, row := range rows {
+				if row == nil || i >= len(row.Values) {
+					continue
+				}
+				inferred := inferProtoDataType(row.Values[i])
+				if inferred != stmtsummaryv3proto.DataType_UNKNOWN {
+					dataType = inferred
+					logutil.BgLogger().Warn("statement summary column type inferred from row value",
+						zap.String("column", name),
+						zap.String("inferredType", inferred.String()))
+					break
+				}
 			}
-			inferred := inferProtoDataType(row.Values[i])
-			if inferred != stmtsummaryv3proto.DataType_UNKNOWN {
-				dataType = inferred
-				break
+			if dataType == stmtsummaryv3proto.DataType_UNKNOWN {
+				dataType = stmtsummaryv3proto.DataType_STRING
+				logutil.BgLogger().Warn("statement summary column type fallback to STRING due empty/unknown values",
+					zap.String("column", name))
 			}
-		}
-		if dataType == stmtsummaryv3proto.DataType_UNKNOWN &&
-			(name == "SUMMARY_BEGIN_TIME" || name == "SUMMARY_END_TIME" || name == "FIRST_SEEN" || name == "LAST_SEEN") {
-			dataType = stmtsummaryv3proto.DataType_TIMESTAMP
 		}
 		columns = append(columns, &stmtsummaryv3proto.Column{
 			Name:     name,
