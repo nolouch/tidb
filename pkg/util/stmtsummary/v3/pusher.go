@@ -97,6 +97,34 @@ func timestampProtoValue(ms int64) *stmtsummaryv3proto.Value {
 	return &stmtsummaryv3proto.Value{Kind: &stmtsummaryv3proto.Value_TimestampMs{TimestampMs: ms}}
 }
 
+func inferProtoDataType(v *stmtsummaryv3proto.Value) stmtsummaryv3proto.DataType {
+	if v == nil || v.Kind == nil {
+		return stmtsummaryv3proto.DataType_UNKNOWN
+	}
+	switch v.Kind.(type) {
+	case *stmtsummaryv3proto.Value_StringVal:
+		return stmtsummaryv3proto.DataType_STRING
+	case *stmtsummaryv3proto.Value_Int64Val:
+		return stmtsummaryv3proto.DataType_INT64
+	case *stmtsummaryv3proto.Value_Uint64Val:
+		return stmtsummaryv3proto.DataType_UINT64
+	case *stmtsummaryv3proto.Value_Float64Val:
+		return stmtsummaryv3proto.DataType_FLOAT64
+	case *stmtsummaryv3proto.Value_BoolVal:
+		return stmtsummaryv3proto.DataType_BOOL
+	case *stmtsummaryv3proto.Value_BytesVal:
+		return stmtsummaryv3proto.DataType_BYTES
+	case *stmtsummaryv3proto.Value_TimestampMs:
+		return stmtsummaryv3proto.DataType_TIMESTAMP
+	case *stmtsummaryv3proto.Value_DurationUs:
+		return stmtsummaryv3proto.DataType_DURATION
+	case *stmtsummaryv3proto.Value_JsonVal:
+		return stmtsummaryv3proto.DataType_JSON
+	default:
+		return stmtsummaryv3proto.DataType_UNKNOWN
+	}
+}
+
 func avgFloat(sum float64, execCount int64) float64 {
 	if execCount <= 0 {
 		return 0
@@ -376,10 +404,29 @@ func (p *Pusher) buildTableRowBatch(window *AggregationWindow) *stmtsummaryv3pro
 		FieldNames:       statementSummaryColumns,
 	}
 
+	rows := make([]*stmtsummaryv3proto.TableRow, 0, len(window.Statements)+1)
+	for _, stats := range window.Statements {
+		rows = append(rows, p.toStatementSummaryRow(stats, window))
+	}
+	if window.OtherBucket != nil {
+		rows = append(rows, p.toStatementSummaryRow(window.OtherBucket, window))
+	}
+
 	columns := make([]*stmtsummaryv3proto.Column, 0, len(statementSummaryColumns))
 	for i, name := range statementSummaryColumns {
 		dataType := stmtsummaryv3proto.DataType_UNKNOWN
-		if name == "SUMMARY_BEGIN_TIME" || name == "SUMMARY_END_TIME" || name == "FIRST_SEEN" || name == "LAST_SEEN" {
+		for _, row := range rows {
+			if row == nil || i >= len(row.Values) {
+				continue
+			}
+			inferred := inferProtoDataType(row.Values[i])
+			if inferred != stmtsummaryv3proto.DataType_UNKNOWN {
+				dataType = inferred
+				break
+			}
+		}
+		if dataType == stmtsummaryv3proto.DataType_UNKNOWN &&
+			(name == "SUMMARY_BEGIN_TIME" || name == "SUMMARY_END_TIME" || name == "FIRST_SEEN" || name == "LAST_SEEN") {
 			dataType = stmtsummaryv3proto.DataType_TIMESTAMP
 		}
 		columns = append(columns, &stmtsummaryv3proto.Column{
@@ -393,14 +440,6 @@ func (p *Pusher) buildTableRowBatch(window *AggregationWindow) *stmtsummaryv3pro
 	schema := &stmtsummaryv3proto.TableSchema{
 		TableName: "CLUSTER_STATEMENTS_SUMMARY",
 		Columns:   columns,
-	}
-
-	rows := make([]*stmtsummaryv3proto.TableRow, 0, len(window.Statements)+1)
-	for _, stats := range window.Statements {
-		rows = append(rows, p.toStatementSummaryRow(stats, window))
-	}
-	if window.OtherBucket != nil {
-		rows = append(rows, p.toStatementSummaryRow(window.OtherBucket, window))
 	}
 
 	return &stmtsummaryv3proto.TableRowBatch{
