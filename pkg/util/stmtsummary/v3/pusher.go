@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -397,6 +398,12 @@ func (p *Pusher) pushWithRetry(window *AggregationWindow) {
 
 	// Execute push with retry
 	err := p.retryExecutor.Execute(p.ctx, func() error {
+		var mem runtime.MemStats
+		runtime.ReadMemStats(&mem)
+		PushMemoryBytes.Set(float64(mem.Alloc))
+		PushStatementTotal.Add(float64(statementCount))
+		PushBatchSize.Observe(float64(statementCount))
+
 		result := p.doPush(batch)
 		if !result.Success {
 			return errors.New(result.Message)
@@ -404,7 +411,6 @@ func (p *Pusher) pushWithRetry(window *AggregationWindow) {
 		// Record success metrics
 		PushSuccessTotal.Inc()
 		PushLatency.Observe(result.Latency.Seconds())
-		PushBatchSize.Observe(float64(statementCount))
 		return nil
 	})
 

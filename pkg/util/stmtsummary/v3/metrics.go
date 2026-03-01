@@ -55,6 +55,20 @@ var (
 		Buckets:   prometheus.ExponentialBuckets(1, 2, 15), // 1 to ~16k
 	})
 
+	PushMemoryBytes = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "push_memory_bytes",
+		Help:      "Current TiDB process memory usage (Alloc) when pushing statement batches",
+	})
+
+	PushStatementTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "push_statement_total",
+		Help:      "Total number of statements observed across push attempts",
+	})
+
 	// Aggregator metrics
 	AggregatorDigestCount = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
@@ -159,6 +173,8 @@ func init() {
 		PushFailureTotal,
 		PushLatency,
 		PushBatchSize,
+		PushMemoryBytes,
+		PushStatementTotal,
 		AggregatorDigestCount,
 		AggregatorMemoryBytes,
 		DigestOverflowTotal,
