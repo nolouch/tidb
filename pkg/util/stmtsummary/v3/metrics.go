@@ -59,7 +59,7 @@ var (
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "push_memory_bytes",
-		Help:      "Current TiDB process memory usage (Alloc) when pushing statement batches",
+		Help:      "Estimated statement push batch payload size in bytes",
 	})
 
 	PushStatementTotal = prometheus.NewCounter(prometheus.CounterOpts{

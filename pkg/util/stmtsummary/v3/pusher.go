@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -34,6 +33,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -398,9 +398,7 @@ func (p *Pusher) pushWithRetry(window *AggregationWindow) {
 
 	// Execute push with retry
 	err := p.retryExecutor.Execute(p.ctx, func() error {
-		var mem runtime.MemStats
-		runtime.ReadMemStats(&mem)
-		PushMemoryBytes.Set(float64(mem.Alloc))
+		PushMemoryBytes.Set(float64(proto.Size(batch)))
 		PushStatementTotal.Add(float64(statementCount))
 		PushBatchSize.Observe(float64(statementCount))
 
